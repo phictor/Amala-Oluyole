@@ -1,0 +1,168 @@
+import React, { useState } from 'react';
+import {
+  View, Text, TextInput, TouchableOpacity, ScrollView,
+  StyleSheet, KeyboardAvoidingView, Platform, Alert,
+} from 'react-native';
+import { router } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import { useAppStore } from '@/lib/store/app-store';
+import type { User } from '@/lib/data/types';
+
+export default function LoginScreen() {
+  const { dispatch } = useAppStore();
+  const [phone, setPhone] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const handleLogin = async () => {
+    if (!phone || !password) {
+      Alert.alert('Error', 'Please enter your phone number and password.');
+      return;
+    }
+    setLoading(true);
+    // Simulate login
+    setTimeout(() => {
+      const user: User = {
+        id: 'u1',
+        name: 'Adebayo Oladele',
+        phone: phone,
+        email: 'adebayo@example.com',
+        addresses: [],
+        loyaltyAccount: {
+          points: 1250,
+          tier: 'silver',
+          pointsToNextTier: 750,
+          totalEarned: 3500,
+          totalRedeemed: 2250,
+          history: [],
+        },
+        isGuest: false,
+      };
+      dispatch({ type: 'SET_USER', payload: user });
+      setLoading(false);
+      router.replace('/branch-select' as never);
+    }, 1000);
+  };
+
+  const handleGuestAccess = () => {
+    dispatch({ type: 'SET_GUEST', payload: true });
+    router.replace('/branch-select' as never);
+  };
+
+  return (
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <StatusBar style="dark" />
+      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={styles.logo}>🍲</Text>
+          <Text style={styles.brand}>Amala Oluyole</Text>
+          <Text style={styles.tagline}>Welcome back! Sign in to continue.</Text>
+        </View>
+
+        {/* Form */}
+        <View style={styles.form}>
+          <Text style={styles.label}>Phone Number or Email</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="e.g. 08012345678"
+            placeholderTextColor="#A08070"
+            value={phone}
+            onChangeText={setPhone}
+            keyboardType="phone-pad"
+            autoCapitalize="none"
+          />
+
+          <Text style={styles.label}>Password</Text>
+          <View style={styles.passwordRow}>
+            <TextInput
+              style={[styles.input, { flex: 1, marginBottom: 0 }]}
+              placeholder="Enter your password"
+              placeholderTextColor="#A08070"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry={!showPassword}
+            />
+            <TouchableOpacity
+              style={styles.eyeBtn}
+              onPress={() => setShowPassword(!showPassword)}
+            >
+              <Text style={styles.eyeIcon}>{showPassword ? '🙈' : '👁️'}</Text>
+            </TouchableOpacity>
+          </View>
+
+          <TouchableOpacity onPress={() => router.push('/auth/forgot-password' as never)}>
+            <Text style={styles.forgotText}>Forgot Password?</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.loginBtn, loading && styles.loginBtnDisabled]}
+            onPress={handleLogin}
+            disabled={loading}
+          >
+            <Text style={styles.loginBtnText}>{loading ? 'Signing in...' : 'Sign In'}</Text>
+          </TouchableOpacity>
+
+          <View style={styles.divider}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>or</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
+          <TouchableOpacity style={styles.guestBtn} onPress={handleGuestAccess}>
+            <Text style={styles.guestBtnText}>Continue as Guest</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Footer */}
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>Don't have an account? </Text>
+          <TouchableOpacity onPress={() => router.push('/auth/register')}>
+            <Text style={styles.footerLink}>Create Account</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#FDF8F3' },
+  scroll: { flexGrow: 1, paddingHorizontal: 24 },
+  header: { alignItems: 'center', paddingTop: 64, paddingBottom: 40 },
+  logo: { fontSize: 64, marginBottom: 12 },
+  brand: { fontSize: 28, fontWeight: '800', color: '#1A0F0A', marginBottom: 8 },
+  tagline: { fontSize: 15, color: '#8B6F5E', textAlign: 'center' },
+  form: { gap: 4 },
+  label: { fontSize: 14, fontWeight: '600', color: '#1A0F0A', marginBottom: 6, marginTop: 12 },
+  input: {
+    backgroundColor: '#FFF5EC', borderWidth: 1.5, borderColor: '#E8D5C4',
+    borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14,
+    fontSize: 16, color: '#1A0F0A', marginBottom: 4,
+  },
+  passwordRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
+  eyeBtn: { padding: 14, backgroundColor: '#FFF5EC', borderWidth: 1.5, borderColor: '#E8D5C4', borderRadius: 12 },
+  eyeIcon: { fontSize: 18 },
+  forgotText: { color: '#C0392B', fontSize: 14, fontWeight: '600', textAlign: 'right', marginTop: 4, marginBottom: 20 },
+  loginBtn: {
+    backgroundColor: '#C0392B', borderRadius: 16, paddingVertical: 16,
+    alignItems: 'center', marginTop: 8,
+  },
+  loginBtnDisabled: { opacity: 0.7 },
+  loginBtnText: { color: '#FFF', fontSize: 18, fontWeight: '700' },
+  divider: { flexDirection: 'row', alignItems: 'center', marginVertical: 20, gap: 12 },
+  dividerLine: { flex: 1, height: 1, backgroundColor: '#E8D5C4' },
+  dividerText: { color: '#8B6F5E', fontSize: 14 },
+  guestBtn: {
+    borderWidth: 2, borderColor: '#C0392B', borderRadius: 16,
+    paddingVertical: 14, alignItems: 'center',
+  },
+  guestBtnText: { color: '#C0392B', fontSize: 16, fontWeight: '700' },
+  footer: { flexDirection: 'row', justifyContent: 'center', paddingVertical: 32 },
+  footerText: { color: '#8B6F5E', fontSize: 15 },
+  footerLink: { color: '#C0392B', fontSize: 15, fontWeight: '700' },
+});

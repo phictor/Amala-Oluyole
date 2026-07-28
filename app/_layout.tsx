@@ -1,4 +1,5 @@
 import "@/global.css";
+import { AppProvider } from "@/lib/store/app-store";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -99,6 +100,7 @@ export default function RootLayout() {
 
   if (shouldOverrideSafeArea) {
     return (
+      <AppProvider>
       <ThemeProvider>
         <SafeAreaProvider initialMetrics={providerInitialMetrics}>
           <SafeAreaFrameContext.Provider value={frame}>
@@ -108,12 +110,15 @@ export default function RootLayout() {
           </SafeAreaFrameContext.Provider>
         </SafeAreaProvider>
       </ThemeProvider>
+      </AppProvider>
     );
   }
 
   return (
+    <AppProvider>
     <ThemeProvider>
       <SafeAreaProvider initialMetrics={providerInitialMetrics}>{content}</SafeAreaProvider>
     </ThemeProvider>
+    </AppProvider>
   );
 }
