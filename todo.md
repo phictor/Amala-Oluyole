@@ -64,3 +64,8 @@
 - [x] Catering request form
 - [x] Customer support screen (FAQ, call, WhatsApp)
 - [x] Notifications screen
+
+### Social Sharing
+- [x] Share custom Build Your Swallow meal via native share sheet (WhatsApp, social media, SMS)
+- [x] Copy shareable link to clipboard with visual feedback
+- [x] Share summary card shown on final step of meal builder
