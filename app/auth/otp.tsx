@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
 import { useAppStore } from '@/lib/store/app-store';
 import type { User } from '@/lib/data/types';
 
@@ -52,7 +52,6 @@ export default function OTPScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar style="dark" />
       <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
         <Text style={styles.backText}>← Back</Text>
       </TouchableOpacity>

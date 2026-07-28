@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import {
   View, Text, FlatList, TouchableOpacity, TextInput, StyleSheet, Alert,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { router } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useCart, useAppStore } from '@/lib/store/app-store';
 import type { CartItem } from '@/lib/data/types';
 
@@ -69,8 +70,7 @@ export default function CartScreen() {
   if (items.length === 0) {
     return (
       <View style={styles.emptyContainer}>
-        <StatusBar style="dark" />
-        <Text style={styles.emptyEmoji}>🛒</Text>
+          <Text style={styles.emptyEmoji}>🛒</Text>
         <Text style={styles.emptyTitle}>Your cart is empty</Text>
         <Text style={styles.emptySubtitle}>Add some delicious meals to get started!</Text>
         <TouchableOpacity style={styles.browseBtn} onPress={() => router.push('/(tabs)/menu' as never)}>
@@ -82,9 +82,8 @@ export default function CartScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar style="dark" />
       <View style={styles.header}>
-        <Text style={styles.title}>Cart ({itemCount} items)</Text>
+        <Text style={styles.title}>My Cart</Text>
         <TouchableOpacity onPress={() => Alert.alert('Clear Cart', 'Remove all items?', [
           { text: 'Cancel', style: 'cancel' },
           { text: 'Clear', style: 'destructive', onPress: () => dispatch({ type: 'CLEAR_CART' }) },
@@ -192,7 +191,10 @@ export default function CartScreen() {
           style={styles.checkoutBtn}
           onPress={() => router.push({ pathname: '/checkout' as never, params: { orderType } })}
         >
-          <Text style={styles.checkoutBtnText}>Proceed to Checkout →</Text>
+          <LinearGradient colors={['#C0392B', '#8B1A10']} style={styles.checkoutBtnGrad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
+            <Text style={styles.checkoutBtnText}>Proceed to Checkout</Text>
+            <Text style={styles.checkoutBtnAmount}>₦{(orderType === 'pickup' ? total - deliveryFee : total).toLocaleString()}</Text>
+          </LinearGradient>
         </TouchableOpacity>
       </View>
     </View>
@@ -202,10 +204,12 @@ export default function CartScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FDF8F3' },
   emptyContainer: { flex: 1, backgroundColor: '#FDF8F3', alignItems: 'center', justifyContent: 'center', padding: 40 },
-  emptyEmoji: { fontSize: 72, marginBottom: 16 },
+  emptyIconCircle: { width: 130, height: 130, borderRadius: 65, backgroundColor: '#FFF5EC', alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
+  emptyEmoji: { fontSize: 64 },
   emptyTitle: { fontSize: 22, fontWeight: '800', color: '#1A0F0A', marginBottom: 8 },
   emptySubtitle: { fontSize: 15, color: '#8B6F5E', textAlign: 'center', marginBottom: 32 },
-  browseBtn: { backgroundColor: '#C0392B', borderRadius: 16, paddingVertical: 14, paddingHorizontal: 32 },
+  browseBtn: { borderRadius: 16, overflow: 'hidden', width: '100%' },
+  browseBtnGrad: { paddingVertical: 16, alignItems: 'center' },
   browseBtnText: { color: '#FFF', fontSize: 16, fontWeight: '700' },
   header: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
@@ -271,9 +275,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF', borderTopWidth: 1, borderTopColor: '#E8D5C4',
     paddingHorizontal: 20, paddingVertical: 16, paddingBottom: 32,
   },
-  checkoutBtn: {
-    backgroundColor: '#C0392B', borderRadius: 16, paddingVertical: 16, alignItems: 'center',
+  checkoutBtn: { borderRadius: 16, overflow: 'hidden' },
+  checkoutBtnGrad: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: 24, paddingVertical: 18,
   },
-  checkoutBtnText: { color: '#FFF', fontSize: 18, fontWeight: '700' },
+  checkoutBtnText: { color: '#FFF', fontSize: 16, fontWeight: '700' },
+  checkoutBtnAmount: { color: '#FFF', fontSize: 16, fontWeight: '900' },
 });
 

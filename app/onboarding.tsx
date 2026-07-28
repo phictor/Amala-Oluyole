@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { View, Text, FlatList, Dimensions, TouchableOpacity, Image, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useAppStore } from '@/lib/store/app-store';
 
 const { width } = Dimensions.get('window');
@@ -52,7 +52,6 @@ export default function OnboardingScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar style="light" />
       <FlatList
         ref={flatListRef}
         data={SLIDES}
@@ -122,6 +121,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#C0392B', borderRadius: 16, paddingVertical: 16,
     paddingHorizontal: 48, width: '100%', alignItems: 'center', marginBottom: 12,
   },
+  nextBtnGrad: { paddingVertical: 18, alignItems: 'center' },
   nextBtnText: { color: '#FFF', fontSize: 18, fontWeight: '700' },
   skipBtn: { paddingVertical: 8 },
   skipText: { color: '#8B6F5E', fontSize: 16 },

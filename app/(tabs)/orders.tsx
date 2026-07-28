@@ -3,7 +3,7 @@ import {
   View, Text, FlatList, TouchableOpacity, StyleSheet,
 } from 'react-native';
 import { router } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useAppStore } from '@/lib/store/app-store';
 import type { Order } from '@/lib/data/types';
 
@@ -63,7 +63,6 @@ export default function OrdersScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar style="dark" />
       <View style={styles.header}>
         <Text style={styles.title}>My Orders</Text>
       </View>

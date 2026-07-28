@@ -3,7 +3,7 @@ import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert,
 } from 'react-native';
 import { router } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useAppStore } from '@/lib/store/app-store';
 
 const TIER_CONFIG = {
@@ -47,12 +47,13 @@ export default function ProfileScreen() {
   if (!user || user.isGuest) {
     return (
       <View style={styles.guestContainer}>
-        <StatusBar style="dark" />
-        <Text style={styles.guestEmoji}>👤</Text>
+        <View style={styles.guestAvatarCircle}><Text style={styles.guestEmoji}>👤</Text></View>
         <Text style={styles.guestTitle}>You're browsing as a guest</Text>
         <Text style={styles.guestSubtitle}>Sign in to access your profile, orders, and loyalty rewards</Text>
         <TouchableOpacity style={styles.signInBtn} onPress={() => router.push('/auth/login' as never)}>
-          <Text style={styles.signInBtnText}>Sign In</Text>
+          <LinearGradient colors={['#C0392B', '#8B1A10']} style={styles.signInBtnGrad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
+            <Text style={styles.signInBtnText}>Sign In</Text>
+          </LinearGradient>
         </TouchableOpacity>
         <TouchableOpacity style={styles.registerBtn} onPress={() => router.push('/auth/register' as never)}>
           <Text style={styles.registerBtnText}>Create Account</Text>
@@ -63,7 +64,6 @@ export default function ProfileScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar style="dark" />
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Profile Header */}
         <View style={styles.profileHeader}>
@@ -150,7 +150,9 @@ const styles = StyleSheet.create({
   guestEmoji: { fontSize: 72, marginBottom: 16 },
   guestTitle: { fontSize: 22, fontWeight: '800', color: '#1A0F0A', marginBottom: 8, textAlign: 'center' },
   guestSubtitle: { fontSize: 15, color: '#8B6F5E', textAlign: 'center', marginBottom: 32 },
-  signInBtn: { backgroundColor: '#C0392B', borderRadius: 14, paddingVertical: 14, paddingHorizontal: 40, marginBottom: 12 },
+  guestAvatarCircle: { width: 100, height: 100, borderRadius: 50, backgroundColor: '#FFF5EC', alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
+  signInBtn: { overflow: 'hidden', borderRadius: 14, paddingVertical: 14, paddingHorizontal: 40, marginBottom: 12 },
+  signInBtnGrad: { paddingVertical: 16, paddingHorizontal: 40, alignItems: 'center' },
   signInBtnText: { color: '#FFF', fontSize: 16, fontWeight: '700' },
   registerBtn: { borderWidth: 2, borderColor: '#C0392B', borderRadius: 14, paddingVertical: 12, paddingHorizontal: 40 },
   registerBtnText: { color: '#C0392B', fontSize: 16, fontWeight: '700' },

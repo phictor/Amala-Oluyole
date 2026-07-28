@@ -3,7 +3,7 @@ import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet, FlatList,
 } from 'react-native';
 import { router } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useAppStore } from '@/lib/store/app-store';
 
 const TIER_BENEFITS = {
@@ -29,8 +29,7 @@ export default function LoyaltyScreen() {
   if (!user || user.isGuest || !loyalty) {
     return (
       <View style={styles.guestContainer}>
-        <StatusBar style="dark" />
-        <Text style={styles.guestEmoji}>⭐</Text>
+          <Text style={styles.guestEmoji}>⭐</Text>
         <Text style={styles.guestTitle}>Sign in to access Loyalty Rewards</Text>
         <TouchableOpacity style={styles.signInBtn} onPress={() => router.push('/auth/login' as never)}>
           <Text style={styles.signInBtnText}>Sign In</Text>
@@ -48,7 +47,6 @@ export default function LoyaltyScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar style="light" />
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Header Card */}
         <View style={[styles.heroCard, { backgroundColor: tier.color }]}>

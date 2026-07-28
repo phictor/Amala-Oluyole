@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
 
 export default function ForgotPasswordScreen() {
   const [phone, setPhone] = useState('');
@@ -22,7 +22,6 @@ export default function ForgotPasswordScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar style="dark" />
       <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
         <Text style={styles.backText}>← Back</Text>
       </TouchableOpacity>
