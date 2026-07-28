@@ -69,3 +69,13 @@
 - [x] Share custom Build Your Swallow meal via native share sheet (WhatsApp, social media, SMS)
 - [x] Copy shareable link to clipboard with visual feedback
 - [x] Share summary card shown on final step of meal builder
+
+### Deep Link Handler
+- [x] Register amalaoluyole:// custom URL scheme in app.config.ts
+- [x] Add https://amalaoluyole.com/meal/custom Android intent filter for universal links
+- [x] Parse sw/so/pr/ex URL query params in meal builder on mount
+- [x] Pre-populate swallow, soup, protein, extras selections from link params
+- [x] Skip to Step 4 (Extras) when loaded from a shared link
+- [x] Show amber "Loaded from a shared link" dismissible banner
+- [x] Fuzzy name matching (case/punctuation-insensitive) for robust param decoding
+- [x] Skip unavailable options silently when pre-filling from link

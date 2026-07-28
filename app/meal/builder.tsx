@@ -1,22 +1,48 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, Platform,
 } from 'react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import * as Sharing from 'expo-sharing';
 import * as Clipboard from 'expo-clipboard';
 import { useAppStore } from '@/lib/store/app-store';
 import {
   SWALLOW_OPTIONS, SOUP_OPTIONS, PROTEIN_OPTIONS, EXTRA_OPTIONS,
 } from '@/lib/data/mock-data';
-import type { SwallowOption, SoupOption, ProteinOption, ExtraOption, CartItem, CustomMeal } from '@/lib/data/types';
+import type {
+  SwallowOption, SoupOption, ProteinOption, ExtraOption, CartItem, CustomMeal,
+} from '@/lib/data/types';
 
 const STEPS = ['Swallow', 'Soup', 'Protein', 'Extras'];
 const BASE_PRICE = 1500;
-const APP_DEEP_LINK_BASE = 'https://amalaoluyole.com/meal/custom';
 
-/** Encodes a custom meal into a shareable URL query string */
+// ─── Deep-link helpers ───────────────────────────────────────────────────────
+
+/** Normalise a name for fuzzy matching (lowercase, strip punctuation/spaces) */
+const normalise = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+/** Find a swallow option by name (case/punctuation-insensitive) */
+const findSwallow = (name: string): SwallowOption | null =>
+  SWALLOW_OPTIONS.find(o => normalise(o.name) === normalise(name)) ?? null;
+
+/** Find a soup option by name */
+const findSoup = (name: string): SoupOption | null =>
+  SOUP_OPTIONS.find(o => normalise(o.name) === normalise(name)) ?? null;
+
+/** Find protein options from a comma-separated name list */
+const findProteins = (csv: string): ProteinOption[] =>
+  csv.split(',')
+    .map(n => PROTEIN_OPTIONS.find(o => normalise(o.name) === normalise(n.trim())))
+    .filter((o): o is ProteinOption => o !== undefined);
+
+/** Find extra options from a comma-separated name list */
+const findExtras = (csv: string): ExtraOption[] =>
+  csv.split(',')
+    .map(n => EXTRA_OPTIONS.find(o => normalise(o.name) === normalise(n.trim())))
+    .filter((o): o is ExtraOption => o !== undefined);
+
+// ─── Share-link builder ───────────────────────────────────────────────────────
+
 function buildShareLink(
   swallow: SwallowOption,
   soup: SoupOption,
@@ -31,10 +57,10 @@ function buildShareLink(
     ex: extras.map(e => e.name).join(','),
     price: String(price),
   });
-  return `${APP_DEEP_LINK_BASE}?${params.toString()}`;
+  // Use the custom scheme so the link opens the app directly on native
+  return `amalaoluyole://meal/builder?${params.toString()}`;
 }
 
-/** Builds a human-readable share message */
 function buildShareMessage(
   swallow: SwallowOption,
   soup: SoupOption,
@@ -55,8 +81,20 @@ function buildShareMessage(
   );
 }
 
+// ─── Screen ───────────────────────────────────────────────────────────────────
+
 export default function MealBuilderScreen() {
   const { dispatch } = useAppStore();
+
+  // Expo Router exposes query params from the deep link automatically
+  const params = useLocalSearchParams<{
+    sw?: string;
+    so?: string;
+    pr?: string;
+    ex?: string;
+    price?: string;
+  }>();
+
   const [step, setStep] = useState(0);
   const [selectedSwallow, setSelectedSwallow] = useState<SwallowOption | null>(null);
   const [selectedSoup, setSelectedSoup] = useState<SoupOption | null>(null);
@@ -64,27 +102,62 @@ export default function MealBuilderScreen() {
   const [selectedExtras, setSelectedExtras] = useState<ExtraOption[]>([]);
   const [instructions, setInstructions] = useState('');
   const [linkCopied, setLinkCopied] = useState(false);
+  const [loadedFromLink, setLoadedFromLink] = useState(false);
 
+  // ── Pre-populate from deep-link params on first mount ──────────────────────
+  useEffect(() => {
+    const { sw, so, pr, ex } = params;
+    if (!sw && !so && !pr) return; // no link params — fresh builder
+
+    let populated = false;
+
+    if (sw) {
+      const swallow = findSwallow(sw);
+      if (swallow?.isAvailable) { setSelectedSwallow(swallow); populated = true; }
+    }
+    if (so) {
+      const soup = findSoup(so);
+      if (soup?.isAvailable) { setSelectedSoup(soup); populated = true; }
+    }
+    if (pr) {
+      const proteins = findProteins(pr).filter(p => p.isAvailable);
+      if (proteins.length > 0) { setSelectedProteins(proteins); populated = true; }
+    }
+    if (ex) {
+      const extras = findExtras(ex);
+      if (extras.length > 0) setSelectedExtras(extras);
+    }
+
+    if (populated) {
+      setLoadedFromLink(true);
+      // Jump straight to the Extras step so the user can review the full combo
+      setStep(3);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // run once on mount only
+
+  // ── Derived price ──────────────────────────────────────────────────────────
   const totalPrice = BASE_PRICE +
     (selectedSwallow?.price || 0) +
     (selectedSoup?.price || 0) +
     selectedProteins.reduce((sum, p) => sum + p.price, 0) +
     selectedExtras.reduce((sum, e) => sum + e.price, 0);
 
+  // ── Helpers ────────────────────────────────────────────────────────────────
   const toggleProtein = (protein: ProteinOption) => {
-    if (selectedProteins.find(p => p.id === protein.id)) {
-      setSelectedProteins(selectedProteins.filter(p => p.id !== protein.id));
-    } else {
-      setSelectedProteins([...selectedProteins, protein]);
-    }
+    setSelectedProteins(prev =>
+      prev.find(p => p.id === protein.id)
+        ? prev.filter(p => p.id !== protein.id)
+        : [...prev, protein],
+    );
   };
 
   const toggleExtra = (extra: ExtraOption) => {
-    if (selectedExtras.find(e => e.id === extra.id)) {
-      setSelectedExtras(selectedExtras.filter(e => e.id !== extra.id));
-    } else {
-      setSelectedExtras([...selectedExtras, extra]);
-    }
+    setSelectedExtras(prev =>
+      prev.find(e => e.id === extra.id)
+        ? prev.filter(e => e.id !== extra.id)
+        : [...prev, extra],
+    );
   };
 
   const canProceed = () => {
@@ -95,11 +168,8 @@ export default function MealBuilderScreen() {
   };
 
   const handleNext = () => {
-    if (step < 3) {
-      setStep(step + 1);
-    } else {
-      handleAddToCart();
-    }
+    if (step < 3) setStep(step + 1);
+    else handleAddToCart();
   };
 
   const handleAddToCart = () => {
@@ -123,7 +193,7 @@ export default function MealBuilderScreen() {
       totalPrice,
     };
     dispatch({ type: 'ADD_TO_CART', payload: cartItem });
-    Alert.alert('Added to Cart! 🎉', 'Your custom meal has been added to your cart.', [
+    Alert.alert('Added to Cart! 🎉', "Your custom meal has been added to your cart.", [
       {
         text: 'Build Another',
         onPress: () => {
@@ -132,6 +202,7 @@ export default function MealBuilderScreen() {
           setSelectedSoup(null);
           setSelectedProteins([]);
           setSelectedExtras([]);
+          setLoadedFromLink(false);
           setLinkCopied(false);
         },
       },
@@ -139,43 +210,24 @@ export default function MealBuilderScreen() {
     ]);
   };
 
-  /** Opens the native OS share sheet with the meal description + link */
   const handleShare = async () => {
     if (!selectedSwallow || !selectedSoup || selectedProteins.length === 0) {
-      Alert.alert('Almost there!', 'Please complete at least swallow, soup, and protein before sharing.');
+      Alert.alert('Almost there!', 'Complete swallow, soup & protein before sharing.');
       return;
     }
     const message = buildShareMessage(selectedSwallow, selectedSoup, selectedProteins, selectedExtras, totalPrice);
-
-    if (Platform.OS === 'web') {
-      const available = await Sharing.isAvailableAsync();
-      if (!available) {
-        // Fallback: copy to clipboard on web
-        await Clipboard.setStringAsync(message);
-        Alert.alert('Copied!', 'Your meal details have been copied to the clipboard.');
-        return;
-      }
-    }
-
     try {
-      // expo-sharing only shares files; for text we write a temp .txt file and share it
-      // On native, use React Native's built-in Share API for text sharing
       const { Share } = await import('react-native');
-      await Share.share({
-        message,
-        title: 'My Custom Amala Oluyole Meal',
-      });
-    } catch (err) {
-      // Fallback to clipboard
+      await Share.share({ message, title: 'My Custom Amala Oluyole Meal' });
+    } catch {
       await Clipboard.setStringAsync(message);
-      Alert.alert('Copied!', 'Sharing is not available. Your meal details were copied to the clipboard instead.');
+      Alert.alert('Copied!', 'Sharing unavailable — meal details copied to clipboard.');
     }
   };
 
-  /** Copies the deep link URL to clipboard */
   const handleCopyLink = async () => {
     if (!selectedSwallow || !selectedSoup || selectedProteins.length === 0) {
-      Alert.alert('Almost there!', 'Please complete at least swallow, soup, and protein before copying a link.');
+      Alert.alert('Almost there!', 'Complete swallow, soup & protein before copying a link.');
       return;
     }
     const link = buildShareLink(selectedSwallow, selectedSoup, selectedProteins, selectedExtras, totalPrice);
@@ -186,6 +238,7 @@ export default function MealBuilderScreen() {
 
   const isShareable = !!(selectedSwallow && selectedSoup && selectedProteins.length > 0);
 
+  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <View style={styles.container}>
       <StatusBar style="dark" />
@@ -199,17 +252,40 @@ export default function MealBuilderScreen() {
         <Text style={styles.subtitle}>Step {step + 1} of {STEPS.length}: {STEPS[step]}</Text>
       </View>
 
+      {/* Deep-link pre-fill banner */}
+      {loadedFromLink && (
+        <View style={styles.deepLinkBanner}>
+          <Text style={styles.deepLinkBannerIcon}>🔗</Text>
+          <View style={styles.deepLinkBannerTextCol}>
+            <Text style={styles.deepLinkBannerTitle}>Loaded from a shared link</Text>
+            <Text style={styles.deepLinkBannerSub}>
+              Your friend's selections have been pre-filled. Customise as you like!
+            </Text>
+          </View>
+          <TouchableOpacity onPress={() => setLoadedFromLink(false)}>
+            <Text style={styles.deepLinkBannerClose}>✕</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       {/* Progress */}
       <View style={styles.progressRow}>
         {STEPS.map((s, i) => (
-          <View key={i} style={styles.progressStep}>
+          <TouchableOpacity
+            key={i}
+            style={styles.progressStep}
+            onPress={() => {
+              // Allow tapping back to a completed step
+              if (i < step) setStep(i);
+            }}
+          >
             <View style={[styles.progressDot, i <= step && styles.progressDotActive]}>
               <Text style={[styles.progressDotText, i <= step && styles.progressDotTextActive]}>
                 {i < step ? '✓' : i + 1}
               </Text>
             </View>
             <Text style={[styles.progressLabel, i <= step && styles.progressLabelActive]}>{s}</Text>
-          </View>
+          </TouchableOpacity>
         ))}
       </View>
 
@@ -221,7 +297,7 @@ export default function MealBuilderScreen() {
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
 
-        {/* Step 1: Swallow */}
+        {/* ── Step 1: Swallow ── */}
         {step === 0 && (
           <View>
             <Text style={styles.stepTitle}>Choose Your Swallow</Text>
@@ -229,7 +305,11 @@ export default function MealBuilderScreen() {
             {SWALLOW_OPTIONS.map(option => (
               <TouchableOpacity
                 key={option.id}
-                style={[styles.optionCard, selectedSwallow?.id === option.id && styles.optionCardSelected, !option.isAvailable && styles.optionCardDisabled]}
+                style={[
+                  styles.optionCard,
+                  selectedSwallow?.id === option.id && styles.optionCardSelected,
+                  !option.isAvailable && styles.optionCardDisabled,
+                ]}
                 onPress={() => option.isAvailable && setSelectedSwallow(option)}
                 disabled={!option.isAvailable}
               >
@@ -246,14 +326,18 @@ export default function MealBuilderScreen() {
           </View>
         )}
 
-        {/* Step 2: Soup */}
+        {/* ── Step 2: Soup ── */}
         {step === 1 && (
           <View>
             <Text style={styles.stepTitle}>Choose Your Soup</Text>
             {SOUP_OPTIONS.map(option => (
               <TouchableOpacity
                 key={option.id}
-                style={[styles.optionCard, selectedSoup?.id === option.id && styles.optionCardSelected, !option.isAvailable && styles.optionCardDisabled]}
+                style={[
+                  styles.optionCard,
+                  selectedSoup?.id === option.id && styles.optionCardSelected,
+                  !option.isAvailable && styles.optionCardDisabled,
+                ]}
                 onPress={() => option.isAvailable && setSelectedSoup(option)}
                 disabled={!option.isAvailable}
               >
@@ -270,7 +354,7 @@ export default function MealBuilderScreen() {
           </View>
         )}
 
-        {/* Step 3: Protein */}
+        {/* ── Step 3: Protein ── */}
         {step === 2 && (
           <View>
             <Text style={styles.stepTitle}>Choose Your Protein(s)</Text>
@@ -280,14 +364,22 @@ export default function MealBuilderScreen() {
               return (
                 <TouchableOpacity
                   key={option.id}
-                  style={[styles.optionCard, isSelected && styles.optionCardSelected, !option.isAvailable && styles.optionCardDisabled]}
+                  style={[
+                    styles.optionCard,
+                    isSelected && styles.optionCardSelected,
+                    !option.isAvailable && styles.optionCardDisabled,
+                  ]}
                   onPress={() => option.isAvailable && toggleProtein(option)}
                   disabled={!option.isAvailable}
                 >
                   <View style={styles.optionLeft}>
                     <View style={styles.optionNameRow}>
                       <Text style={styles.optionName}>{option.name}</Text>
-                      {option.isPremium && <View style={styles.premiumBadge}><Text style={styles.premiumText}>Premium</Text></View>}
+                      {option.isPremium && (
+                        <View style={styles.premiumBadge}>
+                          <Text style={styles.premiumText}>Premium</Text>
+                        </View>
+                      )}
                     </View>
                     {!option.isAvailable && <Text style={styles.unavailableText}>Not available today</Text>}
                   </View>
@@ -301,7 +393,7 @@ export default function MealBuilderScreen() {
           </View>
         )}
 
-        {/* Step 4: Extras + Share Card */}
+        {/* ── Step 4: Extras + Share Card ── */}
         {step === 3 && (
           <View>
             <Text style={styles.stepTitle}>Add Extras (Optional)</Text>
@@ -330,7 +422,7 @@ export default function MealBuilderScreen() {
                 Let your friends know about your custom meal combo
               </Text>
 
-              {/* Meal Summary Preview */}
+              {/* Meal summary preview */}
               {selectedSwallow && selectedSoup && selectedProteins.length > 0 && (
                 <View style={styles.mealSummary}>
                   <View style={styles.mealSummaryRow}>
@@ -362,9 +454,8 @@ export default function MealBuilderScreen() {
                 </View>
               )}
 
-              {/* Share Buttons */}
+              {/* Share buttons */}
               <View style={styles.shareButtonsRow}>
-                {/* Share via native sheet */}
                 <TouchableOpacity
                   style={[styles.shareBtn, !isShareable && styles.shareBtnDisabled]}
                   onPress={handleShare}
@@ -374,9 +465,12 @@ export default function MealBuilderScreen() {
                   <Text style={styles.shareBtnText}>Share</Text>
                 </TouchableOpacity>
 
-                {/* Copy link */}
                 <TouchableOpacity
-                  style={[styles.copyLinkBtn, linkCopied && styles.copyLinkBtnSuccess, !isShareable && styles.shareBtnDisabled]}
+                  style={[
+                    styles.copyLinkBtn,
+                    linkCopied && styles.copyLinkBtnSuccess,
+                    !isShareable && styles.shareBtnDisabled,
+                  ]}
                   onPress={handleCopyLink}
                   disabled={!isShareable}
                 >
@@ -407,7 +501,11 @@ export default function MealBuilderScreen() {
           </TouchableOpacity>
         )}
         <TouchableOpacity
-          style={[styles.nextBtn, !canProceed() && styles.nextBtnDisabled, step === 0 && { flex: 1 }]}
+          style={[
+            styles.nextBtn,
+            !canProceed() && styles.nextBtnDisabled,
+            step === 0 && { flex: 1 },
+          ]}
           onPress={handleNext}
           disabled={!canProceed()}
         >
@@ -420,12 +518,27 @@ export default function MealBuilderScreen() {
   );
 }
 
+// ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FDF8F3' },
   header: { paddingTop: 56, paddingHorizontal: 20, paddingBottom: 8 },
   backText: { color: '#C0392B', fontSize: 16, fontWeight: '600', marginBottom: 8 },
   title: { fontSize: 26, fontWeight: '800', color: '#1A0F0A', marginBottom: 4 },
   subtitle: { fontSize: 14, color: '#8B6F5E' },
+
+  // Deep-link banner
+  deepLinkBanner: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: '#FFF8E1', borderLeftWidth: 4, borderLeftColor: '#F39C12',
+    marginHorizontal: 16, marginBottom: 4, borderRadius: 10,
+    paddingHorizontal: 14, paddingVertical: 10, gap: 10,
+  },
+  deepLinkBannerIcon: { fontSize: 20 },
+  deepLinkBannerTextCol: { flex: 1 },
+  deepLinkBannerTitle: { fontSize: 13, fontWeight: '700', color: '#7D5A00' },
+  deepLinkBannerSub: { fontSize: 12, color: '#9B7A00', marginTop: 2, lineHeight: 16 },
+  deepLinkBannerClose: { fontSize: 16, color: '#9B7A00', paddingLeft: 4 },
+
   progressRow: { flexDirection: 'row', paddingHorizontal: 20, paddingVertical: 16, gap: 4 },
   progressStep: { flex: 1, alignItems: 'center', gap: 4 },
   progressDot: {
@@ -437,15 +550,18 @@ const styles = StyleSheet.create({
   progressDotTextActive: { color: '#FFF' },
   progressLabel: { fontSize: 10, color: '#8B6F5E', textAlign: 'center' },
   progressLabelActive: { color: '#C0392B', fontWeight: '700' },
+
   priceBar: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     backgroundColor: '#6B3A2A', paddingHorizontal: 20, paddingVertical: 10,
   },
   priceBarLabel: { color: 'rgba(255,255,255,0.8)', fontSize: 13 },
   priceBarValue: { color: '#F39C12', fontSize: 18, fontWeight: '800' },
+
   scrollContent: { paddingHorizontal: 20, paddingTop: 16 },
   stepTitle: { fontSize: 20, fontWeight: '800', color: '#1A0F0A', marginBottom: 4 },
   stepSubtitle: { fontSize: 14, color: '#8B6F5E', marginBottom: 16 },
+
   optionCard: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     backgroundColor: '#FFF', borderRadius: 14, padding: 16, marginBottom: 10,
@@ -463,45 +579,22 @@ const styles = StyleSheet.create({
   premiumBadge: { backgroundColor: '#F39C12', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
   premiumText: { fontSize: 10, fontWeight: '700', color: '#FFF' },
 
-  // ── Share Card ──
+  // Share card
   shareCard: {
-    marginTop: 24,
-    backgroundColor: '#FFF',
-    borderRadius: 20,
-    padding: 20,
-    borderWidth: 2,
-    borderColor: '#E8D5C4',
-    shadowColor: '#6B3A2A',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
+    marginTop: 24, backgroundColor: '#FFF', borderRadius: 20, padding: 20,
+    borderWidth: 2, borderColor: '#E8D5C4',
+    shadowColor: '#6B3A2A', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08, shadowRadius: 8, elevation: 3,
   },
-  shareCardTitle: {
-    fontSize: 18, fontWeight: '800', color: '#1A0F0A', marginBottom: 4, textAlign: 'center',
-  },
-  shareCardSubtitle: {
-    fontSize: 13, color: '#8B6F5E', textAlign: 'center', marginBottom: 16,
-  },
-  mealSummary: {
-    backgroundColor: '#FDF8F3',
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 16,
-    gap: 8,
-  },
-  mealSummaryRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-  },
-  mealSummaryPriceRow: {
-    marginTop: 4, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#E8D5C4',
-  },
+  shareCardTitle: { fontSize: 18, fontWeight: '800', color: '#1A0F0A', marginBottom: 4, textAlign: 'center' },
+  shareCardSubtitle: { fontSize: 13, color: '#8B6F5E', textAlign: 'center', marginBottom: 16 },
+  mealSummary: { backgroundColor: '#FDF8F3', borderRadius: 12, padding: 14, marginBottom: 16, gap: 8 },
+  mealSummaryRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  mealSummaryPriceRow: { marginTop: 4, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#E8D5C4' },
   mealSummaryIcon: { fontSize: 18, width: 26 },
   mealSummaryText: { fontSize: 15, fontWeight: '600', color: '#1A0F0A', flex: 1 },
   mealSummaryPrice: { fontSize: 17, fontWeight: '800', color: '#C0392B', flex: 1 },
-  shareButtonsRow: {
-    flexDirection: 'row', gap: 12,
-  },
+  shareButtonsRow: { flexDirection: 'row', gap: 12 },
   shareBtn: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     backgroundColor: '#C0392B', borderRadius: 14, paddingVertical: 13, gap: 8,
@@ -511,19 +604,15 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF', borderRadius: 14, paddingVertical: 13, gap: 8,
     borderWidth: 2, borderColor: '#C0392B',
   },
-  copyLinkBtnSuccess: {
-    backgroundColor: '#F0FFF4', borderColor: '#27AE60',
-  },
+  copyLinkBtnSuccess: { backgroundColor: '#F0FFF4', borderColor: '#27AE60' },
   shareBtnDisabled: { opacity: 0.4 },
   shareBtnIcon: { fontSize: 18 },
   shareBtnText: { fontSize: 15, fontWeight: '700', color: '#FFF' },
   copyLinkBtnText: { fontSize: 15, fontWeight: '700', color: '#C0392B' },
   copyLinkBtnTextSuccess: { color: '#27AE60' },
-  shareHint: {
-    marginTop: 12, fontSize: 12, color: '#8B6F5E', textAlign: 'center', fontStyle: 'italic',
-  },
+  shareHint: { marginTop: 12, fontSize: 12, color: '#8B6F5E', textAlign: 'center', fontStyle: 'italic' },
 
-  // ── Bottom Bar ──
+  // Bottom bar
   bottomBar: {
     position: 'absolute', bottom: 0, left: 0, right: 0,
     backgroundColor: '#FFF', borderTopWidth: 1, borderTopColor: '#E8D5C4',

@@ -31,7 +31,7 @@ const env = {
   appName: "Amala Oluyole",
   appSlug: "amala_oluyole_app",
   logoUrl: "/manus-storage/icon_4e4fdf7c.png",
-  scheme: schemeFromBundleId,
+  scheme: "amalaoluyole",
   iosBundleId: bundleId,
   androidPackage: bundleId,
 };
@@ -42,7 +42,7 @@ const config: ExpoConfig = {
   version: "1.0.0",
   orientation: "portrait",
   icon: "./assets/images/icon.png",
-  scheme: env.scheme,
+  scheme: ["amalaoluyole", schemeFromBundleId],
   userInterfaceStyle: "automatic",
   newArchEnabled: true,
   ios: {
@@ -71,6 +71,18 @@ const config: ExpoConfig = {
           {
             scheme: env.scheme,
             host: "*",
+          },
+        ],
+        category: ["BROWSABLE", "DEFAULT"],
+      },
+      {
+        action: "VIEW",
+        autoVerify: true,
+        data: [
+          {
+            scheme: "https",
+            host: "amalaoluyole.com",
+            pathPrefix: "/meal/custom",
           },
         ],
         category: ["BROWSABLE", "DEFAULT"],
