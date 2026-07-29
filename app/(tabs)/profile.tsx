@@ -1,10 +1,12 @@
 import React from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert,
+  View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, ActivityIndicator,
 } from 'react-native';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAppStore } from '@/lib/store/app-store';
+import { trpc } from '@/lib/trpc';
+import * as Auth from '@/lib/_core/auth';
 
 const TIER_CONFIG = {
   bronze: { label: 'Bronze', color: '#F0C000', emoji: '🥉' },
@@ -27,17 +29,37 @@ function MenuRow({ icon, label, onPress, danger }: {
 
 export default function ProfileScreen() {
   const { state, dispatch } = useAppStore();
-  const user = state.user;
-  const isStaff = ['admin', 'manager', 'kitchen'].includes(user?.role ?? '');
-  const loyalty = user?.loyaltyAccount;
-  const tier = loyalty?.tier ? TIER_CONFIG[loyalty.tier] : TIER_CONFIG.bronze;
+
+  // Live profile from DB — includes real role, name, phone
+  const { data: profile, isLoading: profileLoading } = trpc.profile.me.useQuery(
+    undefined,
+    { enabled: state.isAuthenticated && !state.isGuest, staleTime: 30_000 }
+  );
+  const { data: loyaltyAccount } = trpc.loyalty.account.useQuery(
+    undefined,
+    { enabled: state.isAuthenticated && !state.isGuest }
+  );
+
+  // Use live profile data, fall back to app-store cache
+  const p = profile as { name?: string | null; email?: string | null; phone?: string | null; role?: string } | undefined;
+  const displayName = p?.name ?? state.user?.name ?? '';
+  const displayEmail = p?.email ?? state.user?.email ?? '';
+  const displayPhone = p?.phone ?? state.user?.phone ?? '';
+  const liveRole = p?.role ?? state.user?.role ?? 'customer';
+  const isStaff = ['admin', 'manager', 'kitchen'].includes(liveRole);
+
+  // Loyalty data from live backend
+  const la = loyaltyAccount as { points?: number; tier?: string; pointsToNextTier?: number } | undefined;
+  const tier = la?.tier ? (TIER_CONFIG[la.tier as keyof typeof TIER_CONFIG] ?? TIER_CONFIG.bronze) : TIER_CONFIG.bronze;
 
   const handleLogout = () => {
     Alert.alert('Log Out', 'Are you sure you want to log out?', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Log Out', style: 'destructive',
-        onPress: () => {
+        onPress: async () => {
+          await Auth.removeSessionToken();
+          await Auth.clearUserInfo();
           dispatch({ type: 'LOGOUT' });
           router.replace('/auth/login' as never);
         },
@@ -45,7 +67,7 @@ export default function ProfileScreen() {
     ]);
   };
 
-  if (!user || user.isGuest) {
+  if (!state.isAuthenticated || state.isGuest) {
     return (
       <View style={styles.guestContainer}>
         <View style={styles.guestAvatarCircle}><Text style={styles.guestEmoji}>👤</Text></View>
@@ -63,21 +85,25 @@ export default function ProfileScreen() {
     );
   }
 
+  if (profileLoading && !displayName) {
+    return <View style={styles.center}><ActivityIndicator size="large" color="#D02010" /></View>;
+  }
+
   return (
     <View style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Profile Header */}
         <View style={styles.profileHeader}>
           <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{user.name.charAt(0).toUpperCase()}</Text>
+            <Text style={styles.avatarText}>{displayName.charAt(0).toUpperCase() || '?'}</Text>
           </View>
-          <Text style={styles.userName}>{user.name}</Text>
-          <Text style={styles.userPhone}>{user.phone}</Text>
-          {user.email && <Text style={styles.userEmail}>{user.email}</Text>}
+          <Text style={styles.userName}>{displayName || 'Loading...'}</Text>
+          {!!displayPhone && <Text style={styles.userPhone}>{displayPhone}</Text>}
+          {!!displayEmail && <Text style={styles.userEmail}>{displayEmail}</Text>}
         </View>
 
         {/* Loyalty Card */}
-        {loyalty && (
+        {la && (
           <TouchableOpacity
             style={styles.loyaltyCard}
             onPress={() => router.push('/loyalty' as never)}
@@ -85,18 +111,18 @@ export default function ProfileScreen() {
             <View style={styles.loyaltyTop}>
               <View>
                 <Text style={styles.loyaltyTierLabel}>{tier.emoji} {tier.label} Member</Text>
-                <Text style={styles.loyaltyPoints}>{loyalty.points.toLocaleString()} points</Text>
+                <Text style={styles.loyaltyPoints}>{(la.points ?? 0).toLocaleString()} points</Text>
               </View>
               <Text style={styles.loyaltyArrow}>›</Text>
             </View>
             <View style={styles.loyaltyBar}>
               <View style={[
                 styles.loyaltyBarFill,
-                { width: `${Math.min(100, (loyalty.points / (loyalty.points + loyalty.pointsToNextTier)) * 100)}%` as any }
+                { width: `${Math.min(100, ((la.points ?? 0) / Math.max(1, (la.points ?? 0) + (la.pointsToNextTier ?? 1000))) * 100)}%` as any }
               ]} />
             </View>
             <Text style={styles.loyaltyBarLabel}>
-              {loyalty.pointsToNextTier.toLocaleString()} pts to next tier
+              {(la.pointsToNextTier ?? 0).toLocaleString()} pts to next tier
             </Text>
           </TouchableOpacity>
         )}
@@ -122,22 +148,22 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        {/* Support Section */}
-        <View style={styles.section}>
         {/* Staff Portal — only visible to kitchen/admin/manager */}
         {isStaff && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Staff Tools</Text>
             <View style={styles.menuCard}>
               <MenuRow icon="👨‍🍳" label="Kitchen Portal" onPress={() => router.push('/kitchen' as never)} />
-              {['admin', 'manager'].includes(user?.role ?? '') && (
+              {['admin', 'manager'].includes(liveRole) && (
                 <MenuRow icon="🛠️" label="Admin Dashboard" onPress={() => router.push('/admin' as never)} />
               )}
             </View>
           </View>
         )}
 
-        <Text style={styles.sectionTitle}>Support</Text>
+        {/* Support Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Support</Text>
           <View style={styles.menuCard}>
             <MenuRow icon="💬" label="Help & Support" onPress={() => router.push('/support' as never)} />
             <MenuRow icon="📞" label="Contact Us" onPress={() => router.push('/support' as never)} />
@@ -160,6 +186,7 @@ export default function ProfileScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FFFFFF' },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   guestContainer: { flex: 1, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', padding: 40 },
   guestEmoji: { fontSize: 72, marginBottom: 16 },
   guestTitle: { fontSize: 22, fontWeight: '800', color: '#201060', marginBottom: 8, textAlign: 'center' },

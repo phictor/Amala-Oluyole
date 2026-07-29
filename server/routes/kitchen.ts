@@ -10,6 +10,9 @@ import {
   meals,
   mealBranchAvailability,
 } from "../../drizzle/schema";
+import { users } from "../../drizzle/schema";
+import { notifyOwner } from "../_core/notification";
+import { createNotification } from "../db";
 
 // Kitchen + admin + manager can access all kitchen procedures
 const kitchenProcedure = protectedProcedure.use(({ ctx, next }) => {
@@ -94,6 +97,26 @@ export const kitchenRouter = router({
             lastRestockedAt: input.type === "restock" ? new Date() : undefined,
           })
           .where(eq(inventory.id, input.inventoryId));
+        // ── Low-stock push notification ──────────────────────────────────────
+        const minStock = parseFloat(String(item[0].minimumStock));
+        if (newStock <= minStock && input.type !== "restock") {
+          // Notify the project owner via Manus notification service
+          notifyOwner({
+            title: `⚠️ Low Stock Alert: ${item[0].name}`,
+            content: `${item[0].name} is running low. Current: ${newStock} ${item[0].unit} (min: ${minStock} ${item[0].unit}). Please restock soon.`,
+          }).catch(() => {});
+          // Also create in-app notifications for all admin/manager users
+          const managers = await db.select({ id: users.id }).from(users)
+            .where(sql`${users.role} IN ('admin', 'manager')`);
+          await Promise.all(managers.map(m =>
+            createNotification({
+              userId: m.id,
+              type: "general",
+              title: `⚠️ Low Stock: ${item[0].name}`,
+              body: `${item[0].name} is at ${newStock} ${item[0].unit} (minimum: ${minStock} ${item[0].unit}). Please restock.`,
+            }).catch(() => {})
+          ));
+        }
       }
       return { success: true };
     }),

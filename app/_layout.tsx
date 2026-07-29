@@ -3,12 +3,14 @@ import { AppProvider } from "@/lib/store/app-store";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import "react-native-reanimated";
 import { Platform } from "react-native";
 import "@/lib/_core/nativewind-pressable";
 import { ThemeProvider } from "@/lib/theme-provider";
+import * as Auth from "@/lib/_core/auth";
+import { useAppStore } from "@/lib/store/app-store";
 import {
   SafeAreaFrameContext,
   SafeAreaInsetsContext,
@@ -22,6 +24,51 @@ import { initManusRuntime, subscribeSafeAreaInsets } from "@/lib/_core/manus-run
 
 const DEFAULT_WEB_INSETS: EdgeInsets = { top: 0, right: 0, bottom: 0, left: 0 };
 const DEFAULT_WEB_FRAME: Rect = { x: 0, y: 0, width: 0, height: 0 };
+
+/** Bridges OAuth SecureStore session with the AsyncStorage-backed app-store. */
+function AuthSyncBridge() {
+  const { state, dispatch } = useAppStore();
+  const synced = useRef(false);
+  useEffect(() => {
+    if (synced.current) return;
+    synced.current = true;
+    const syncAuth = async () => {
+      const token = await Auth.getSessionToken();
+      if (!token) {
+        if (state.isAuthenticated && !state.isGuest) dispatch({ type: 'LOGOUT' });
+        return;
+      }
+      const cachedUser = await Auth.getUserInfo();
+      if (cachedUser) {
+        dispatch({
+          type: 'SET_USER',
+          payload: {
+            id: String(cachedUser.id ?? ''),
+            name: cachedUser.name ?? 'User',
+            email: cachedUser.email ?? undefined,
+            phone: '',
+            addresses: [],
+            loyaltyAccount: { points: 0, tier: 'bronze', pointsToNextTier: 1000, totalEarned: 0, totalRedeemed: 0, history: [] },
+            isGuest: false,
+            role: cachedUser.role ?? 'customer',
+          },
+        });
+      } else if (!state.isAuthenticated) {
+        dispatch({
+          type: 'SET_USER',
+          payload: {
+            id: '', name: '', email: undefined, phone: '', addresses: [],
+            loyaltyAccount: { points: 0, tier: 'bronze', pointsToNextTier: 1000, totalEarned: 0, totalRedeemed: 0, history: [] },
+            isGuest: false, role: 'customer',
+          },
+        });
+      }
+    };
+    const t = setTimeout(syncAuth, 300);
+    return () => clearTimeout(t);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  return null;
+}
 
 export const unstable_settings = {
   anchor: "(tabs)",
@@ -101,6 +148,7 @@ export default function RootLayout() {
   if (shouldOverrideSafeArea) {
     return (
       <AppProvider>
+      <AuthSyncBridge />
       <ThemeProvider>
         <SafeAreaProvider initialMetrics={providerInitialMetrics}>
           <SafeAreaFrameContext.Provider value={frame}>
@@ -116,6 +164,7 @@ export default function RootLayout() {
 
   return (
     <AppProvider>
+    <AuthSyncBridge />
     <ThemeProvider>
       <SafeAreaProvider initialMetrics={providerInitialMetrics}>{content}</SafeAreaProvider>
     </ThemeProvider>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, TextInput,
   FlatList, Alert, Modal, StyleSheet, RefreshControl, Switch,
@@ -6,7 +6,6 @@ import {
 import { useRouter } from 'expo-router';
 import { ScreenContainer } from '@/components/screen-container';
 import { trpc } from '@/lib/trpc';
-import { useAuth } from '@/hooks/use-auth';
 
 type KitchenTab = 'orders' | 'meals' | 'stock' | 'report';
 
@@ -17,10 +16,15 @@ const MONTH_NAMES = [
 
 export default function KitchenPortal() {
   const router = useRouter();
-  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<KitchenTab>('orders');
   const [branchId] = useState(1); // TODO: derive from user.preferredBranchId
   const [refreshing, setRefreshing] = useState(false);
+
+  // ── Role gate via live DB profile ─────────────────────────────────────────
+  const { data: myProfile, isLoading: profileLoading } = trpc.profile.me.useQuery(undefined, { staleTime: 60_000 });
+  const ALLOWED_ROLES = ['admin', 'manager', 'kitchen'];
+  const liveRole = (myProfile as { role?: string } | undefined)?.role ?? '';
+  const myProfileId = (myProfile as { id?: number } | undefined)?.id ?? 0;
 
   // Report state
   const now = new Date();
@@ -35,7 +39,8 @@ export default function KitchenPortal() {
   const [updateForm, setUpdateForm] = useState({ type: 'restock' as any, quantity: '', note: '' });
 
   // Queries
-  const ordersQ = trpc.admin.activeOrders.useQuery({ branchId });
+  // ── Queries with 30-second auto-polling for orders ────────────────────────
+  const ordersQ = trpc.admin.activeOrders.useQuery({ branchId }, { refetchInterval: 30_000 });
   const mealsQ = trpc.menu.meals.useQuery({ branchId });
   const stockQ = trpc.kitchen.allInventory.useQuery({ branchId });
   const reportQ = trpc.kitchen.monthlyReport.useQuery({ branchId, year: reportYear, month: reportMonth });
@@ -54,8 +59,15 @@ export default function KitchenPortal() {
     setRefreshing(false);
   };
 
-  const ALLOWED_ROLES = ['admin', 'manager', 'kitchen'];
-  if (!user || !ALLOWED_ROLES.includes(user.role ?? '')) {
+  if (profileLoading) {
+    return (
+      <ScreenContainer className="items-center justify-center p-8">
+        <Text style={{ fontSize: 24 }}>⏳</Text>
+        <Text style={[s.muted, { textAlign: 'center', marginTop: 8 }]}>Verifying access...</Text>
+      </ScreenContainer>
+    );
+  }
+  if (!myProfile || !ALLOWED_ROLES.includes(liveRole)) {
     return (
       <ScreenContainer className="items-center justify-center p-8">
         <Text style={{ fontSize: 48 }}>🔒</Text>
@@ -277,7 +289,7 @@ export default function KitchenPortal() {
                   if (!updateForm.quantity) return Alert.alert('Error', 'Quantity is required');
                   const qty = parseFloat(updateForm.quantity);
                   const finalQty = updateForm.type === 'restock' ? Math.abs(qty) : -Math.abs(qty);
-                  updateStock.mutate({ inventoryId: selectedItem.id, branchId, type: updateForm.type, quantity: finalQty, note: updateForm.note || undefined, recordedBy: user?.id ?? 0 });
+                  updateStock.mutate({ inventoryId: selectedItem.id, branchId, type: updateForm.type, quantity: finalQty, note: updateForm.note || undefined, recordedBy: myProfileId });
                 }}>
                   <Text style={s.btnTxt}>{updateStock.isPending ? 'Saving...' : 'Save'}</Text>
                 </TouchableOpacity>

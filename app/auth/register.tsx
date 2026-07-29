@@ -1,134 +1,66 @@
 import React, { useState } from 'react';
-import {
-  View, Text, TextInput, TouchableOpacity, ScrollView,
-  StyleSheet, KeyboardAvoidingView, Platform, Alert,
-} from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
+import { Image as ExpoImage } from 'expo-image';
+import { startOAuthLogin } from '@/constants/oauth';
+
+const LOGO_CHEF = require('@/assets/images/logo-chef.png');
 
 export default function RegisterScreen() {
-  const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const handleRegister = () => {
-    if (!name || !phone || !password) {
-      Alert.alert('Error', 'Please fill in all required fields.');
-      return;
-    }
-    if (password !== confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match.');
-      return;
-    }
-    setLoading(true);
-    setTimeout(() => {
+  const handleSignUp = async () => {
+    try {
+      setLoading(true);
+      await startOAuthLogin();
+    } catch {
+      Alert.alert('Error', 'Could not open the sign-up page. Please try again.');
+    } finally {
       setLoading(false);
-      router.push({ pathname: '/auth/otp' as never, params: { phone } });
-    }, 800);
+    }
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-        {/* Back */}
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-          <Text style={styles.backText}>← Back</Text>
-        </TouchableOpacity>
-
+    <View style={styles.container}>
+      <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+        <Text style={styles.backText}>← Back</Text>
+      </TouchableOpacity>
+      <View style={styles.content}>
+        <ExpoImage source={LOGO_CHEF} style={styles.logo} contentFit="contain" />
         <Text style={styles.title}>Create Account</Text>
-        <Text style={styles.subtitle}>Join Amala Oluyole and enjoy exclusive rewards.</Text>
-
-        <View style={styles.form}>
-          <Text style={styles.label}>Full Name *</Text>
-          <TextInput style={styles.input} placeholder="e.g. Adebayo Oladele"
-            placeholderTextColor="#8B88B0" value={name} onChangeText={setName} />
-
-          <Text style={styles.label}>Phone Number *</Text>
-          <TextInput style={styles.input} placeholder="e.g. 08012345678"
-            placeholderTextColor="#8B88B0" value={phone} onChangeText={setPhone}
-            keyboardType="phone-pad" />
-
-          <Text style={styles.label}>Email Address (optional)</Text>
-          <TextInput style={styles.input} placeholder="e.g. adebayo@email.com"
-            placeholderTextColor="#8B88B0" value={email} onChangeText={setEmail}
-            keyboardType="email-address" autoCapitalize="none" />
-
-          <Text style={styles.label}>Password *</Text>
-          <View style={styles.passwordRow}>
-            <TextInput
-              style={[styles.input, { flex: 1, marginBottom: 0 }]}
-              placeholder="At least 8 characters"
-              placeholderTextColor="#8B88B0"
-              value={password} onChangeText={setPassword}
-              secureTextEntry={!showPassword}
-            />
-            <TouchableOpacity style={styles.eyeBtn} onPress={() => setShowPassword(!showPassword)}>
-              <Text style={styles.eyeIcon}>{showPassword ? '🙈' : '👁️'}</Text>
-            </TouchableOpacity>
-          </View>
-
-          <Text style={styles.label}>Confirm Password *</Text>
-          <TextInput style={styles.input} placeholder="Repeat your password"
-            placeholderTextColor="#8B88B0" value={confirmPassword}
-            onChangeText={setConfirmPassword} secureTextEntry={!showPassword} />
-
-          <Text style={styles.terms}>
-            By creating an account, you agree to our{' '}
-            <Text style={styles.termsLink}>Terms & Conditions</Text> and{' '}
-            <Text style={styles.termsLink}>Privacy Policy</Text>.
-          </Text>
-
-          <TouchableOpacity
-            style={[styles.registerBtn, loading && styles.btnDisabled]}
-            onPress={handleRegister} disabled={loading}
-          >
-            <Text style={styles.registerBtnText}>{loading ? 'Creating account...' : 'Create Account'}</Text>
-          </TouchableOpacity>
-        </View>
-
+        <Text style={styles.subtitle}>
+          Join Àmàlà Olúyòlé and enjoy exclusive rewards, faster checkout, and order tracking.
+        </Text>
+        <TouchableOpacity
+          style={[styles.btn, loading && styles.btnDisabled]}
+          onPress={handleSignUp}
+          disabled={loading}
+        >
+          {loading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.btnText}>Continue to Sign Up</Text>}
+        </TouchableOpacity>
         <View style={styles.footer}>
           <Text style={styles.footerText}>Already have an account? </Text>
-          <TouchableOpacity onPress={() => router.back()}>
+          <TouchableOpacity onPress={() => router.replace('/auth/login' as never)}>
             <Text style={styles.footerLink}>Sign In</Text>
           </TouchableOpacity>
         </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
-  scroll: { flexGrow: 1, paddingHorizontal: 24 },
+  container: { flex: 1, backgroundColor: '#FFFFFF', paddingHorizontal: 24 },
   backBtn: { paddingTop: 56, paddingBottom: 8 },
   backText: { color: '#D02010', fontSize: 16, fontWeight: '600' },
-  title: { fontSize: 28, fontWeight: '800', color: '#201060', marginBottom: 8 },
-  subtitle: { fontSize: 15, color: '#6B6490', marginBottom: 24 },
-  form: { gap: 4 },
-  label: { fontSize: 14, fontWeight: '600', color: '#201060', marginBottom: 6, marginTop: 12 },
-  input: {
-    backgroundColor: '#F4F3FB', borderWidth: 1.5, borderColor: '#E8E6F4',
-    borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14,
-    fontSize: 16, color: '#201060', marginBottom: 4,
-  },
-  passwordRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
-  eyeBtn: { padding: 14, backgroundColor: '#F4F3FB', borderWidth: 1.5, borderColor: '#E8E6F4', borderRadius: 12 },
-  eyeIcon: { fontSize: 18 },
-  terms: { fontSize: 13, color: '#6B6490', lineHeight: 20, marginTop: 12, marginBottom: 20 },
-  termsLink: { color: '#D02010', fontWeight: '600' },
-  registerBtn: {
-    backgroundColor: '#D02010', borderRadius: 16, paddingVertical: 16, alignItems: 'center',
-  },
+  content: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16 },
+  logo: { width: 100, height: 100, marginBottom: 8 },
+  title: { fontSize: 28, fontWeight: '800', color: '#201060' },
+  subtitle: { fontSize: 15, color: '#6B6490', textAlign: 'center', lineHeight: 22 },
+  btn: { backgroundColor: '#D02010', borderRadius: 16, paddingVertical: 16, paddingHorizontal: 40, alignItems: 'center', width: '100%' },
   btnDisabled: { opacity: 0.7 },
-  registerBtnText: { color: '#FFF', fontSize: 18, fontWeight: '700' },
-  footer: { flexDirection: 'row', justifyContent: 'center', paddingVertical: 32 },
+  btnText: { color: '#FFF', fontSize: 17, fontWeight: '700' },
+  footer: { flexDirection: 'row', marginTop: 8 },
   footerText: { color: '#6B6490', fontSize: 15 },
   footerLink: { color: '#D02010', fontSize: 15, fontWeight: '700' },
 });

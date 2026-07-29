@@ -1,110 +1,83 @@
 import React from 'react';
-import {
-  View, Text, FlatList, TouchableOpacity, StyleSheet,
-} from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, RefreshControl } from 'react-native';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useAppStore } from '@/lib/store/app-store';
-import type { Notification } from '@/lib/data/types';
+import { trpc } from '@/lib/trpc';
 
-const TYPE_CONFIG: Record<string, { icon: string; color: string }> = {
-  order: { icon: '📦', color: '#D02010' },
-  payment: { icon: '💳', color: '#27AE60' },
-  promotion: { icon: '🎉', color: '#F39C12' },
-  loyalty: { icon: '⭐', color: '#8E44AD' },
-  reservation: { icon: '🍽️', color: '#2980B9' },
-  system: { icon: '🔔', color: '#6B6490' },
+const TYPE_CFG: Record<string,{icon:string;color:string}> = {
+  order_update:{icon:'🛵',color:'#D02010'}, payment:{icon:'💳',color:'#22C55E'},
+  promotion:{icon:'🎁',color:'#F59E0B'}, loyalty:{icon:'⭐',color:'#F0C000'},
+  reservation:{icon:'📅',color:'#0a7ea4'}, system:{icon:'🔔',color:'#6B6490'},
 };
 
-function NotifCard({ notif, onPress }: { notif: Notification; onPress: () => void }) {
-  const config = TYPE_CONFIG[notif.type] || TYPE_CONFIG.system;
+function NotifCard({ notif, onPress }: { notif: any; onPress: () => void }) {
+  const cfg = TYPE_CFG[notif.type] ?? TYPE_CFG.system;
   return (
-    <TouchableOpacity
-      style={[styles.notifCard, !notif.isRead && styles.notifCardUnread]}
-      onPress={onPress}
-    >
-      <View style={[styles.notifIcon, { backgroundColor: config.color + '20' }]}>
-        <Text style={styles.notifIconText}>{config.icon}</Text>
+    <TouchableOpacity style={[s.card, !notif.isRead && s.cardUnread]} onPress={onPress}>
+      <View style={[s.icon, { backgroundColor: cfg.color + '20' }]}><Text style={s.iconTxt}>{cfg.icon}</Text></View>
+      <View style={s.content}>
+        <Text style={s.title}>{notif.title}</Text>
+        <Text style={s.msg} numberOfLines={2}>{notif.body}</Text>
+        <Text style={s.time}>{new Date(notif.createdAt).toLocaleDateString('en-NG',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</Text>
       </View>
-      <View style={styles.notifContent}>
-        <Text style={styles.notifTitle}>{notif.title}</Text>
-        <Text style={styles.notifMessage} numberOfLines={2}>{notif.message}</Text>
-        <Text style={styles.notifTime}>
-          {new Date(notif.createdAt).toLocaleDateString('en-NG', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-        </Text>
-      </View>
-      {!notif.isRead && <View style={styles.unreadDot} />}
+      {!notif.isRead && <View style={s.dot} />}
     </TouchableOpacity>
   );
 }
 
 export default function NotificationsScreen() {
-  const { state, dispatch } = useAppStore();
-  const notifications = state.notifications;
+  const { state } = useAppStore();
+  const utils = trpc.useUtils();
+  const { data: notifs = [], isLoading, refetch, isRefetching } = trpc.notifications.list.useQuery({ limit: 50 }, { enabled: state.isAuthenticated && !state.isGuest });
+  const markRead = trpc.notifications.markRead.useMutation({ onSuccess: () => utils.notifications.list.invalidate() });
+  const markAll = trpc.notifications.markAllRead.useMutation({ onSuccess: () => utils.notifications.list.invalidate() });
+  const unread = (notifs as any[]).filter((n: any) => !n.isRead).length;
 
-  const handleNotifPress = (notif: Notification) => {
-    dispatch({ type: 'MARK_NOTIFICATION_READ', payload: notif.id });
-    if (notif.orderId) {
-      router.push({ pathname: '/order/[id]' as never, params: { id: notif.orderId } });
-    }
+  const onPress = (n: any) => {
+    if (!n.isRead) markRead.mutate({ id: n.id });
+    if (n.orderId) router.push({ pathname: '/order/[id]' as never, params: { id: String(n.orderId) } });
   };
 
-  return (
-    <View style={styles.container}>
-      <StatusBar style="dark" />
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Text style={styles.backText}>← Back</Text>
-        </TouchableOpacity>
-        <Text style={styles.title}>Notifications</Text>
-        {state.unreadNotificationCount > 0 && (
-          <TouchableOpacity onPress={() => dispatch({ type: 'MARK_ALL_NOTIFICATIONS_READ' })}>
-            <Text style={styles.markAllText}>Mark all read</Text>
-          </TouchableOpacity>
-        )}
-      </View>
+  if (!state.isAuthenticated || state.isGuest) return (
+    <View style={s.guest}><Text style={s.guestEmoji}>🔔</Text><Text style={s.guestTitle}>Sign in to view notifications</Text>
+      <TouchableOpacity style={s.signIn} onPress={() => router.push('/auth/login' as never)}><Text style={s.signInTxt}>Sign In</Text></TouchableOpacity>
+    </View>
+  );
 
-      <FlatList
-        data={notifications}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.list}
-        showsVerticalScrollIndicator={false}
-        ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyEmoji}>🔔</Text>
-            <Text style={styles.emptyText}>No notifications yet</Text>
-          </View>
-        }
-        renderItem={({ item }) => (
-          <NotifCard notif={item} onPress={() => handleNotifPress(item)} />
-        )}
-      />
+  return (
+    <View style={s.container}>
+      <StatusBar style="dark" />
+      <View style={s.header}>
+        <TouchableOpacity onPress={() => router.back()}><Text style={s.back}>← Back</Text></TouchableOpacity>
+        <Text style={s.headerTitle}>Notifications</Text>
+        {unread > 0 && <TouchableOpacity onPress={() => markAll.mutate()}><Text style={s.markAll}>Mark all read</Text></TouchableOpacity>}
+      </View>
+      {isLoading ? <View style={s.center}><ActivityIndicator size="large" color="#D02010" /></View> : (
+        <FlatList data={notifs} keyExtractor={(item: any) => String(item.id)} contentContainerStyle={s.list}
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor="#D02010" />}
+          ListEmptyComponent={<View style={s.empty}><Text style={s.emptyEmoji}>🔔</Text><Text style={s.emptyTxt}>No notifications yet</Text></View>}
+          renderItem={({ item }) => <NotifCard notif={item} onPress={() => onPress(item)} />}
+        />
+      )}
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
-  header: { paddingTop: 56, paddingHorizontal: 20, paddingBottom: 16 },
-  backText: { color: '#D02010', fontSize: 16, fontWeight: '600', marginBottom: 8 },
-  title: { fontSize: 26, fontWeight: '800', color: '#201060', marginBottom: 4 },
-  markAllText: { fontSize: 14, color: '#D02010', fontWeight: '600' },
-  list: { paddingHorizontal: 20, paddingBottom: 24 },
-  notifCard: {
-    flexDirection: 'row', backgroundColor: '#FFF', borderRadius: 14, padding: 14,
-    marginBottom: 10, alignItems: 'flex-start', gap: 12,
-    borderWidth: 1, borderColor: '#E8E6F4',
-  },
-  notifCardUnread: { borderColor: '#D02010', backgroundColor: '#FFF9F7' },
-  notifIcon: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
-  notifIconText: { fontSize: 20 },
-  notifContent: { flex: 1 },
-  notifTitle: { fontSize: 15, fontWeight: '700', color: '#201060', marginBottom: 4 },
-  notifMessage: { fontSize: 13, color: '#6B6490', lineHeight: 18, marginBottom: 6 },
-  notifTime: { fontSize: 12, color: '#8B88B0' },
-  unreadDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#D02010', marginTop: 4 },
-  emptyState: { alignItems: 'center', paddingTop: 80 },
-  emptyEmoji: { fontSize: 56, marginBottom: 12 },
-  emptyText: { fontSize: 16, color: '#6B6490' },
+const s = StyleSheet.create({
+  container:{flex:1,backgroundColor:'#F8F7FF'}, center:{flex:1,alignItems:'center',justifyContent:'center'},
+  header:{paddingTop:56,paddingHorizontal:20,paddingBottom:16,backgroundColor:'#FFF',borderBottomWidth:1,borderBottomColor:'#E8E6F4',flexDirection:'row',alignItems:'flex-end',justifyContent:'space-between'},
+  back:{color:'#D02010',fontSize:16,fontWeight:'600'}, headerTitle:{fontSize:24,fontWeight:'800',color:'#201060'}, markAll:{color:'#D02010',fontSize:14,fontWeight:'600'},
+  list:{padding:16,paddingBottom:40},
+  card:{flexDirection:'row',backgroundColor:'#FFF',borderRadius:14,padding:14,marginBottom:10,borderWidth:1,borderColor:'#E8E6F4',gap:12,alignItems:'flex-start'},
+  cardUnread:{borderColor:'#D02010',backgroundColor:'#FFF5F5'},
+  icon:{width:44,height:44,borderRadius:22,alignItems:'center',justifyContent:'center'}, iconTxt:{fontSize:20},
+  content:{flex:1}, title:{fontSize:14,fontWeight:'700',color:'#201060',marginBottom:2},
+  msg:{fontSize:13,color:'#6B6490',lineHeight:18}, time:{fontSize:11,color:'#9BA1A6',marginTop:4},
+  dot:{width:8,height:8,borderRadius:4,backgroundColor:'#D02010',marginTop:4},
+  empty:{alignItems:'center',paddingTop:80,gap:12}, emptyEmoji:{fontSize:56}, emptyTxt:{fontSize:18,fontWeight:'700',color:'#201060'},
+  guest:{flex:1,alignItems:'center',justifyContent:'center',gap:16,padding:32},
+  guestEmoji:{fontSize:56}, guestTitle:{fontSize:18,fontWeight:'700',color:'#201060',textAlign:'center'},
+  signIn:{backgroundColor:'#D02010',borderRadius:12,paddingHorizontal:32,paddingVertical:14}, signInTxt:{color:'#FFF',fontSize:16,fontWeight:'700'},
 });
-

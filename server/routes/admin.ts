@@ -3,6 +3,7 @@ import {
   getActiveOrders, getAllRiders, getOrderStats, getOrderWithItems,
   updateOrderStatus, assignRiderToOrder, getAvailableRiders,
 } from "../db";
+import { createNotification } from "../db";
 import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
 import { TRPCError } from "@trpc/server";
 import { getDb } from "../db";
@@ -115,7 +116,35 @@ export const adminRouter = router({
       status: z.enum(["accepted", "preparing", "ready", "rejected", "refunded"]),
       note: z.string().optional(),
     }))
-    .mutation(({ ctx, input }) => updateOrderStatus(input.orderId, input.status, input.note, ctx.user.id)),
+    .mutation(async ({ ctx, input }) => {
+      await updateOrderStatus(input.orderId, input.status, input.note, ctx.user.id);
+      // ── Customer push notification on status change ────────────────────────
+      const db = await getDb();
+      if (db) {
+        const orderRow = await db.select({ userId: orders.userId, orderNumber: orders.orderNumber })
+          .from(orders).where(eq(orders.id, input.orderId)).limit(1);
+        if (orderRow.length > 0 && orderRow[0].userId) {
+          const statusMessages: Record<string, { title: string; message: string }> = {
+            accepted: { title: "✅ Order Accepted", message: `Your order #${orderRow[0].orderNumber} has been accepted and will be prepared shortly.` },
+            preparing: { title: "👨‍🍳 Being Prepared", message: `Your order #${orderRow[0].orderNumber} is now being prepared in the kitchen.` },
+            ready: { title: "🍽️ Order Ready!", message: `Your order #${orderRow[0].orderNumber} is ready! ${input.note ?? ''}` },
+            rejected: { title: "❌ Order Rejected", message: `Your order #${orderRow[0].orderNumber} was rejected. ${input.note ?? 'Please contact support.'}` },
+            refunded: { title: "💸 Refund Initiated", message: `A refund has been initiated for order #${orderRow[0].orderNumber}.` },
+          };
+          const msg = statusMessages[input.status];
+          if (msg) {
+            await createNotification({
+              userId: orderRow[0].userId,
+              type: "order_update",
+              title: msg.title,
+              body: msg.message,
+              orderId: input.orderId,
+            }).catch(() => {});
+          }
+        }
+      }
+      return { success: true };
+    }),
 
   // Rider management
   riders: adminProcedure

@@ -5,12 +5,14 @@ import {
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useAppStore } from '@/lib/store/app-store';
+import { trpc } from '@/lib/trpc';
 
 const EVENT_TYPES = ['Wedding', 'Birthday Party', 'Corporate Event', 'Naming Ceremony', 'Anniversary', 'Conference', 'Other'];
 const BUDGET_RANGES = ['Under ₦100,000', '₦100,000 – ₦500,000', '₦500,000 – ₦1,000,000', 'Above ₦1,000,000'];
 
 export default function CateringScreen() {
   const { state } = useAppStore();
+  const createCatering = trpc.catering.create.useMutation();
   const [eventType, setEventType] = useState('');
   const [eventDate, setEventDate] = useState('');
   const [eventTime, setEventTime] = useState('');
@@ -24,20 +26,48 @@ export default function CateringScreen() {
   const [additionalInfo, setAdditionalInfo] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!eventType || !eventDate || !venue || !contactName || !contactPhone) {
       Alert.alert('Missing Information', 'Please fill in all required fields.');
       return;
     }
+    if (!state.isAuthenticated) {
+      Alert.alert('Sign In Required', 'Please sign in to submit a catering request.', [
+        { text: 'Sign In', onPress: () => router.push('/auth/login' as never) },
+        { text: 'Cancel', style: 'cancel' },
+      ]);
+      return;
+    }
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
+    const budgetMap: Record<string, number> = {
+      'Under ₦100,000': 75000,
+      '₦100,000 – ₦500,000': 300000,
+      '₦500,000 – ₦1,000,000': 750000,
+      'Above ₦1,000,000': 1500000,
+    };
+    try {
+      await createCatering.mutateAsync({
+        branchId: 1,
+        contactName,
+        contactPhone,
+        eventType,
+        eventDate,
+        guestCount: parseInt(guestCount, 10) || 50,
+        venue,
+        mealPreferences: preferredMeals || undefined,
+        budget: budget ? budgetMap[budget] : undefined,
+        additionalRequirements: [serviceReqs, additionalInfo].filter(Boolean).join('\n') || undefined,
+      });
       Alert.alert(
         '🎪 Request Submitted!',
         'Your catering request has been submitted. Our team will contact you within 24 hours with a quote.',
         [{ text: 'Done', onPress: () => router.back() }]
       );
-    }, 1200);
+    } catch (err: any) {
+      Alert.alert('Error', err?.message || 'Failed to submit catering request. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -184,4 +214,3 @@ const styles = StyleSheet.create({
   submitBtnLoading: { backgroundColor: '#E8E6F4' },
   submitBtnText: { color: '#FFF', fontSize: 18, fontWeight: '700' },
 });
-

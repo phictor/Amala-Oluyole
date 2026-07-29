@@ -5,6 +5,7 @@ import {
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useAppStore } from '@/lib/store/app-store';
+import { trpc } from '@/lib/trpc';
 
 const ISSUE_TYPES = [
   { id: 'wrong_order', label: 'Wrong Order Received', icon: '❌' },
@@ -26,6 +27,7 @@ const FAQS = [
 
 export default function SupportScreen() {
   const { state } = useAppStore();
+  const createTicket = trpc.support.create.useMutation();
   const [issueType, setIssueType] = useState('');
   const [orderId, setOrderId] = useState('');
   const [message, setMessage] = useState('');
@@ -33,20 +35,41 @@ export default function SupportScreen() {
   const [loading, setLoading] = useState(false);
   const [tab, setTab] = useState<'ticket' | 'faq'>('ticket');
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!issueType || !message.trim()) {
       Alert.alert('Missing Information', 'Please select an issue type and describe your problem.');
       return;
     }
+    if (!state.isAuthenticated) {
+      Alert.alert('Sign In Required', 'Please sign in to submit a support ticket.', [
+        { text: 'Sign In', onPress: () => router.push('/auth/login' as never) },
+        { text: 'Cancel', style: 'cancel' },
+      ]);
+      return;
+    }
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
+    const categoryMap: Record<string, 'order_issue' | 'payment' | 'delivery' | 'food_quality' | 'app_bug' | 'general'> = {
+      wrong_order: 'order_issue', missing_item: 'order_issue',
+      quality: 'food_quality', delivery: 'delivery',
+      payment: 'payment', app: 'app_bug', other: 'general',
+    };
+    try {
+      await createTicket.mutateAsync({
+        orderId: orderId ? parseInt(orderId, 10) : undefined,
+        category: categoryMap[issueType] ?? 'general',
+        subject: ISSUE_TYPES.find(t => t.id === issueType)?.label ?? 'Support Request',
+        message: message.trim(),
+      });
       Alert.alert(
         '✅ Ticket Submitted',
         'Your support request has been submitted. We will respond within 2 hours.',
         [{ text: 'OK', onPress: () => { setIssueType(''); setMessage(''); setOrderId(''); } }]
       );
-    }, 1000);
+    } catch (err: any) {
+      Alert.alert('Error', err?.message || 'Failed to submit ticket. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -214,4 +237,3 @@ const styles = StyleSheet.create({
   faqChevron: { fontSize: 12, color: '#D02010' },
   faqA: { fontSize: 14, color: '#6B6490', lineHeight: 22, marginTop: 10 },
 });
-
