@@ -92,25 +92,25 @@ export default function OTPScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FDF8F3', paddingHorizontal: 24 },
+  container: { flex: 1, backgroundColor: '#FFFFFF', paddingHorizontal: 24 },
   backBtn: { paddingTop: 56, paddingBottom: 8 },
-  backText: { color: '#C0392B', fontSize: 16, fontWeight: '600' },
-  title: { fontSize: 28, fontWeight: '800', color: '#1A0F0A', marginTop: 24, marginBottom: 8 },
-  subtitle: { fontSize: 15, color: '#8B6F5E', lineHeight: 22, marginBottom: 40 },
-  phone: { color: '#C0392B', fontWeight: '700' },
+  backText: { color: '#D02010', fontSize: 16, fontWeight: '600' },
+  title: { fontSize: 28, fontWeight: '800', color: '#201060', marginTop: 24, marginBottom: 8 },
+  subtitle: { fontSize: 15, color: '#6B6490', lineHeight: 22, marginBottom: 40 },
+  phone: { color: '#D02010', fontWeight: '700' },
   otpRow: { flexDirection: 'row', gap: 12, marginBottom: 40 },
   otpInput: {
-    flex: 1, height: 56, borderWidth: 2, borderColor: '#E8D5C4',
-    borderRadius: 12, fontSize: 24, fontWeight: '700', color: '#1A0F0A',
-    backgroundColor: '#FFF5EC', textAlign: 'center',
+    flex: 1, height: 56, borderWidth: 2, borderColor: '#E8E6F4',
+    borderRadius: 12, fontSize: 24, fontWeight: '700', color: '#201060',
+    backgroundColor: '#F4F3FB', textAlign: 'center',
   },
-  otpInputFilled: { borderColor: '#C0392B', backgroundColor: '#FFF5EC' },
+  otpInputFilled: { borderColor: '#D02010', backgroundColor: '#F4F3FB' },
   verifyBtn: {
-    backgroundColor: '#C0392B', borderRadius: 16, paddingVertical: 16, alignItems: 'center',
+    backgroundColor: '#D02010', borderRadius: 16, paddingVertical: 16, alignItems: 'center',
   },
   btnDisabled: { opacity: 0.7 },
   verifyBtnText: { color: '#FFF', fontSize: 18, fontWeight: '700' },
   resendBtn: { alignItems: 'center', marginTop: 24 },
-  resendText: { color: '#8B6F5E', fontSize: 15 },
-  resendLink: { color: '#C0392B', fontWeight: '700' },
+  resendText: { color: '#6B6490', fontSize: 15 },
+  resendLink: { color: '#D02010', fontWeight: '700' },
 });

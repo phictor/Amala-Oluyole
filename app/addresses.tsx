@@ -57,31 +57,31 @@ export default function AddressesScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FDF8F3' },
+  container: { flex: 1, backgroundColor: '#FFFFFF' },
   header: { paddingTop: 56, paddingHorizontal: 20, paddingBottom: 16 },
-  backText: { color: '#C0392B', fontSize: 16, fontWeight: '600', marginBottom: 8 },
-  title: { fontSize: 26, fontWeight: '800', color: '#1A0F0A' },
+  backText: { color: '#D02010', fontSize: 16, fontWeight: '600', marginBottom: 8 },
+  title: { fontSize: 26, fontWeight: '800', color: '#201060' },
   list: { paddingHorizontal: 20, paddingBottom: 24 },
   addressCard: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     backgroundColor: '#FFF', borderRadius: 14, padding: 14, marginBottom: 10,
-    borderWidth: 1, borderColor: '#E8D5C4',
+    borderWidth: 1, borderColor: '#E8E6F4',
   },
   addressLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
   addressIconBox: {
-    width: 44, height: 44, borderRadius: 22, backgroundColor: '#FFF5EC',
+    width: 44, height: 44, borderRadius: 22, backgroundColor: '#F4F3FB',
     alignItems: 'center', justifyContent: 'center',
   },
   addressIcon: { fontSize: 22 },
   addressInfo: { flex: 1 },
-  addressLabel: { fontSize: 15, fontWeight: '700', color: '#1A0F0A', marginBottom: 2 },
-  addressStreet: { fontSize: 13, color: '#8B6F5E' },
-  addressLandmark: { fontSize: 12, color: '#A08070', marginTop: 2 },
+  addressLabel: { fontSize: 15, fontWeight: '700', color: '#201060', marginBottom: 2 },
+  addressStreet: { fontSize: 13, color: '#6B6490' },
+  addressLandmark: { fontSize: 12, color: '#8B88B0', marginTop: 2 },
   defaultBadge: { backgroundColor: '#D5F5E3', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
   defaultBadgeText: { fontSize: 12, fontWeight: '700', color: '#27AE60' },
   emptyState: { alignItems: 'center', paddingTop: 80 },
   emptyEmoji: { fontSize: 56, marginBottom: 12 },
-  emptyTitle: { fontSize: 20, fontWeight: '700', color: '#1A0F0A', marginBottom: 8 },
-  emptySubtitle: { fontSize: 15, color: '#8B6F5E', textAlign: 'center' },
+  emptyTitle: { fontSize: 20, fontWeight: '700', color: '#201060', marginBottom: 8 },
+  emptySubtitle: { fontSize: 15, color: '#6B6490', textAlign: 'center' },
 });
 

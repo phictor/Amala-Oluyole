@@ -8,25 +8,25 @@ import { useAppStore } from '@/lib/store/app-store';
 import type { Order } from '@/lib/data/types';
 
 const STATUS_LABELS: Record<string, { label: string; color: string; bg: string }> = {
-  created: { label: 'Created', color: '#8B6F5E', bg: '#FFF5EC' },
+  created: { label: 'Created', color: '#6B6490', bg: '#F4F3FB' },
   awaiting_payment: { label: 'Awaiting Payment', color: '#F39C12', bg: '#FFF9EC' },
   payment_confirmed: { label: 'Confirmed', color: '#27AE60', bg: '#D5F5E3' },
   accepted: { label: 'Accepted', color: '#27AE60', bg: '#D5F5E3' },
-  preparing: { label: 'Preparing', color: '#E67E22', bg: '#FFF5EC' },
+  preparing: { label: 'Preparing', color: '#E67E22', bg: '#F4F3FB' },
   ready: { label: 'Ready', color: '#2980B9', bg: '#EBF5FB' },
   rider_assigned: { label: 'Rider Assigned', color: '#8E44AD', bg: '#F5EEF8' },
-  out_for_delivery: { label: 'On the Way', color: '#C0392B', bg: '#FDECEA' },
+  out_for_delivery: { label: 'On the Way', color: '#D02010', bg: '#FDECEA' },
   delivered: { label: 'Delivered', color: '#27AE60', bg: '#D5F5E3' },
   completed: { label: 'Completed', color: '#27AE60', bg: '#D5F5E3' },
   cancelled: { label: 'Cancelled', color: '#E74C3C', bg: '#FDECEA' },
   rejected: { label: 'Rejected', color: '#E74C3C', bg: '#FDECEA' },
-  refunded: { label: 'Refunded', color: '#8B6F5E', bg: '#F5F5F5' },
+  refunded: { label: 'Refunded', color: '#6B6490', bg: '#F5F5F5' },
 };
 
 const ACTIVE_STATUSES = ['created', 'awaiting_payment', 'payment_confirmed', 'accepted', 'preparing', 'ready', 'rider_assigned', 'out_for_delivery'];
 
 function OrderCard({ order, onPress }: { order: Order; onPress: () => void }) {
-  const statusInfo = STATUS_LABELS[order.status] || { label: order.status, color: '#8B6F5E', bg: '#F5F5F5' };
+  const statusInfo = STATUS_LABELS[order.status] || { label: order.status, color: '#6B6490', bg: '#F5F5F5' };
   const isActive = ACTIVE_STATUSES.includes(order.status);
   return (
     <TouchableOpacity style={[styles.orderCard, isActive && styles.orderCardActive]} onPress={onPress}>
@@ -118,39 +118,39 @@ export default function OrdersScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FDF8F3' },
+  container: { flex: 1, backgroundColor: '#FFFFFF' },
   header: { paddingTop: 56, paddingHorizontal: 20, paddingBottom: 8 },
-  title: { fontSize: 28, fontWeight: '800', color: '#1A0F0A' },
+  title: { fontSize: 28, fontWeight: '800', color: '#201060' },
   tabRow: { flexDirection: 'row', paddingHorizontal: 20, marginBottom: 12, gap: 12 },
   tabBtn: {
     flex: 1, paddingVertical: 10, borderRadius: 12, alignItems: 'center',
-    borderWidth: 1.5, borderColor: '#E8D5C4', backgroundColor: '#FFF5EC',
+    borderWidth: 1.5, borderColor: '#E8E6F4', backgroundColor: '#F4F3FB',
   },
-  tabBtnActive: { backgroundColor: '#C0392B', borderColor: '#C0392B' },
-  tabBtnText: { fontSize: 14, fontWeight: '700', color: '#8B6F5E' },
+  tabBtnActive: { backgroundColor: '#D02010', borderColor: '#D02010' },
+  tabBtnText: { fontSize: 14, fontWeight: '700', color: '#6B6490' },
   tabBtnTextActive: { color: '#FFF' },
   list: { paddingHorizontal: 20, paddingBottom: 24 },
   orderCard: {
     backgroundColor: '#FFF', borderRadius: 16, padding: 16, marginBottom: 12,
-    borderWidth: 1.5, borderColor: '#E8D5C4',
+    borderWidth: 1.5, borderColor: '#E8E6F4',
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 1,
   },
-  orderCardActive: { borderColor: '#C0392B', borderWidth: 2 },
+  orderCardActive: { borderColor: '#D02010', borderWidth: 2 },
   orderCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
-  orderNumber: { fontSize: 16, fontWeight: '800', color: '#1A0F0A' },
+  orderNumber: { fontSize: 16, fontWeight: '800', color: '#201060' },
   statusBadge: { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
   statusText: { fontSize: 12, fontWeight: '700' },
-  orderBranch: { fontSize: 13, color: '#8B6F5E', marginBottom: 4 },
-  orderItems: { fontSize: 14, color: '#6B3A2A', marginBottom: 10 },
+  orderBranch: { fontSize: 13, color: '#6B6490', marginBottom: 4 },
+  orderItems: { fontSize: 14, color: '#1A1640', marginBottom: 10 },
   orderCardFooter: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  orderTotal: { fontSize: 17, fontWeight: '800', color: '#C0392B', flex: 1 },
-  orderDate: { fontSize: 12, color: '#8B6F5E' },
+  orderTotal: { fontSize: 17, fontWeight: '800', color: '#D02010', flex: 1 },
+  orderDate: { fontSize: 12, color: '#6B6490' },
   orderType: { fontSize: 18 },
   emptyState: { alignItems: 'center', paddingTop: 60, paddingHorizontal: 40 },
   emptyEmoji: { fontSize: 64, marginBottom: 16 },
-  emptyTitle: { fontSize: 20, fontWeight: '700', color: '#1A0F0A', marginBottom: 8 },
-  emptySubtitle: { fontSize: 15, color: '#8B6F5E', textAlign: 'center', marginBottom: 24 },
-  orderNowBtn: { backgroundColor: '#C0392B', borderRadius: 14, paddingVertical: 12, paddingHorizontal: 28 },
+  emptyTitle: { fontSize: 20, fontWeight: '700', color: '#201060', marginBottom: 8 },
+  emptySubtitle: { fontSize: 15, color: '#6B6490', textAlign: 'center', marginBottom: 24 },
+  orderNowBtn: { backgroundColor: '#D02010', borderRadius: 14, paddingVertical: 12, paddingHorizontal: 28 },
   orderNowBtnText: { color: '#FFF', fontSize: 15, fontWeight: '700' },
 });
 

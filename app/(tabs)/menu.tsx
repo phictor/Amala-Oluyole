@@ -91,7 +91,7 @@ export default function MenuScreen() {
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Menu</Text>
         <View style={styles.headerRight}>
-          {isLoading && <ActivityIndicator size="small" color="#C0392B" style={{ marginRight: 8 }} />}
+          {isLoading && <ActivityIndicator size="small" color="#D02010" style={{ marginRight: 8 }} />}
           <TouchableOpacity
             style={styles.builderBtn}
             onPress={() => router.push('/meal/builder' as never)}
@@ -108,7 +108,7 @@ export default function MenuScreen() {
           <TextInput
             style={styles.searchInput}
             placeholder="Search meals..."
-            placeholderTextColor="#B09080"
+            placeholderTextColor="#9B94C4"
             value={search}
             onChangeText={setSearch}
             returnKeyType="search"
@@ -160,7 +160,7 @@ export default function MenuScreen() {
         ListEmptyComponent={
           isLoading ? (
             <View style={styles.empty}>
-              <ActivityIndicator size="large" color="#C0392B" />
+              <ActivityIndicator size="large" color="#D02010" />
               <Text style={styles.emptyDesc}>Loading menu...</Text>
             </View>
           ) : (
@@ -237,7 +237,7 @@ export default function MenuScreen() {
                   onPress={() => router.push({ pathname: '/meal/[id]', params: { id: String(meal.id) } } as never)}
                 >
                   <LinearGradient
-                    colors={isAvailable ? ['#C0392B', '#8B1A10'] : ['#CCC', '#AAA']}
+                    colors={isAvailable ? ['#D02010', '#150B50'] : ['#CCC', '#AAA']}
                     style={styles.addBtnGrad}
                     start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
                   >
@@ -258,23 +258,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingHorizontal: 20, paddingTop: 8, paddingBottom: 4,
   },
-  headerTitle: { fontSize: 28, fontWeight: '900', color: '#1A0F0A' },
+  headerTitle: { fontSize: 28, fontWeight: '900', color: '#201060' },
   headerRight: { flexDirection: 'row', alignItems: 'center' },
   builderBtn: {
-    backgroundColor: '#FFF5EC', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8,
-    borderWidth: 1.5, borderColor: '#C0392B',
+    backgroundColor: '#F4F3FB', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8,
+    borderWidth: 1.5, borderColor: '#D02010',
   },
-  builderBtnText: { fontSize: 13, fontWeight: '700', color: '#C0392B' },
+  builderBtnText: { fontSize: 13, fontWeight: '700', color: '#D02010' },
 
   searchWrap: { paddingHorizontal: 16, paddingVertical: 8 },
   searchBox: {
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: '#FFF', borderRadius: 14, paddingHorizontal: 14, paddingVertical: 11,
-    gap: 10, borderWidth: 1.5, borderColor: '#EDE0D4',
+    gap: 10, borderWidth: 1.5, borderColor: '#EDEAFB',
   },
   searchIcon: { fontSize: 16 },
-  searchInput: { flex: 1, fontSize: 15, color: '#1A0F0A' },
-  clearIcon: { fontSize: 15, color: '#8B6F5E', paddingHorizontal: 4 },
+  searchInput: { flex: 1, fontSize: 15, color: '#201060' },
+  clearIcon: { fontSize: 15, color: '#6B6490', paddingHorizontal: 4 },
 
   catScroll: { maxHeight: 72 },
   catList: { paddingHorizontal: 16, paddingVertical: 8, gap: 8 },
@@ -282,24 +282,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 6,
     paddingHorizontal: 14, paddingVertical: 8,
     borderRadius: 20, backgroundColor: '#FFF',
-    borderWidth: 1.5, borderColor: '#EDE0D4',
+    borderWidth: 1.5, borderColor: '#EDEAFB',
   },
-  catTabActive: { backgroundColor: '#C0392B', borderColor: '#C0392B' },
+  catTabActive: { backgroundColor: '#D02010', borderColor: '#D02010' },
   catTabIcon: { fontSize: 16 },
-  catTabText: { fontSize: 13, fontWeight: '600', color: '#8B6F5E' },
+  catTabText: { fontSize: 13, fontWeight: '600', color: '#6B6490' },
   catTabTextActive: { color: '#FFF' },
 
-  resultCount: { fontSize: 13, color: '#8B6F5E', marginBottom: 12 },
+  resultCount: { fontSize: 13, color: '#6B6490', marginBottom: 12 },
   listContent: { paddingHorizontal: 16, paddingTop: 4, paddingBottom: 100 },
 
   empty: { alignItems: 'center', paddingTop: 60, gap: 12 },
   emptyEmoji: { fontSize: 52 },
-  emptyTitle: { fontSize: 18, fontWeight: '700', color: '#1A0F0A' },
-  emptyDesc: { fontSize: 14, color: '#8B6F5E' },
+  emptyTitle: { fontSize: 18, fontWeight: '700', color: '#201060' },
+  emptyDesc: { fontSize: 14, color: '#6B6490' },
 
   card: {
     backgroundColor: '#FFF', borderRadius: 18, marginBottom: 16, overflow: 'hidden',
-    shadowColor: '#6B3A2A', shadowOffset: { width: 0, height: 3 },
+    shadowColor: '#1A1640', shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.09, shadowRadius: 10, elevation: 4,
   },
   cardImgWrap: { height: 170, position: 'relative' },
@@ -314,24 +314,24 @@ const styles = StyleSheet.create({
     position: 'absolute', top: 10, left: 10,
     borderRadius: 10, paddingHorizontal: 8, paddingVertical: 4,
   },
-  labelRed: { backgroundColor: '#C0392B' },
-  labelGold: { backgroundColor: '#D4A017' },
+  labelRed: { backgroundColor: '#D02010' },
+  labelGold: { backgroundColor: '#F0C000' },
   labelOrange: { backgroundColor: '#E67E22' },
   labelText: { fontSize: 11, fontWeight: '700', color: '#FFF' },
 
   cardBody: { padding: 14 },
   cardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
-  cardName: { flex: 1, fontSize: 17, fontWeight: '800', color: '#1A0F0A' },
+  cardName: { flex: 1, fontSize: 17, fontWeight: '800', color: '#201060' },
   heartBtn: { padding: 4 },
-  heartIcon: { fontSize: 18, color: '#C0392B' },
-  cardDesc: { fontSize: 13, color: '#8B6F5E', lineHeight: 19, marginBottom: 10 },
+  heartIcon: { fontSize: 18, color: '#D02010' },
+  cardDesc: { fontSize: 13, color: '#6B6490', lineHeight: 19, marginBottom: 10 },
   cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  cardPrice: { fontSize: 18, fontWeight: '900', color: '#C0392B' },
+  cardPrice: { fontSize: 18, fontWeight: '900', color: '#D02010' },
   cardMeta: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  cardTime: { fontSize: 13, color: '#8B6F5E' },
+  cardTime: { fontSize: 13, color: '#6B6490' },
   ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  ratingStar: { fontSize: 13, color: '#D4A017' },
-  ratingVal: { fontSize: 13, fontWeight: '600', color: '#8B6F5E' },
+  ratingStar: { fontSize: 13, color: '#F0C000' },
+  ratingVal: { fontSize: 13, fontWeight: '600', color: '#6B6490' },
 
   addBtn: { borderRadius: 12, overflow: 'hidden' },
   addBtnDisabled: { opacity: 0.6 },

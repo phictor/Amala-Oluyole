@@ -48,16 +48,16 @@ export default function RegisterScreen() {
         <View style={styles.form}>
           <Text style={styles.label}>Full Name *</Text>
           <TextInput style={styles.input} placeholder="e.g. Adebayo Oladele"
-            placeholderTextColor="#A08070" value={name} onChangeText={setName} />
+            placeholderTextColor="#8B88B0" value={name} onChangeText={setName} />
 
           <Text style={styles.label}>Phone Number *</Text>
           <TextInput style={styles.input} placeholder="e.g. 08012345678"
-            placeholderTextColor="#A08070" value={phone} onChangeText={setPhone}
+            placeholderTextColor="#8B88B0" value={phone} onChangeText={setPhone}
             keyboardType="phone-pad" />
 
           <Text style={styles.label}>Email Address (optional)</Text>
           <TextInput style={styles.input} placeholder="e.g. adebayo@email.com"
-            placeholderTextColor="#A08070" value={email} onChangeText={setEmail}
+            placeholderTextColor="#8B88B0" value={email} onChangeText={setEmail}
             keyboardType="email-address" autoCapitalize="none" />
 
           <Text style={styles.label}>Password *</Text>
@@ -65,7 +65,7 @@ export default function RegisterScreen() {
             <TextInput
               style={[styles.input, { flex: 1, marginBottom: 0 }]}
               placeholder="At least 8 characters"
-              placeholderTextColor="#A08070"
+              placeholderTextColor="#8B88B0"
               value={password} onChangeText={setPassword}
               secureTextEntry={!showPassword}
             />
@@ -76,7 +76,7 @@ export default function RegisterScreen() {
 
           <Text style={styles.label}>Confirm Password *</Text>
           <TextInput style={styles.input} placeholder="Repeat your password"
-            placeholderTextColor="#A08070" value={confirmPassword}
+            placeholderTextColor="#8B88B0" value={confirmPassword}
             onChangeText={setConfirmPassword} secureTextEntry={!showPassword} />
 
           <Text style={styles.terms}>
@@ -105,30 +105,30 @@ export default function RegisterScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FDF8F3' },
+  container: { flex: 1, backgroundColor: '#FFFFFF' },
   scroll: { flexGrow: 1, paddingHorizontal: 24 },
   backBtn: { paddingTop: 56, paddingBottom: 8 },
-  backText: { color: '#C0392B', fontSize: 16, fontWeight: '600' },
-  title: { fontSize: 28, fontWeight: '800', color: '#1A0F0A', marginBottom: 8 },
-  subtitle: { fontSize: 15, color: '#8B6F5E', marginBottom: 24 },
+  backText: { color: '#D02010', fontSize: 16, fontWeight: '600' },
+  title: { fontSize: 28, fontWeight: '800', color: '#201060', marginBottom: 8 },
+  subtitle: { fontSize: 15, color: '#6B6490', marginBottom: 24 },
   form: { gap: 4 },
-  label: { fontSize: 14, fontWeight: '600', color: '#1A0F0A', marginBottom: 6, marginTop: 12 },
+  label: { fontSize: 14, fontWeight: '600', color: '#201060', marginBottom: 6, marginTop: 12 },
   input: {
-    backgroundColor: '#FFF5EC', borderWidth: 1.5, borderColor: '#E8D5C4',
+    backgroundColor: '#F4F3FB', borderWidth: 1.5, borderColor: '#E8E6F4',
     borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14,
-    fontSize: 16, color: '#1A0F0A', marginBottom: 4,
+    fontSize: 16, color: '#201060', marginBottom: 4,
   },
   passwordRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
-  eyeBtn: { padding: 14, backgroundColor: '#FFF5EC', borderWidth: 1.5, borderColor: '#E8D5C4', borderRadius: 12 },
+  eyeBtn: { padding: 14, backgroundColor: '#F4F3FB', borderWidth: 1.5, borderColor: '#E8E6F4', borderRadius: 12 },
   eyeIcon: { fontSize: 18 },
-  terms: { fontSize: 13, color: '#8B6F5E', lineHeight: 20, marginTop: 12, marginBottom: 20 },
-  termsLink: { color: '#C0392B', fontWeight: '600' },
+  terms: { fontSize: 13, color: '#6B6490', lineHeight: 20, marginTop: 12, marginBottom: 20 },
+  termsLink: { color: '#D02010', fontWeight: '600' },
   registerBtn: {
-    backgroundColor: '#C0392B', borderRadius: 16, paddingVertical: 16, alignItems: 'center',
+    backgroundColor: '#D02010', borderRadius: 16, paddingVertical: 16, alignItems: 'center',
   },
   btnDisabled: { opacity: 0.7 },
   registerBtnText: { color: '#FFF', fontSize: 18, fontWeight: '700' },
   footer: { flexDirection: 'row', justifyContent: 'center', paddingVertical: 32 },
-  footerText: { color: '#8B6F5E', fontSize: 15 },
-  footerLink: { color: '#C0392B', fontSize: 15, fontWeight: '700' },
+  footerText: { color: '#6B6490', fontSize: 15 },
+  footerLink: { color: '#D02010', fontSize: 15, fontWeight: '700' },
 });

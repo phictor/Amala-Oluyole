@@ -123,16 +123,16 @@ export default function AddEditMealScreen() {
       <ScrollView style={s.container} contentContainerStyle={{ paddingBottom: 40 }}>
         {/* Name */}
         <Text style={s.label}>Meal Name *</Text>
-        <TextInput style={s.input} value={name} onChangeText={setName} placeholder="e.g. Amala & Ewedu" placeholderTextColor="#B09080" />
+        <TextInput style={s.input} value={name} onChangeText={setName} placeholder="e.g. Amala & Ewedu" placeholderTextColor="#9B94C4" />
 
         {/* Description */}
         <Text style={s.label}>Description</Text>
         <TextInput style={[s.input, s.multiline]} value={description} onChangeText={setDescription}
-          placeholder="Brief description of the meal..." placeholderTextColor="#B09080" multiline numberOfLines={3} />
+          placeholder="Brief description of the meal..." placeholderTextColor="#9B94C4" multiline numberOfLines={3} />
 
         {/* Price */}
         <Text style={s.label}>Price (₦) *</Text>
-        <TextInput style={s.input} value={price} onChangeText={setPrice} placeholder="e.g. 2500" placeholderTextColor="#B09080" keyboardType="numeric" />
+        <TextInput style={s.input} value={price} onChangeText={setPrice} placeholder="e.g. 2500" placeholderTextColor="#9B94C4" keyboardType="numeric" />
 
         {/* Category */}
         <Text style={s.label}>Category *</Text>
@@ -150,15 +150,15 @@ export default function AddEditMealScreen() {
 
         {/* Prep Time */}
         <Text style={s.label}>Preparation Time (minutes)</Text>
-        <TextInput style={s.input} value={prepTime} onChangeText={setPrepTime} placeholder="15" placeholderTextColor="#B09080" keyboardType="numeric" />
+        <TextInput style={s.input} value={prepTime} onChangeText={setPrepTime} placeholder="15" placeholderTextColor="#9B94C4" keyboardType="numeric" />
 
         {/* Image URL */}
         <Text style={s.label}>Image URL</Text>
-        <TextInput style={s.input} value={imageUrl} onChangeText={setImageUrl} placeholder="https://..." placeholderTextColor="#B09080" autoCapitalize="none" />
+        <TextInput style={s.input} value={imageUrl} onChangeText={setImageUrl} placeholder="https://..." placeholderTextColor="#9B94C4" autoCapitalize="none" />
 
         {/* Sort Order */}
         <Text style={s.label}>Sort Order</Text>
-        <TextInput style={s.input} value={sortOrder} onChangeText={setSortOrder} placeholder="0" placeholderTextColor="#B09080" keyboardType="numeric" />
+        <TextInput style={s.input} value={sortOrder} onChangeText={setSortOrder} placeholder="0" placeholderTextColor="#9B94C4" keyboardType="numeric" />
 
         {/* Toggles */}
         <Text style={s.sectionTitle}>Availability & Flags</Text>
@@ -174,8 +174,8 @@ export default function AddEditMealScreen() {
             <Switch
               value={val}
               onValueChange={setter}
-              trackColor={{ false: '#E8D5C4', true: '#C0392B' }}
-              thumbColor={val ? '#FFF' : '#8B6F5E'}
+              trackColor={{ false: '#E8E6F4', true: '#D02010' }}
+              thumbColor={val ? '#FFF' : '#6B6490'}
             />
           </View>
         ))}
@@ -211,42 +211,42 @@ const s = StyleSheet.create({
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingTop: 56, paddingBottom: 16,
-    backgroundColor: '#C0392B',
+    backgroundColor: '#D02010',
   },
   backBtn: { padding: 8 },
   backText: { color: '#FFF', fontSize: 15, fontWeight: '600' },
   headerTitle: { color: '#FFF', fontSize: 18, fontWeight: '700' },
-  container: { flex: 1, backgroundColor: '#FDF8F3', paddingHorizontal: 16, paddingTop: 16 },
-  label: { fontSize: 13, fontWeight: '600', color: '#5C3D2E', marginBottom: 6, marginTop: 14 },
-  sectionTitle: { fontSize: 15, fontWeight: '700', color: '#C0392B', marginTop: 22, marginBottom: 10 },
+  container: { flex: 1, backgroundColor: '#FFFFFF', paddingHorizontal: 16, paddingTop: 16 },
+  label: { fontSize: 13, fontWeight: '600', color: '#201060', marginBottom: 6, marginTop: 14 },
+  sectionTitle: { fontSize: 15, fontWeight: '700', color: '#D02010', marginTop: 22, marginBottom: 10 },
   input: {
-    backgroundColor: '#FFF', borderRadius: 10, borderWidth: 1, borderColor: '#E8D5C4',
-    paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, color: '#2C1810',
+    backgroundColor: '#FFF', borderRadius: 10, borderWidth: 1, borderColor: '#E8E6F4',
+    paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, color: '#201060',
   },
   multiline: { height: 80, textAlignVertical: 'top' },
   categoryRow: { marginBottom: 4 },
   catChip: {
     paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1,
-    borderColor: '#E8D5C4', backgroundColor: '#FFF', marginRight: 8,
+    borderColor: '#E8E6F4', backgroundColor: '#FFF', marginRight: 8,
   },
-  catChipActive: { backgroundColor: '#C0392B', borderColor: '#C0392B' },
-  catChipText: { fontSize: 13, color: '#5C3D2E', fontWeight: '500' },
+  catChipActive: { backgroundColor: '#D02010', borderColor: '#D02010' },
+  catChipText: { fontSize: 13, color: '#201060', fontWeight: '500' },
   catChipTextActive: { color: '#FFF' },
   toggleRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#F0E0D0',
   },
-  toggleLabel: { fontSize: 15, color: '#2C1810' },
+  toggleLabel: { fontSize: 15, color: '#201060' },
   labelsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   labelChip: {
     paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1,
-    borderColor: '#E8D5C4', backgroundColor: '#FFF',
+    borderColor: '#E8E6F4', backgroundColor: '#FFF',
   },
-  labelChipActive: { backgroundColor: '#FDF0E8', borderColor: '#C0392B' },
-  labelChipText: { fontSize: 12, color: '#5C3D2E' },
-  labelChipTextActive: { color: '#C0392B', fontWeight: '600' },
+  labelChipActive: { backgroundColor: '#F4F3FB', borderColor: '#D02010' },
+  labelChipText: { fontSize: 12, color: '#201060' },
+  labelChipTextActive: { color: '#D02010', fontWeight: '600' },
   saveBtn: {
-    marginTop: 28, backgroundColor: '#C0392B', borderRadius: 14,
+    marginTop: 28, backgroundColor: '#D02010', borderRadius: 14,
     paddingVertical: 16, alignItems: 'center',
   },
   saveBtnText: { color: '#FFF', fontSize: 17, fontWeight: '700' },

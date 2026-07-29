@@ -72,7 +72,7 @@ export default function LoginScreen() {
           <TextInput
             style={styles.input}
             placeholder="e.g. 08012345678"
-            placeholderTextColor="#A08070"
+            placeholderTextColor="#8B88B0"
             value={phone}
             onChangeText={setPhone}
             keyboardType="phone-pad"
@@ -84,7 +84,7 @@ export default function LoginScreen() {
             <TextInput
               style={[styles.input, { flex: 1, marginBottom: 0 }]}
               placeholder="Enter your password"
-              placeholderTextColor="#A08070"
+              placeholderTextColor="#8B88B0"
               value={password}
               onChangeText={setPassword}
               secureTextEntry={!showPassword}
@@ -133,39 +133,39 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FDF8F3' },
+  container: { flex: 1, backgroundColor: '#FFFFFF' },
   scroll: { flexGrow: 1, paddingHorizontal: 24 },
   header: { alignItems: 'center', paddingTop: 64, paddingBottom: 40 },
   logo: { fontSize: 64, marginBottom: 12 },
   logoImg: { width: 110, height: 110, marginBottom: 12 },
-  brand: { fontSize: 28, fontWeight: '800', color: '#1A0F0A', marginBottom: 8 },
-  tagline: { fontSize: 15, color: '#8B6F5E', textAlign: 'center' },
+  brand: { fontSize: 28, fontWeight: '800', color: '#201060', marginBottom: 8 },
+  tagline: { fontSize: 15, color: '#6B6490', textAlign: 'center' },
   form: { gap: 4 },
-  label: { fontSize: 14, fontWeight: '600', color: '#1A0F0A', marginBottom: 6, marginTop: 12 },
+  label: { fontSize: 14, fontWeight: '600', color: '#201060', marginBottom: 6, marginTop: 12 },
   input: {
-    backgroundColor: '#FFF5EC', borderWidth: 1.5, borderColor: '#E8D5C4',
+    backgroundColor: '#F4F3FB', borderWidth: 1.5, borderColor: '#E8E6F4',
     borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14,
-    fontSize: 16, color: '#1A0F0A', marginBottom: 4,
+    fontSize: 16, color: '#201060', marginBottom: 4,
   },
   passwordRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
-  eyeBtn: { padding: 14, backgroundColor: '#FFF5EC', borderWidth: 1.5, borderColor: '#E8D5C4', borderRadius: 12 },
+  eyeBtn: { padding: 14, backgroundColor: '#F4F3FB', borderWidth: 1.5, borderColor: '#E8E6F4', borderRadius: 12 },
   eyeIcon: { fontSize: 18 },
-  forgotText: { color: '#C0392B', fontSize: 14, fontWeight: '600', textAlign: 'right', marginTop: 4, marginBottom: 20 },
+  forgotText: { color: '#D02010', fontSize: 14, fontWeight: '600', textAlign: 'right', marginTop: 4, marginBottom: 20 },
   loginBtn: {
-    backgroundColor: '#C0392B', borderRadius: 16, paddingVertical: 16,
+    backgroundColor: '#D02010', borderRadius: 16, paddingVertical: 16,
     alignItems: 'center', marginTop: 8,
   },
   loginBtnDisabled: { opacity: 0.7 },
   loginBtnText: { color: '#FFF', fontSize: 18, fontWeight: '700' },
   divider: { flexDirection: 'row', alignItems: 'center', marginVertical: 20, gap: 12 },
-  dividerLine: { flex: 1, height: 1, backgroundColor: '#E8D5C4' },
-  dividerText: { color: '#8B6F5E', fontSize: 14 },
+  dividerLine: { flex: 1, height: 1, backgroundColor: '#E8E6F4' },
+  dividerText: { color: '#6B6490', fontSize: 14 },
   guestBtn: {
-    borderWidth: 2, borderColor: '#C0392B', borderRadius: 16,
+    borderWidth: 2, borderColor: '#D02010', borderRadius: 16,
     paddingVertical: 14, alignItems: 'center',
   },
-  guestBtnText: { color: '#C0392B', fontSize: 16, fontWeight: '700' },
+  guestBtnText: { color: '#D02010', fontSize: 16, fontWeight: '700' },
   footer: { flexDirection: 'row', justifyContent: 'center', paddingVertical: 32 },
-  footerText: { color: '#8B6F5E', fontSize: 15 },
-  footerLink: { color: '#C0392B', fontSize: 15, fontWeight: '700' },
+  footerText: { color: '#6B6490', fontSize: 15 },
+  footerLink: { color: '#D02010', fontSize: 15, fontWeight: '700' },
 });

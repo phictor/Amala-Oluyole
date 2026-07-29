@@ -20,16 +20,16 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: '#C0392B',
-        tabBarInactiveTintColor: '#8B6F5E',
+        tabBarActiveTintColor: '#D02010',
+        tabBarInactiveTintColor: '#6B6490',
         headerShown: false,
         tabBarButton: HapticTab,
         tabBarStyle: {
           paddingTop: 8,
           paddingBottom: bottomPadding,
           height: tabBarHeight,
-          backgroundColor: '#FDF8F3',
-          borderTopColor: '#E8D5C4',
+          backgroundColor: '#FFFFFF',
+          borderTopColor: '#E8E6F4',
           borderTopWidth: 0.5,
         },
       }}
@@ -94,7 +94,7 @@ export default function TabLayout() {
 const tabStyles = StyleSheet.create({
   badge: {
     position: 'absolute', top: -4, right: -8,
-    backgroundColor: '#C0392B', borderRadius: 10,
+    backgroundColor: '#D02010', borderRadius: 10,
     minWidth: 18, height: 18, alignItems: 'center', justifyContent: 'center',
     paddingHorizontal: 4,
   },

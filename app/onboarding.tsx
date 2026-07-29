@@ -16,14 +16,14 @@ const SLIDES = [
     title: 'Authentic Nigerian Flavours',
     subtitle: 'Experience the rich taste of traditional Yoruba cuisine from Amala Oluyole — Ibadan\'s favourite restaurant.',
     emoji: '🍲',
-    bg: '#C0392B',
+    bg: '#D02010',
   },
   {
     id: '2',
     title: 'Build Your Perfect Meal',
     subtitle: 'Choose your swallow, soup, protein and extras. Customise every bite exactly the way you like it.',
     emoji: '👨‍🍳',
-    bg: '#6B3A2A',
+    bg: '#1A1640',
   },
   {
     id: '3',
@@ -113,7 +113,7 @@ export default function OnboardingScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#C0392B' },
+  container: { flex: 1, backgroundColor: '#D02010' },
   slide: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 },
   emojiContainer: {
     width: 160, height: 160, borderRadius: 80,
@@ -125,16 +125,16 @@ const styles = StyleSheet.create({
   logoFull: { width: 220, height: 80, marginBottom: 16 },
   title: { fontSize: 28, fontWeight: '800', color: '#FFF', textAlign: 'center', marginBottom: 16 },
   subtitle: { fontSize: 16, color: 'rgba(255,255,255,0.85)', textAlign: 'center', lineHeight: 24 },
-  footer: { backgroundColor: '#FDF8F3', paddingVertical: 32, paddingHorizontal: 24, alignItems: 'center' },
+  footer: { backgroundColor: '#FFFFFF', paddingVertical: 32, paddingHorizontal: 24, alignItems: 'center' },
   dots: { flexDirection: 'row', marginBottom: 24, gap: 8 },
-  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#E8D5C4' },
-  dotActive: { width: 24, backgroundColor: '#C0392B' },
+  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#E8E6F4' },
+  dotActive: { width: 24, backgroundColor: '#D02010' },
   nextBtn: {
-    backgroundColor: '#C0392B', borderRadius: 16, paddingVertical: 16,
+    backgroundColor: '#D02010', borderRadius: 16, paddingVertical: 16,
     paddingHorizontal: 48, width: '100%', alignItems: 'center', marginBottom: 12,
   },
   nextBtnGrad: { paddingVertical: 18, alignItems: 'center' },
   nextBtnText: { color: '#FFF', fontSize: 18, fontWeight: '700' },
   skipBtn: { paddingVertical: 8 },
-  skipText: { color: '#8B6F5E', fontSize: 16 },
+  skipText: { color: '#6B6490', fontSize: 16 },
 });

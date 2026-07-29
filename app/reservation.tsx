@@ -80,7 +80,7 @@ export default function ReservationScreen() {
           <TextInput
             style={styles.input}
             placeholder="e.g. 2026-08-15"
-            placeholderTextColor="#A08070"
+            placeholderTextColor="#8B88B0"
             value={date}
             onChangeText={setDate}
           />
@@ -136,15 +136,15 @@ export default function ReservationScreen() {
         {/* Contact */}
         <View style={styles.field}>
           <Text style={styles.fieldLabel}>Your Name *</Text>
-          <TextInput style={styles.input} placeholder="Full name" placeholderTextColor="#A08070" value={name} onChangeText={setName} />
+          <TextInput style={styles.input} placeholder="Full name" placeholderTextColor="#8B88B0" value={name} onChangeText={setName} />
         </View>
         <View style={styles.field}>
           <Text style={styles.fieldLabel}>Phone Number *</Text>
-          <TextInput style={styles.input} placeholder="08XXXXXXXXX" placeholderTextColor="#A08070" value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
+          <TextInput style={styles.input} placeholder="08XXXXXXXXX" placeholderTextColor="#8B88B0" value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
         </View>
         <View style={styles.field}>
           <Text style={styles.fieldLabel}>Special Requests</Text>
-          <TextInput style={[styles.input, styles.textarea]} placeholder="Any dietary requirements, occasion, etc." placeholderTextColor="#A08070" value={requests} onChangeText={setRequests} multiline numberOfLines={3} />
+          <TextInput style={[styles.input, styles.textarea]} placeholder="Any dietary requirements, occasion, etc." placeholderTextColor="#8B88B0" value={requests} onChangeText={setRequests} multiline numberOfLines={3} />
         </View>
 
         <TouchableOpacity
@@ -161,54 +161,54 @@ export default function ReservationScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FDF8F3' },
+  container: { flex: 1, backgroundColor: '#FFFFFF' },
   header: { paddingTop: 56, paddingHorizontal: 20, paddingBottom: 16 },
-  backText: { color: '#C0392B', fontSize: 16, fontWeight: '600', marginBottom: 8 },
-  title: { fontSize: 26, fontWeight: '800', color: '#1A0F0A', marginBottom: 4 },
-  subtitle: { fontSize: 14, color: '#8B6F5E' },
+  backText: { color: '#D02010', fontSize: 16, fontWeight: '600', marginBottom: 8 },
+  title: { fontSize: 26, fontWeight: '800', color: '#201060', marginBottom: 4 },
+  subtitle: { fontSize: 14, color: '#6B6490' },
   scrollContent: { paddingHorizontal: 20 },
   field: { marginBottom: 20 },
-  fieldLabel: { fontSize: 15, fontWeight: '700', color: '#1A0F0A', marginBottom: 8 },
+  fieldLabel: { fontSize: 15, fontWeight: '700', color: '#201060', marginBottom: 8 },
   input: {
-    backgroundColor: '#FFF5EC', borderWidth: 1.5, borderColor: '#E8D5C4',
-    borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12, fontSize: 15, color: '#1A0F0A',
+    backgroundColor: '#F4F3FB', borderWidth: 1.5, borderColor: '#E8E6F4',
+    borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12, fontSize: 15, color: '#201060',
   },
   textarea: { height: 80, textAlignVertical: 'top' },
   optionBtn: {
-    borderWidth: 1.5, borderColor: '#E8D5C4', borderRadius: 10, paddingVertical: 10,
+    borderWidth: 1.5, borderColor: '#E8E6F4', borderRadius: 10, paddingVertical: 10,
     paddingHorizontal: 14, marginBottom: 8,
   },
-  optionBtnActive: { borderColor: '#C0392B', backgroundColor: '#FFF5EC' },
-  optionBtnText: { fontSize: 15, color: '#8B6F5E', fontWeight: '600' },
-  optionBtnTextActive: { color: '#C0392B' },
+  optionBtnActive: { borderColor: '#D02010', backgroundColor: '#F4F3FB' },
+  optionBtnText: { fontSize: 15, color: '#6B6490', fontWeight: '600' },
+  optionBtnTextActive: { color: '#D02010' },
   timeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   timeSlot: {
-    borderWidth: 1.5, borderColor: '#E8D5C4', borderRadius: 10,
-    paddingVertical: 8, paddingHorizontal: 14, backgroundColor: '#FFF5EC',
+    borderWidth: 1.5, borderColor: '#E8E6F4', borderRadius: 10,
+    paddingVertical: 8, paddingHorizontal: 14, backgroundColor: '#F4F3FB',
   },
-  timeSlotActive: { backgroundColor: '#C0392B', borderColor: '#C0392B' },
-  timeSlotText: { fontSize: 14, fontWeight: '600', color: '#8B6F5E' },
+  timeSlotActive: { backgroundColor: '#D02010', borderColor: '#D02010' },
+  timeSlotText: { fontSize: 14, fontWeight: '600', color: '#6B6490' },
   timeSlotTextActive: { color: '#FFF' },
   guestsRow: { flexDirection: 'row', alignItems: 'center', gap: 20 },
   qtyBtn: {
-    backgroundColor: '#C0392B', borderRadius: 20, width: 40, height: 40,
+    backgroundColor: '#D02010', borderRadius: 20, width: 40, height: 40,
     alignItems: 'center', justifyContent: 'center',
   },
   qtyBtnText: { color: '#FFF', fontSize: 22, fontWeight: '700' },
-  guestsValue: { fontSize: 24, fontWeight: '800', color: '#1A0F0A', minWidth: 40, textAlign: 'center' },
+  guestsValue: { fontSize: 24, fontWeight: '800', color: '#201060', minWidth: 40, textAlign: 'center' },
   seatingRow: { flexDirection: 'row', gap: 10 },
   seatingBtn: {
-    flex: 1, borderWidth: 1.5, borderColor: '#E8D5C4', borderRadius: 12,
+    flex: 1, borderWidth: 1.5, borderColor: '#E8E6F4', borderRadius: 12,
     paddingVertical: 12, alignItems: 'center', gap: 4,
   },
-  seatingBtnActive: { borderColor: '#C0392B', backgroundColor: '#FFF5EC' },
+  seatingBtnActive: { borderColor: '#D02010', backgroundColor: '#F4F3FB' },
   seatingIcon: { fontSize: 24 },
-  seatingLabel: { fontSize: 12, fontWeight: '600', color: '#8B6F5E' },
-  seatingLabelActive: { color: '#C0392B' },
+  seatingLabel: { fontSize: 12, fontWeight: '600', color: '#6B6490' },
+  seatingLabelActive: { color: '#D02010' },
   submitBtn: {
-    backgroundColor: '#C0392B', borderRadius: 16, paddingVertical: 16, alignItems: 'center',
+    backgroundColor: '#D02010', borderRadius: 16, paddingVertical: 16, alignItems: 'center',
   },
-  submitBtnLoading: { backgroundColor: '#E8D5C4' },
+  submitBtnLoading: { backgroundColor: '#E8E6F4' },
   submitBtnText: { color: '#FFF', fontSize: 18, fontWeight: '700' },
 });
 

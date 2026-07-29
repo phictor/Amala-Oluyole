@@ -8,12 +8,12 @@ import { useAppStore } from '@/lib/store/app-store';
 import type { Notification } from '@/lib/data/types';
 
 const TYPE_CONFIG: Record<string, { icon: string; color: string }> = {
-  order: { icon: '📦', color: '#C0392B' },
+  order: { icon: '📦', color: '#D02010' },
   payment: { icon: '💳', color: '#27AE60' },
   promotion: { icon: '🎉', color: '#F39C12' },
   loyalty: { icon: '⭐', color: '#8E44AD' },
   reservation: { icon: '🍽️', color: '#2980B9' },
-  system: { icon: '🔔', color: '#8B6F5E' },
+  system: { icon: '🔔', color: '#6B6490' },
 };
 
 function NotifCard({ notif, onPress }: { notif: Notification; onPress: () => void }) {
@@ -84,27 +84,27 @@ export default function NotificationsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FDF8F3' },
+  container: { flex: 1, backgroundColor: '#FFFFFF' },
   header: { paddingTop: 56, paddingHorizontal: 20, paddingBottom: 16 },
-  backText: { color: '#C0392B', fontSize: 16, fontWeight: '600', marginBottom: 8 },
-  title: { fontSize: 26, fontWeight: '800', color: '#1A0F0A', marginBottom: 4 },
-  markAllText: { fontSize: 14, color: '#C0392B', fontWeight: '600' },
+  backText: { color: '#D02010', fontSize: 16, fontWeight: '600', marginBottom: 8 },
+  title: { fontSize: 26, fontWeight: '800', color: '#201060', marginBottom: 4 },
+  markAllText: { fontSize: 14, color: '#D02010', fontWeight: '600' },
   list: { paddingHorizontal: 20, paddingBottom: 24 },
   notifCard: {
     flexDirection: 'row', backgroundColor: '#FFF', borderRadius: 14, padding: 14,
     marginBottom: 10, alignItems: 'flex-start', gap: 12,
-    borderWidth: 1, borderColor: '#E8D5C4',
+    borderWidth: 1, borderColor: '#E8E6F4',
   },
-  notifCardUnread: { borderColor: '#C0392B', backgroundColor: '#FFF9F7' },
+  notifCardUnread: { borderColor: '#D02010', backgroundColor: '#FFF9F7' },
   notifIcon: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   notifIconText: { fontSize: 20 },
   notifContent: { flex: 1 },
-  notifTitle: { fontSize: 15, fontWeight: '700', color: '#1A0F0A', marginBottom: 4 },
-  notifMessage: { fontSize: 13, color: '#8B6F5E', lineHeight: 18, marginBottom: 6 },
-  notifTime: { fontSize: 12, color: '#A08070' },
-  unreadDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#C0392B', marginTop: 4 },
+  notifTitle: { fontSize: 15, fontWeight: '700', color: '#201060', marginBottom: 4 },
+  notifMessage: { fontSize: 13, color: '#6B6490', lineHeight: 18, marginBottom: 6 },
+  notifTime: { fontSize: 12, color: '#8B88B0' },
+  unreadDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#D02010', marginTop: 4 },
   emptyState: { alignItems: 'center', paddingTop: 80 },
   emptyEmoji: { fontSize: 56, marginBottom: 12 },
-  emptyText: { fontSize: 16, color: '#8B6F5E' },
+  emptyText: { fontSize: 16, color: '#6B6490' },
 });
 

@@ -47,7 +47,7 @@ export default function ForgotPasswordScreen() {
           <TextInput
             style={styles.input}
             placeholder="e.g. 08012345678"
-            placeholderTextColor="#A08070"
+            placeholderTextColor="#8B88B0"
             value={phone}
             onChangeText={setPhone}
             keyboardType="phone-pad"
@@ -65,29 +65,29 @@ export default function ForgotPasswordScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FDF8F3', paddingHorizontal: 24 },
+  container: { flex: 1, backgroundColor: '#FFFFFF', paddingHorizontal: 24 },
   backBtn: { paddingTop: 56, paddingBottom: 8 },
-  backText: { color: '#C0392B', fontSize: 16, fontWeight: '600' },
+  backText: { color: '#D02010', fontSize: 16, fontWeight: '600' },
   emoji: { fontSize: 56, marginTop: 24, marginBottom: 16 },
-  title: { fontSize: 28, fontWeight: '800', color: '#1A0F0A', marginBottom: 8 },
-  subtitle: { fontSize: 15, color: '#8B6F5E', lineHeight: 22, marginBottom: 32 },
-  label: { fontSize: 14, fontWeight: '600', color: '#1A0F0A', marginBottom: 8 },
+  title: { fontSize: 28, fontWeight: '800', color: '#201060', marginBottom: 8 },
+  subtitle: { fontSize: 15, color: '#6B6490', lineHeight: 22, marginBottom: 32 },
+  label: { fontSize: 14, fontWeight: '600', color: '#201060', marginBottom: 8 },
   input: {
-    backgroundColor: '#FFF5EC', borderWidth: 1.5, borderColor: '#E8D5C4',
+    backgroundColor: '#F4F3FB', borderWidth: 1.5, borderColor: '#E8E6F4',
     borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14,
-    fontSize: 16, color: '#1A0F0A', marginBottom: 24,
+    fontSize: 16, color: '#201060', marginBottom: 24,
   },
   sendBtn: {
-    backgroundColor: '#C0392B', borderRadius: 16, paddingVertical: 16, alignItems: 'center',
+    backgroundColor: '#D02010', borderRadius: 16, paddingVertical: 16, alignItems: 'center',
   },
   btnDisabled: { opacity: 0.7 },
   sendBtnText: { color: '#FFF', fontSize: 18, fontWeight: '700' },
   successBox: { alignItems: 'center', paddingTop: 40 },
   successEmoji: { fontSize: 64, marginBottom: 16 },
   successTitle: { fontSize: 24, fontWeight: '800', color: '#27AE60', marginBottom: 8 },
-  successText: { fontSize: 15, color: '#8B6F5E', textAlign: 'center', lineHeight: 22, marginBottom: 32 },
+  successText: { fontSize: 15, color: '#6B6490', textAlign: 'center', lineHeight: 22, marginBottom: 32 },
   backToLoginBtn: {
-    backgroundColor: '#C0392B', borderRadius: 16, paddingVertical: 14,
+    backgroundColor: '#D02010', borderRadius: 16, paddingVertical: 14,
     paddingHorizontal: 40, alignItems: 'center',
   },
   backToLoginText: { color: '#FFF', fontSize: 16, fontWeight: '700' },

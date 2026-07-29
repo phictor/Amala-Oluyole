@@ -139,7 +139,7 @@ export default function CartScreen() {
                 <TextInput
                   style={styles.promoInput}
                   placeholder="Enter promo code"
-                  placeholderTextColor="#A08070"
+                  placeholderTextColor="#8B88B0"
                   value={promoInput}
                   onChangeText={setPromoInput}
                   autoCapitalize="characters"
@@ -191,7 +191,7 @@ export default function CartScreen() {
           style={styles.checkoutBtn}
           onPress={() => router.push({ pathname: '/checkout' as never, params: { orderType } })}
         >
-          <LinearGradient colors={['#C0392B', '#8B1A10']} style={styles.checkoutBtnGrad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
+          <LinearGradient colors={['#201060', '#150B50']} style={styles.checkoutBtnGrad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
             <Text style={styles.checkoutBtnText}>Proceed to Checkout</Text>
             <Text style={styles.checkoutBtnAmount}>₦{(orderType === 'pickup' ? total - deliveryFee : total).toLocaleString()}</Text>
           </LinearGradient>
@@ -202,12 +202,12 @@ export default function CartScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FDF8F3' },
-  emptyContainer: { flex: 1, backgroundColor: '#FDF8F3', alignItems: 'center', justifyContent: 'center', padding: 40 },
-  emptyIconCircle: { width: 130, height: 130, borderRadius: 65, backgroundColor: '#FFF5EC', alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
+  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  emptyContainer: { flex: 1, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', padding: 40 },
+  emptyIconCircle: { width: 130, height: 130, borderRadius: 65, backgroundColor: '#F4F3FB', alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
   emptyEmoji: { fontSize: 64 },
-  emptyTitle: { fontSize: 22, fontWeight: '800', color: '#1A0F0A', marginBottom: 8 },
-  emptySubtitle: { fontSize: 15, color: '#8B6F5E', textAlign: 'center', marginBottom: 32 },
+  emptyTitle: { fontSize: 22, fontWeight: '800', color: '#201060', marginBottom: 8 },
+  emptySubtitle: { fontSize: 15, color: '#6B6490', textAlign: 'center', marginBottom: 32 },
   browseBtn: { borderRadius: 16, overflow: 'hidden', width: '100%' },
   browseBtnGrad: { paddingVertical: 16, alignItems: 'center' },
   browseBtnText: { color: '#FFF', fontSize: 16, fontWeight: '700' },
@@ -215,7 +215,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingTop: 56, paddingHorizontal: 20, paddingBottom: 16,
   },
-  title: { fontSize: 26, fontWeight: '800', color: '#1A0F0A' },
+  title: { fontSize: 26, fontWeight: '800', color: '#201060' },
   clearText: { color: '#E74C3C', fontSize: 15, fontWeight: '600' },
   list: { paddingHorizontal: 20 },
   cartItem: {
@@ -224,55 +224,55 @@ const styles = StyleSheet.create({
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 1,
   },
   cartItemEmoji: {
-    width: 56, height: 56, borderRadius: 12, backgroundColor: '#FFF5EC',
+    width: 56, height: 56, borderRadius: 12, backgroundColor: '#F4F3FB',
     alignItems: 'center', justifyContent: 'center',
   },
   cartItemEmojiText: { fontSize: 28 },
   cartItemInfo: { flex: 1 },
-  cartItemName: { fontSize: 15, fontWeight: '700', color: '#1A0F0A', marginBottom: 2 },
-  cartItemDesc: { fontSize: 12, color: '#8B6F5E', marginBottom: 4 },
-  cartItemPrice: { fontSize: 15, fontWeight: '800', color: '#C0392B' },
+  cartItemName: { fontSize: 15, fontWeight: '700', color: '#201060', marginBottom: 2 },
+  cartItemDesc: { fontSize: 12, color: '#6B6490', marginBottom: 4 },
+  cartItemPrice: { fontSize: 15, fontWeight: '800', color: '#D02010' },
   cartItemActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   qtyBtn: {
-    backgroundColor: '#FFF5EC', borderRadius: 8, width: 32, height: 32,
-    alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#E8D5C4',
+    backgroundColor: '#F4F3FB', borderRadius: 8, width: 32, height: 32,
+    alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#E8E6F4',
   },
-  qtyBtnText: { fontSize: 16, fontWeight: '700', color: '#C0392B' },
-  qtyText: { fontSize: 16, fontWeight: '700', color: '#1A0F0A', minWidth: 20, textAlign: 'center' },
+  qtyBtnText: { fontSize: 16, fontWeight: '700', color: '#D02010' },
+  qtyText: { fontSize: 16, fontWeight: '700', color: '#201060', minWidth: 20, textAlign: 'center' },
   orderTypeSection: { marginTop: 16, marginBottom: 12 },
-  sectionLabel: { fontSize: 16, fontWeight: '700', color: '#1A0F0A', marginBottom: 10 },
+  sectionLabel: { fontSize: 16, fontWeight: '700', color: '#201060', marginBottom: 10 },
   orderTypeRow: { flexDirection: 'row', gap: 12 },
   orderTypeBtn: {
-    flex: 1, borderWidth: 2, borderColor: '#E8D5C4', borderRadius: 12,
+    flex: 1, borderWidth: 2, borderColor: '#E8E6F4', borderRadius: 12,
     paddingVertical: 12, alignItems: 'center',
   },
-  orderTypeBtnActive: { borderColor: '#C0392B', backgroundColor: '#FFF5EC' },
-  orderTypeBtnText: { fontSize: 15, fontWeight: '600', color: '#8B6F5E' },
-  orderTypeBtnTextActive: { color: '#C0392B' },
+  orderTypeBtnActive: { borderColor: '#D02010', backgroundColor: '#F4F3FB' },
+  orderTypeBtnText: { fontSize: 15, fontWeight: '600', color: '#6B6490' },
+  orderTypeBtnTextActive: { color: '#D02010' },
   promoSection: { marginBottom: 16 },
   promoRow: { flexDirection: 'row', gap: 10 },
   promoInput: {
-    flex: 1, backgroundColor: '#FFF5EC', borderWidth: 1.5, borderColor: '#E8D5C4',
-    borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, color: '#1A0F0A',
+    flex: 1, backgroundColor: '#F4F3FB', borderWidth: 1.5, borderColor: '#E8E6F4',
+    borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, color: '#201060',
   },
   promoApplyBtn: {
-    backgroundColor: '#C0392B', borderRadius: 12, paddingHorizontal: 20, justifyContent: 'center',
+    backgroundColor: '#D02010', borderRadius: 12, paddingHorizontal: 20, justifyContent: 'center',
   },
   promoApplyText: { color: '#FFF', fontSize: 15, fontWeight: '700' },
   summary: {
     backgroundColor: '#FFF', borderRadius: 16, padding: 16,
-    borderWidth: 1.5, borderColor: '#E8D5C4',
+    borderWidth: 1.5, borderColor: '#E8E6F4',
   },
-  summaryTitle: { fontSize: 18, fontWeight: '800', color: '#1A0F0A', marginBottom: 12 },
+  summaryTitle: { fontSize: 18, fontWeight: '800', color: '#201060', marginBottom: 12 },
   summaryRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
-  summaryLabel: { fontSize: 15, color: '#8B6F5E' },
-  summaryValue: { fontSize: 15, fontWeight: '600', color: '#1A0F0A' },
-  summaryTotal: { borderTopWidth: 1, borderTopColor: '#E8D5C4', paddingTop: 12, marginTop: 4 },
-  summaryTotalLabel: { fontSize: 18, fontWeight: '800', color: '#1A0F0A' },
-  summaryTotalValue: { fontSize: 20, fontWeight: '800', color: '#C0392B' },
+  summaryLabel: { fontSize: 15, color: '#6B6490' },
+  summaryValue: { fontSize: 15, fontWeight: '600', color: '#201060' },
+  summaryTotal: { borderTopWidth: 1, borderTopColor: '#E8E6F4', paddingTop: 12, marginTop: 4 },
+  summaryTotalLabel: { fontSize: 18, fontWeight: '800', color: '#201060' },
+  summaryTotalValue: { fontSize: 20, fontWeight: '800', color: '#D02010' },
   checkoutBar: {
     position: 'absolute', bottom: 0, left: 0, right: 0,
-    backgroundColor: '#FFF', borderTopWidth: 1, borderTopColor: '#E8D5C4',
+    backgroundColor: '#FFF', borderTopWidth: 1, borderTopColor: '#E8E6F4',
     paddingHorizontal: 20, paddingVertical: 16, paddingBottom: 32,
   },
   checkoutBtn: { borderRadius: 16, overflow: 'hidden' },

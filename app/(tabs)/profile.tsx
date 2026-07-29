@@ -7,7 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useAppStore } from '@/lib/store/app-store';
 
 const TIER_CONFIG = {
-  bronze: { label: 'Bronze', color: '#CD7F32', emoji: '🥉' },
+  bronze: { label: 'Bronze', color: '#F0C000', emoji: '🥉' },
   silver: { label: 'Silver', color: '#A8A9AD', emoji: '🥈' },
   gold: { label: 'Gold', color: '#F39C12', emoji: '🥇' },
   platinum: { label: 'Platinum', color: '#8E44AD', emoji: '💎' },
@@ -51,7 +51,7 @@ export default function ProfileScreen() {
         <Text style={styles.guestTitle}>You're browsing as a guest</Text>
         <Text style={styles.guestSubtitle}>Sign in to access your profile, orders, and loyalty rewards</Text>
         <TouchableOpacity style={styles.signInBtn} onPress={() => router.push('/auth/login' as never)}>
-          <LinearGradient colors={['#C0392B', '#8B1A10']} style={styles.signInBtnGrad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
+          <LinearGradient colors={['#201060', '#150B50']} style={styles.signInBtnGrad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
             <Text style={styles.signInBtnText}>Sign In</Text>
           </LinearGradient>
         </TouchableOpacity>
@@ -145,28 +145,28 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FDF8F3' },
-  guestContainer: { flex: 1, backgroundColor: '#FDF8F3', alignItems: 'center', justifyContent: 'center', padding: 40 },
+  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  guestContainer: { flex: 1, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', padding: 40 },
   guestEmoji: { fontSize: 72, marginBottom: 16 },
-  guestTitle: { fontSize: 22, fontWeight: '800', color: '#1A0F0A', marginBottom: 8, textAlign: 'center' },
-  guestSubtitle: { fontSize: 15, color: '#8B6F5E', textAlign: 'center', marginBottom: 32 },
-  guestAvatarCircle: { width: 100, height: 100, borderRadius: 50, backgroundColor: '#FFF5EC', alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
+  guestTitle: { fontSize: 22, fontWeight: '800', color: '#201060', marginBottom: 8, textAlign: 'center' },
+  guestSubtitle: { fontSize: 15, color: '#6B6490', textAlign: 'center', marginBottom: 32 },
+  guestAvatarCircle: { width: 100, height: 100, borderRadius: 50, backgroundColor: '#F4F3FB', alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
   signInBtn: { overflow: 'hidden', borderRadius: 14, paddingVertical: 14, paddingHorizontal: 40, marginBottom: 12 },
   signInBtnGrad: { paddingVertical: 16, paddingHorizontal: 40, alignItems: 'center' },
   signInBtnText: { color: '#FFF', fontSize: 16, fontWeight: '700' },
-  registerBtn: { borderWidth: 2, borderColor: '#C0392B', borderRadius: 14, paddingVertical: 12, paddingHorizontal: 40 },
-  registerBtnText: { color: '#C0392B', fontSize: 16, fontWeight: '700' },
+  registerBtn: { borderWidth: 2, borderColor: '#D02010', borderRadius: 14, paddingVertical: 12, paddingHorizontal: 40 },
+  registerBtnText: { color: '#D02010', fontSize: 16, fontWeight: '700' },
   profileHeader: { paddingTop: 56, paddingHorizontal: 20, paddingBottom: 20, alignItems: 'center' },
   avatar: {
-    width: 80, height: 80, borderRadius: 40, backgroundColor: '#C0392B',
+    width: 80, height: 80, borderRadius: 40, backgroundColor: '#D02010',
     alignItems: 'center', justifyContent: 'center', marginBottom: 12,
   },
   avatarText: { fontSize: 32, fontWeight: '800', color: '#FFF' },
-  userName: { fontSize: 22, fontWeight: '800', color: '#1A0F0A', marginBottom: 4 },
-  userPhone: { fontSize: 15, color: '#8B6F5E', marginBottom: 2 },
-  userEmail: { fontSize: 14, color: '#8B6F5E' },
+  userName: { fontSize: 22, fontWeight: '800', color: '#201060', marginBottom: 4 },
+  userPhone: { fontSize: 15, color: '#6B6490', marginBottom: 2 },
+  userEmail: { fontSize: 14, color: '#6B6490' },
   loyaltyCard: {
-    marginHorizontal: 20, marginBottom: 8, backgroundColor: '#6B3A2A',
+    marginHorizontal: 20, marginBottom: 8, backgroundColor: '#1A1640',
     borderRadius: 16, padding: 16,
   },
   loyaltyTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 },
@@ -177,18 +177,18 @@ const styles = StyleSheet.create({
   loyaltyBarFill: { height: 6, backgroundColor: '#F39C12', borderRadius: 3 },
   loyaltyBarLabel: { fontSize: 12, color: 'rgba(255,255,255,0.7)' },
   section: { paddingHorizontal: 20, marginTop: 16 },
-  sectionTitle: { fontSize: 14, fontWeight: '700', color: '#8B6F5E', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 },
+  sectionTitle: { fontSize: 14, fontWeight: '700', color: '#6B6490', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 },
   menuCard: {
     backgroundColor: '#FFF', borderRadius: 16, overflow: 'hidden',
-    borderWidth: 1, borderColor: '#E8D5C4',
+    borderWidth: 1, borderColor: '#E8E6F4',
   },
   menuRow: {
     flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14,
     borderBottomWidth: 1, borderBottomColor: '#F5EDE5',
   },
   menuIcon: { fontSize: 20, marginRight: 14 },
-  menuLabel: { flex: 1, fontSize: 16, fontWeight: '500', color: '#1A0F0A' },
+  menuLabel: { flex: 1, fontSize: 16, fontWeight: '500', color: '#201060' },
   menuLabelDanger: { color: '#E74C3C' },
-  menuChevron: { fontSize: 20, color: '#C0392B' },
+  menuChevron: { fontSize: 20, color: '#D02010' },
 });
 

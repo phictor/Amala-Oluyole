@@ -87,7 +87,7 @@ export default function HomeScreen() {
         contentContainerStyle={{ paddingBottom: 100 }}
       >
         {/* ── Hero Banner ── */}
-        <LinearGradient colors={['#C0392B', '#8B1A10', '#6B3A2A']} style={styles.hero}>
+        <LinearGradient colors={['#201060', '#150B50', '#0D0A2E']} style={styles.hero}>
           <View style={styles.heroContent}>
             <Text style={styles.heroGreeting}>{GREETING} 👋</Text>
             <Text style={styles.heroTitle}>What are you{'\n'}craving today?</Text>
@@ -105,7 +105,7 @@ export default function HomeScreen() {
             <TextInput
               style={styles.searchInput}
               placeholder="Search meals, soups, proteins..."
-              placeholderTextColor="#B09080"
+              placeholderTextColor="#9B94C4"
               value={search}
               onChangeText={setSearch}
               onSubmitEditing={handleSearch}
@@ -130,7 +130,7 @@ export default function HomeScreen() {
               contentContainerStyle={{ paddingHorizontal: 16, gap: 12 }}
               renderItem={({ item: promo }) => (
                 <LinearGradient
-                  colors={promo.id === 'p1' ? ['#C0392B', '#8B1A10'] : promo.id === 'p2' ? ['#27AE60', '#1A7A40'] : ['#E67E22', '#B05A10']}
+                  colors={promo.id === 'p1' ? ['#D02010', '#150B50'] : promo.id === 'p2' ? ['#27AE60', '#1A7A40'] : ['#E67E22', '#B05A10']}
                   style={styles.promoCard}
                   start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
                 >
@@ -154,7 +154,7 @@ export default function HomeScreen() {
             style={styles.builderCta}
             onPress={() => router.push('/meal/builder' as never)}
           >
-            <LinearGradient colors={['#4A1A0A', '#6B3A2A']} style={styles.builderCtaGrad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
+            <LinearGradient colors={['#2A1A80', '#150B50']} style={styles.builderCtaGrad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
               <View style={styles.builderCtaLeft}>
                 <Text style={styles.builderCtaTitle}>Build Your Swallow 🍲</Text>
                 <Text style={styles.builderCtaSub}>Choose swallow · soup · protein · extras</Text>
@@ -282,7 +282,7 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FDF8F3' },
+  container: { flex: 1, backgroundColor: '#FFFFFF' },
 
   stickyHeader: {
     position: 'absolute', top: 0, left: 0, right: 0, zIndex: 100,
@@ -328,18 +328,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: '#FFF', borderRadius: 16, paddingHorizontal: 14, paddingVertical: 12,
     gap: 10,
-    shadowColor: '#6B3A2A', shadowOffset: { width: 0, height: 4 },
+    shadowColor: '#1A1640', shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.12, shadowRadius: 12, elevation: 6,
   },
   searchIcon: { fontSize: 18 },
-  searchInput: { flex: 1, fontSize: 15, color: '#1A0F0A' },
-  searchClear: { fontSize: 16, color: '#8B6F5E', paddingHorizontal: 4 },
+  searchInput: { flex: 1, fontSize: 15, color: '#201060' },
+  searchClear: { fontSize: 16, color: '#6B6490', paddingHorizontal: 4 },
 
   section: { marginTop: 20 },
   sectionPadded: { marginTop: 20, paddingHorizontal: 16 },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  sectionTitle: { fontSize: 20, fontWeight: '800', color: '#1A0F0A' },
-  seeAll: { fontSize: 14, fontWeight: '600', color: '#C0392B' },
+  sectionTitle: { fontSize: 20, fontWeight: '800', color: '#201060' },
+  seeAll: { fontSize: 14, fontWeight: '600', color: '#D02010' },
 
   promoCard: {
     width: W * 0.72, borderRadius: 18, padding: 18, gap: 4,
@@ -372,16 +372,16 @@ const styles = StyleSheet.create({
   catChip: {
     alignItems: 'center', gap: 6,
     backgroundColor: '#FFF', borderRadius: 14, paddingHorizontal: 14, paddingVertical: 12,
-    borderWidth: 1.5, borderColor: '#EDE0D4',
-    shadowColor: '#6B3A2A', shadowOffset: { width: 0, height: 2 },
+    borderWidth: 1.5, borderColor: '#EDEAFB',
+    shadowColor: '#1A1640', shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06, shadowRadius: 6, elevation: 2,
   },
   catIcon: { fontSize: 24 },
-  catName: { fontSize: 11, fontWeight: '600', color: '#1A0F0A', textAlign: 'center' },
+  catName: { fontSize: 11, fontWeight: '600', color: '#201060', textAlign: 'center' },
 
   mealCard: {
     backgroundColor: '#FFF', borderRadius: 18, overflow: 'hidden',
-    shadowColor: '#6B3A2A', shadowOffset: { width: 0, height: 4 },
+    shadowColor: '#1A1640', shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1, shadowRadius: 12, elevation: 4,
   },
   mealCardImgWrap: { height: 160, position: 'relative' },
@@ -389,10 +389,10 @@ const styles = StyleSheet.create({
   mealCardImgGrad: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 60 },
   mealBadge: {
     position: 'absolute', top: 10, left: 10,
-    backgroundColor: '#C0392B', borderRadius: 8,
+    backgroundColor: '#D02010', borderRadius: 8,
     paddingHorizontal: 8, paddingVertical: 3,
   },
-  mealBadgeBest: { backgroundColor: '#D4A017' },
+  mealBadgeBest: { backgroundColor: '#F0C000' },
   mealBadgeText: { fontSize: 10, fontWeight: '700', color: '#FFF' },
   heartBtn: {
     position: 'absolute', top: 10, right: 10,
@@ -400,37 +400,37 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.9)',
     alignItems: 'center', justifyContent: 'center',
   },
-  heartIcon: { fontSize: 16, color: '#C0392B' },
+  heartIcon: { fontSize: 16, color: '#D02010' },
   mealCardBody: { padding: 12 },
-  mealCardName: { fontSize: 15, fontWeight: '700', color: '#1A0F0A', marginBottom: 4 },
-  mealCardDesc: { fontSize: 12, color: '#8B6F5E', lineHeight: 17, marginBottom: 8 },
+  mealCardName: { fontSize: 15, fontWeight: '700', color: '#201060', marginBottom: 4 },
+  mealCardDesc: { fontSize: 12, color: '#6B6490', lineHeight: 17, marginBottom: 8 },
   mealCardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  mealCardPrice: { fontSize: 16, fontWeight: '800', color: '#C0392B' },
+  mealCardPrice: { fontSize: 16, fontWeight: '800', color: '#D02010' },
   mealCardMeta: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  mealCardStar: { fontSize: 13, color: '#D4A017' },
-  mealCardRating: { fontSize: 13, fontWeight: '600', color: '#8B6F5E' },
+  mealCardStar: { fontSize: 13, color: '#F0C000' },
+  mealCardRating: { fontSize: 13, fontWeight: '600', color: '#6B6490' },
 
   listCard: {
     flexDirection: 'row', backgroundColor: '#FFF', borderRadius: 16,
     marginBottom: 12, overflow: 'hidden',
-    shadowColor: '#6B3A2A', shadowOffset: { width: 0, height: 2 },
+    shadowColor: '#1A1640', shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.07, shadowRadius: 8, elevation: 3,
   },
   listCardImg: { width: 100, height: 100 },
   listCardBody: { flex: 1, padding: 12, justifyContent: 'space-between' },
   listCardTop: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  listCardName: { flex: 1, fontSize: 15, fontWeight: '700', color: '#1A0F0A' },
+  listCardName: { flex: 1, fontSize: 15, fontWeight: '700', color: '#201060' },
   chefBadge: {
-    backgroundColor: '#FFF5EC', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2,
+    backgroundColor: '#F4F3FB', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2,
     borderWidth: 1, borderColor: '#E67E22',
   },
   chefBadgeText: { fontSize: 10, fontWeight: '700', color: '#E67E22' },
-  listCardDesc: { fontSize: 12, color: '#8B6F5E', lineHeight: 17, marginTop: 4 },
+  listCardDesc: { fontSize: 12, color: '#6B6490', lineHeight: 17, marginTop: 4 },
   listCardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 },
-  listCardPrice: { fontSize: 15, fontWeight: '800', color: '#C0392B' },
+  listCardPrice: { fontSize: 15, fontWeight: '800', color: '#D02010' },
   listCardRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  listCardTime: { fontSize: 12, color: '#8B6F5E' },
+  listCardTime: { fontSize: 12, color: '#6B6490' },
   listCardRating: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  listCardStar: { fontSize: 12, color: '#D4A017' },
-  listCardRatingText: { fontSize: 12, fontWeight: '600', color: '#8B6F5E' },
+  listCardStar: { fontSize: 12, color: '#F0C000' },
+  listCardRatingText: { fontSize: 12, fontWeight: '600', color: '#6B6490' },
 });

@@ -77,7 +77,7 @@ const EMPTY_PROMO: PromoForm = {
 };
 
 const STATUS_COLOR: Record<string, string> = {
-  created: '#8B6F5E', awaiting_payment: '#F59E0B', payment_confirmed: '#3B82F6',
+  created: '#6B6490', awaiting_payment: '#F59E0B', payment_confirmed: '#3B82F6',
   accepted: '#8B5CF6', preparing: '#F97316', ready: '#10B981',
   rider_assigned: '#06B6D4', out_for_delivery: '#0EA5E9', delivered: '#22C55E',
   completed: '#16A34A', cancelled: '#EF4444', rejected: '#DC2626', refunded: '#6B7280',
@@ -184,7 +184,7 @@ export default function AdminDashboard() {
     return (
       <ScreenContainer containerClassName="bg-background" edges={['top', 'left', 'right']}>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ fontSize: 16, color: '#8B6F5E' }}>Checking access…</Text>
+          <Text style={{ fontSize: 16, color: '#6B6490' }}>Checking access…</Text>
         </View>
       </ScreenContainer>
     );
@@ -196,12 +196,12 @@ export default function AdminDashboard() {
       <ScreenContainer containerClassName="bg-background" edges={['top', 'left', 'right']}>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 }}>
           <Text style={{ fontSize: 48, marginBottom: 16 }}>🚫</Text>
-          <Text style={{ fontSize: 20, fontWeight: '800', color: '#1E1060', marginBottom: 8 }}>Access Denied</Text>
-          <Text style={{ fontSize: 15, color: '#8B6F5E', textAlign: 'center', marginBottom: 24 }}>
+          <Text style={{ fontSize: 20, fontWeight: '800', color: '#201060', marginBottom: 8 }}>Access Denied</Text>
+          <Text style={{ fontSize: 15, color: '#6B6490', textAlign: 'center', marginBottom: 24 }}>
             You need admin, kitchen, or manager access to view this dashboard.
           </Text>
           <TouchableOpacity
-            style={{ backgroundColor: '#C0392B', borderRadius: 12, paddingHorizontal: 24, paddingVertical: 12 }}
+            style={{ backgroundColor: '#D02010', borderRadius: 12, paddingHorizontal: 24, paddingVertical: 12 }}
             onPress={() => router.replace('/(tabs)' as never)}>
             <Text style={{ color: '#FFF', fontWeight: '700', fontSize: 16 }}>Go Back</Text>
           </TouchableOpacity>
@@ -213,7 +213,7 @@ export default function AdminDashboard() {
   return (
     <ScreenContainer containerClassName="bg-background" edges={['top', 'left', 'right']}>
       {/* Header */}
-      <LinearGradient colors={['#1A0F0A', '#3D1A0F']} style={styles.header}>
+      <LinearGradient colors={['#201060', '#3D1A0F']} style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <Text style={styles.backBtnText}>← Back</Text>
         </TouchableOpacity>
@@ -240,7 +240,7 @@ export default function AdminDashboard() {
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{ paddingBottom: 40 }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#C0392B" />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#D02010" />}
       >
         {/* ── OVERVIEW TAB ──────────────────────────────────────────────── */}
         {activeTab === 'overview' && (
@@ -248,7 +248,7 @@ export default function AdminDashboard() {
             <Text style={styles.sectionTitle}>Today's Overview</Text>
             <View style={styles.statsGrid}>
               {[
-                { label: "Today's Orders", value: overview?.todayOrders ?? '—', icon: '📦', color: '#C0392B' },
+                { label: "Today's Orders", value: overview?.todayOrders ?? '—', icon: '📦', color: '#D02010' },
                 { label: 'Total Orders', value: overview?.totalOrders ?? '—', icon: '📊', color: '#8B5CF6' },
                 { label: 'Active Meals', value: overview?.totalMeals ?? '—', icon: '🍲', color: '#F97316' },
                 { label: 'Active Riders', value: overview?.totalRiders ?? '—', icon: '🛵', color: '#10B981' },
@@ -274,7 +274,7 @@ export default function AdminDashboard() {
                 <View key={order.id} style={styles.orderCard}>
                   <View style={styles.orderCardTop}>
                     <Text style={styles.orderNum}>#{order.orderNumber}</Text>
-                    <View style={[styles.statusBadge, { backgroundColor: STATUS_COLOR[order.status] ?? '#8B6F5E' }]}>
+                    <View style={[styles.statusBadge, { backgroundColor: STATUS_COLOR[order.status] ?? '#6B6490' }]}>
                       <Text style={styles.statusBadgeText}>{STATUS_LABEL[order.status] ?? order.status}</Text>
                     </View>
                   </View>
@@ -312,7 +312,7 @@ export default function AdminDashboard() {
                 <View key={order.id} style={styles.orderCard}>
                   <View style={styles.orderCardTop}>
                     <Text style={styles.orderNum}>#{order.orderNumber}</Text>
-                    <View style={[styles.statusBadge, { backgroundColor: STATUS_COLOR[order.status] ?? '#8B6F5E' }]}>
+                    <View style={[styles.statusBadge, { backgroundColor: STATUS_COLOR[order.status] ?? '#6B6490' }]}>
                       <Text style={styles.statusBadgeText}>{STATUS_LABEL[order.status] ?? order.status}</Text>
                     </View>
                   </View>
@@ -358,7 +358,7 @@ export default function AdminDashboard() {
               <TextInput
                 style={styles.searchInput}
                 placeholder="Search meals..."
-                placeholderTextColor="#B09080"
+                placeholderTextColor="#9B94C4"
                 value={mealSearch}
                 onChangeText={setMealSearch}
               />
@@ -465,7 +465,7 @@ export default function AdminDashboard() {
         <ScrollView
           style={{ flex: 1 }}
           contentContainerStyle={{ paddingBottom: 40 }}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#C0392B" />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#D02010" />}
         >
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Transaction Report</Text>
@@ -473,12 +473,12 @@ export default function AdminDashboard() {
               <View style={{ flex: 1 }}>
                 <Text style={styles.inputLabel}>From (YYYY-MM-DD)</Text>
                 <TextInput style={styles.input} value={reportFrom} onChangeText={setReportFrom}
-                  placeholder="2025-01-01" placeholderTextColor="#B09080" returnKeyType="done" />
+                  placeholder="2025-01-01" placeholderTextColor="#9B94C4" returnKeyType="done" />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.inputLabel}>To (YYYY-MM-DD)</Text>
                 <TextInput style={styles.input} value={reportTo} onChangeText={setReportTo}
-                  placeholder="2025-12-31" placeholderTextColor="#B09080" returnKeyType="done" />
+                  placeholder="2025-12-31" placeholderTextColor="#9B94C4" returnKeyType="done" />
               </View>
             </View>
             <TouchableOpacity style={styles.addMealBtn} onPress={() => refetchReport()}>
@@ -486,7 +486,7 @@ export default function AdminDashboard() {
             </TouchableOpacity>
             {(txReport?.rows ?? []).length > 0 && (
               <TouchableOpacity
-                style={[styles.addMealBtn, { backgroundColor: '#1E1060', marginTop: 8 }]}
+                style={[styles.addMealBtn, { backgroundColor: '#201060', marginTop: 8 }]}
                 onPress={() => downloadTransactionsCsv(txReport!.rows, reportFrom, reportTo)}>
                 <Text style={styles.addMealBtnText}>⬇️ Download CSV</Text>
               </TouchableOpacity>
@@ -494,7 +494,7 @@ export default function AdminDashboard() {
             {txReport?.summary && (
               <View style={[styles.statsGrid, { marginTop: 16 }]}>
                 {([
-                  ['Total Orders', txReport.summary.totalOrders, '📦', '#C0392B'],
+                  ['Total Orders', txReport.summary.totalOrders, '📦', '#D02010'],
                   ['Total Revenue', `₦${Number(txReport.summary.totalRevenue).toLocaleString()}`, '💰', '#10B981'],
                   ['Paid', txReport.summary.paidOrders, '✅', '#3B82F6'],
                   ['Pending', txReport.summary.pendingOrders, '⏳', '#F59E0B'],
@@ -541,11 +541,11 @@ export default function AdminDashboard() {
       {/* ── PROMOS TAB ───────────────────────────────────────────────────── */}
       {activeTab === 'promos' && (
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 40 }}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#1E1060" />}>
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#201060" />}>
           <View style={styles.section}>
             <View style={styles.mealsHeader}>
               <Text style={styles.sectionTitle}>Promo Codes</Text>
-              <TouchableOpacity style={[styles.addMealBtn, { backgroundColor: '#1E1060' }]}
+              <TouchableOpacity style={[styles.addMealBtn, { backgroundColor: '#201060' }]}
                 onPress={() => { setPromoForm(EMPTY_PROMO); setEditingPromoId(null); setShowPromoForm(true); }}>
                 <Text style={styles.addMealBtnText}>+ New Promo</Text>
               </TouchableOpacity>
@@ -557,7 +557,7 @@ export default function AdminDashboard() {
                 <View key={promo.id} style={[styles.mealCard, { borderLeftWidth: 4, borderLeftColor: promo.isActive ? '#22C55E' : '#9B94C4' }]}>
                   <View style={styles.mealCardTop}>
                     <View>
-                      <Text style={[styles.mealName, { color: '#1E1060' }]}>{promo.code}</Text>
+                      <Text style={[styles.mealName, { color: '#201060' }]}>{promo.code}</Text>
                       <Text style={styles.mealDesc}>{promo.description ?? 'No description'}</Text>
                     </View>
                     <View style={styles.mealBadges}>
@@ -628,7 +628,7 @@ export default function AdminDashboard() {
                   <Text style={styles.inputLabel}>{label}</Text>
                   <TextInput style={styles.input} value={String(promoForm[key])}
                     onChangeText={v => setPromoForm(f => ({ ...f, [key]: v }))}
-                    placeholder={placeholder} placeholderTextColor="#B09080" returnKeyType="done"
+                    placeholder={placeholder} placeholderTextColor="#9B94C4" returnKeyType="done"
                     autoCapitalize={key === 'code' ? 'characters' : 'none'} />
                 </View>
               ))}
@@ -636,8 +636,8 @@ export default function AdminDashboard() {
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
                 {(['percentage', 'fixed', 'free_delivery', 'bogo'] as const).map(t => (
                   <TouchableOpacity key={t} onPress={() => setPromoForm(f => ({ ...f, type: t }))}
-                    style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: promoForm.type === t ? '#1E1060' : '#F0EEF9' }}>
-                    <Text style={{ color: promoForm.type === t ? '#FFF' : '#1E1060', fontWeight: '700', fontSize: 12 }}>{t}</Text>
+                    style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: promoForm.type === t ? '#201060' : '#F0EEF9' }}>
+                    <Text style={{ color: promoForm.type === t ? '#FFF' : '#201060', fontWeight: '700', fontSize: 12 }}>{t}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -649,7 +649,7 @@ export default function AdminDashboard() {
                 <TouchableOpacity style={styles.cancelBtn} onPress={() => { setShowPromoForm(false); setEditingPromoId(null); }}>
                   <Text style={styles.cancelBtnText}>Cancel</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={[styles.saveBtn, { backgroundColor: '#1E1060' }]} onPress={() => {
+                <TouchableOpacity style={[styles.saveBtn, { backgroundColor: '#201060' }]} onPress={() => {
                   const payload = {
                     code: promoForm.code.toUpperCase(),
                     description: promoForm.description || undefined,
@@ -728,55 +728,55 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 24, fontWeight: '900', color: '#FFF' },
   headerSub: { fontSize: 13, color: 'rgba(255,255,255,0.6)', marginTop: 2 },
 
-  tabBar: { flexDirection: 'row', backgroundColor: '#FFF', borderBottomWidth: 1, borderBottomColor: '#EDE0D4' },
+  tabBar: { flexDirection: 'row', backgroundColor: '#FFF', borderBottomWidth: 1, borderBottomColor: '#EDEAFB' },
   tabBtn: { flex: 1, paddingVertical: 12, alignItems: 'center' },
-  tabBtnActive: { borderBottomWidth: 2.5, borderBottomColor: '#C0392B' },
-  tabBtnText: { fontSize: 11, fontWeight: '600', color: '#8B6F5E' },
-  tabBtnTextActive: { color: '#C0392B' },
+  tabBtnActive: { borderBottomWidth: 2.5, borderBottomColor: '#D02010' },
+  tabBtnText: { fontSize: 11, fontWeight: '600', color: '#6B6490' },
+  tabBtnTextActive: { color: '#D02010' },
 
   section: { padding: 16 },
-  sectionTitle: { fontSize: 18, fontWeight: '800', color: '#1A0F0A', marginBottom: 12, marginTop: 8 },
+  sectionTitle: { fontSize: 18, fontWeight: '800', color: '#201060', marginBottom: 12, marginTop: 8 },
 
   statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 20 },
   statCard: {
     width: '47%', backgroundColor: '#FFF', borderRadius: 14, padding: 14,
-    borderLeftWidth: 4, shadowColor: '#6B3A2A', shadowOffset: { width: 0, height: 2 },
+    borderLeftWidth: 4, shadowColor: '#1A1640', shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.07, shadowRadius: 6, elevation: 2,
   },
   statIcon: { fontSize: 22, marginBottom: 4 },
   statValue: { fontSize: 26, fontWeight: '900', marginBottom: 2 },
-  statLabel: { fontSize: 11, color: '#8B6F5E', fontWeight: '600' },
+  statLabel: { fontSize: 11, color: '#6B6490', fontWeight: '600' },
 
   orderCard: {
     backgroundColor: '#FFF', borderRadius: 14, padding: 14, marginBottom: 12,
-    shadowColor: '#6B3A2A', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 6, elevation: 2,
+    shadowColor: '#1A1640', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 6, elevation: 2,
   },
   orderCardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
-  orderNum: { fontSize: 16, fontWeight: '800', color: '#1A0F0A' },
+  orderNum: { fontSize: 16, fontWeight: '800', color: '#201060' },
   statusBadge: { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
   statusBadgeText: { fontSize: 11, fontWeight: '700', color: '#FFF' },
-  orderMeta: { fontSize: 13, color: '#8B6F5E', marginBottom: 2 },
-  orderAddress: { fontSize: 12, color: '#8B6F5E', marginTop: 4, marginBottom: 4 },
+  orderMeta: { fontSize: 13, color: '#6B6490', marginBottom: 2 },
+  orderAddress: { fontSize: 12, color: '#6B6490', marginTop: 4, marginBottom: 4 },
   orderActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 },
   actionBtn: { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6 },
   actionBtnText: { fontSize: 11, fontWeight: '700', color: '#FFF' },
 
   mealsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  addMealBtn: { backgroundColor: '#C0392B', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 8 },
+  addMealBtn: { backgroundColor: '#D02010', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 8 },
   addMealBtnText: { fontSize: 13, fontWeight: '700', color: '#FFF' },
   searchBox: {
     backgroundColor: '#FFF', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10,
-    borderWidth: 1.5, borderColor: '#EDE0D4', marginBottom: 12,
+    borderWidth: 1.5, borderColor: '#EDEAFB', marginBottom: 12,
   },
-  searchInput: { fontSize: 14, color: '#1A0F0A' },
+  searchInput: { fontSize: 14, color: '#201060' },
   mealCard: {
     backgroundColor: '#FFF', borderRadius: 14, padding: 14, marginBottom: 10,
-    shadowColor: '#6B3A2A', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 6, elevation: 2,
+    shadowColor: '#1A1640', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 6, elevation: 2,
   },
   mealCardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 },
-  mealName: { fontSize: 15, fontWeight: '800', color: '#1A0F0A' },
-  mealPrice: { fontSize: 14, fontWeight: '700', color: '#C0392B', marginTop: 2 },
-  mealDesc: { fontSize: 12, color: '#8B6F5E', lineHeight: 17, marginBottom: 8 },
+  mealName: { fontSize: 15, fontWeight: '800', color: '#201060' },
+  mealPrice: { fontSize: 14, fontWeight: '700', color: '#D02010', marginTop: 2 },
+  mealDesc: { fontSize: 12, color: '#6B6490', lineHeight: 17, marginBottom: 8 },
   mealBadges: { alignItems: 'flex-end' },
   availBadge: { borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3 },
   availBadgeText: { fontSize: 10, fontWeight: '700', color: '#FFF' },
@@ -784,24 +784,24 @@ const styles = StyleSheet.create({
   editBtn: { backgroundColor: '#3B82F6', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6 },
   editBtnText: { fontSize: 12, fontWeight: '700', color: '#FFF' },
   toggleBtn: { backgroundColor: '#F3F4F6', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6 },
-  toggleBtnText: { fontSize: 12, fontWeight: '700', color: '#1A0F0A' },
+  toggleBtnText: { fontSize: 12, fontWeight: '700', color: '#201060' },
   deleteBtn: { backgroundColor: '#FEE2E2', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6 },
   deleteBtnText: { fontSize: 14 },
 
   riderCard: {
     backgroundColor: '#FFF', borderRadius: 14, padding: 14, marginBottom: 10,
-    shadowColor: '#6B3A2A', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 6, elevation: 2,
+    shadowColor: '#1A1640', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 6, elevation: 2,
   },
   riderCardTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 6 },
   riderStatus: { width: 10, height: 10, borderRadius: 5, marginTop: 4 },
-  riderName: { fontSize: 15, fontWeight: '800', color: '#1A0F0A' },
-  riderMeta: { fontSize: 12, color: '#8B6F5E', marginTop: 2 },
+  riderName: { fontSize: 15, fontWeight: '800', color: '#201060' },
+  riderMeta: { fontSize: 12, color: '#6B6490', marginTop: 2 },
   riderBadges: { alignItems: 'flex-end' },
-  riderLocation: { fontSize: 12, color: '#8B6F5E', marginTop: 4 },
+  riderLocation: { fontSize: 12, color: '#6B6490', marginTop: 4 },
 
   empty: { alignItems: 'center', paddingVertical: 40, gap: 8 },
   emptyEmoji: { fontSize: 40 },
-  emptyText: { fontSize: 15, color: '#8B6F5E' },
+  emptyText: { fontSize: 15, color: '#6B6490' },
 
   modalOverlay: {
     ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.55)',
@@ -811,16 +811,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF', borderRadius: 20, padding: 24, width: '90%',
     shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.2, shadowRadius: 20, elevation: 10,
   },
-  modalTitle: { fontSize: 20, fontWeight: '900', color: '#1A0F0A', marginBottom: 16 },
-  inputLabel: { fontSize: 13, fontWeight: '600', color: '#8B6F5E', marginBottom: 4 },
+  modalTitle: { fontSize: 20, fontWeight: '900', color: '#201060', marginBottom: 16 },
+  inputLabel: { fontSize: 13, fontWeight: '600', color: '#6B6490', marginBottom: 4 },
   input: {
-    backgroundColor: '#F9F5F2', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10,
-    fontSize: 15, color: '#1A0F0A', borderWidth: 1.5, borderColor: '#EDE0D4', marginBottom: 12,
+    backgroundColor: '#F4F3FB', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10,
+    fontSize: 15, color: '#201060', borderWidth: 1.5, borderColor: '#EDEAFB', marginBottom: 12,
   },
   switchRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   modalBtns: { flexDirection: 'row', gap: 10 },
   cancelBtn: { flex: 1, backgroundColor: '#F3F4F6', borderRadius: 12, paddingVertical: 13, alignItems: 'center' },
-  cancelBtnText: { fontSize: 15, fontWeight: '700', color: '#8B6F5E' },
-  saveBtn: { flex: 1, backgroundColor: '#C0392B', borderRadius: 12, paddingVertical: 13, alignItems: 'center' },
+  cancelBtnText: { fontSize: 15, fontWeight: '700', color: '#6B6490' },
+  saveBtn: { flex: 1, backgroundColor: '#D02010', borderRadius: 12, paddingVertical: 13, alignItems: 'center' },
   saveBtnText: { fontSize: 15, fontWeight: '700', color: '#FFF' },
 });

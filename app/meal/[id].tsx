@@ -46,10 +46,10 @@ export default function MealDetailScreen() {
   };
 
   const LABEL_CONFIG: Record<string, { text: string; bg: string }> = {
-    popular: { text: 'Popular', bg: '#C0392B' },
+    popular: { text: 'Popular', bg: '#D02010' },
     new: { text: 'New', bg: '#27AE60' },
     chefs_choice: { text: "Chef's Choice", bg: '#F39C12' },
-    best_seller: { text: 'Best Seller', bg: '#6B3A2A' },
+    best_seller: { text: 'Best Seller', bg: '#1A1640' },
   };
 
   return (
@@ -75,7 +75,7 @@ export default function MealDetailScreen() {
           {meal.labels && meal.labels.length > 0 && (
             <View style={styles.labelsRow}>
               {meal.labels.map(label => (
-                <View key={label} style={[styles.label, { backgroundColor: LABEL_CONFIG[label]?.bg || '#C0392B' }]}>
+                <View key={label} style={[styles.label, { backgroundColor: LABEL_CONFIG[label]?.bg || '#D02010' }]}>
                   <Text style={styles.labelText}>{LABEL_CONFIG[label]?.text || label}</Text>
                 </View>
               ))}
@@ -158,12 +158,12 @@ export default function MealDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FDF8F3' },
+  container: { flex: 1, backgroundColor: '#FFFFFF' },
   notFound: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  notFoundText: { fontSize: 18, color: '#1A0F0A', marginBottom: 12 },
-  backLink: { color: '#C0392B', fontSize: 16, fontWeight: '600' },
+  notFoundText: { fontSize: 18, color: '#201060', marginBottom: 12 },
+  backLink: { color: '#D02010', fontSize: 16, fontWeight: '600' },
   imageContainer: { position: 'relative' },
-  heroImage: { width: '100%', height: 300, backgroundColor: '#F0E4D8' },
+  heroImage: { width: '100%', height: 300, backgroundColor: '#F0EEF9' },
   backBtn: {
     position: 'absolute', top: 48, left: 20,
     backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 20, width: 40, height: 40,
@@ -180,43 +180,43 @@ const styles = StyleSheet.create({
   labelsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
   label: { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
   labelText: { fontSize: 12, fontWeight: '700', color: '#FFF' },
-  mealName: { fontSize: 26, fontWeight: '800', color: '#1A0F0A', marginBottom: 12 },
+  mealName: { fontSize: 26, fontWeight: '800', color: '#201060', marginBottom: 12 },
   metaRow: { flexDirection: 'row', gap: 20, marginBottom: 16 },
   metaItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   metaIcon: { fontSize: 16 },
-  metaText: { fontSize: 14, color: '#8B6F5E' },
-  description: { fontSize: 15, color: '#6B3A2A', lineHeight: 24, marginBottom: 16 },
+  metaText: { fontSize: 14, color: '#6B6490' },
+  description: { fontSize: 15, color: '#1A1640', lineHeight: 24, marginBottom: 16 },
   allergenBox: {
-    backgroundColor: '#FFF5EC', borderRadius: 12, padding: 12,
+    backgroundColor: '#F4F3FB', borderRadius: 12, padding: 12,
     borderWidth: 1.5, borderColor: '#F39C12', marginBottom: 16,
   },
-  allergenTitle: { fontSize: 14, fontWeight: '700', color: '#6B3A2A', marginBottom: 4 },
-  allergenText: { fontSize: 13, color: '#8B6F5E' },
+  allergenTitle: { fontSize: 14, fontWeight: '700', color: '#1A1640', marginBottom: 4 },
+  allergenText: { fontSize: 13, color: '#6B6490' },
   availabilityBadge: { borderRadius: 12, padding: 12, marginBottom: 20, alignItems: 'center' },
   available: { backgroundColor: '#D5F5E3' },
   unavailable: { backgroundColor: '#FDECEA' },
-  availabilityText: { fontSize: 14, fontWeight: '700', color: '#1A0F0A' },
+  availabilityText: { fontSize: 14, fontWeight: '700', color: '#201060' },
   quantitySection: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  quantityLabel: { fontSize: 16, fontWeight: '700', color: '#1A0F0A' },
+  quantityLabel: { fontSize: 16, fontWeight: '700', color: '#201060' },
   quantityRow: { flexDirection: 'row', alignItems: 'center', gap: 16 },
   qtyBtn: {
-    backgroundColor: '#C0392B', borderRadius: 20, width: 40, height: 40,
+    backgroundColor: '#D02010', borderRadius: 20, width: 40, height: 40,
     alignItems: 'center', justifyContent: 'center',
   },
   qtyBtnText: { color: '#FFF', fontSize: 22, fontWeight: '700' },
-  qtyValue: { fontSize: 20, fontWeight: '800', color: '#1A0F0A', minWidth: 32, textAlign: 'center' },
+  qtyValue: { fontSize: 20, fontWeight: '800', color: '#201060', minWidth: 32, textAlign: 'center' },
   bottomBar: {
     position: 'absolute', bottom: 0, left: 0, right: 0,
-    backgroundColor: '#FFF', borderTopWidth: 1, borderTopColor: '#E8D5C4',
+    backgroundColor: '#FFF', borderTopWidth: 1, borderTopColor: '#E8E6F4',
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingHorizontal: 20, paddingVertical: 16, paddingBottom: 32,
   },
-  totalLabel: { fontSize: 13, color: '#8B6F5E' },
-  totalPrice: { fontSize: 22, fontWeight: '800', color: '#C0392B' },
+  totalLabel: { fontSize: 13, color: '#6B6490' },
+  totalPrice: { fontSize: 22, fontWeight: '800', color: '#D02010' },
   addToCartBtn: {
-    backgroundColor: '#C0392B', borderRadius: 16, paddingVertical: 14, paddingHorizontal: 28,
+    backgroundColor: '#D02010', borderRadius: 16, paddingVertical: 14, paddingHorizontal: 28,
   },
-  addToCartBtnDisabled: { backgroundColor: '#E8D5C4' },
+  addToCartBtnDisabled: { backgroundColor: '#E8E6F4' },
   addToCartBtnText: { color: '#FFF', fontSize: 16, fontWeight: '700' },
 });
 

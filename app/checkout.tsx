@@ -240,7 +240,7 @@ function CheckoutInner() {
             <TextInput
               style={styles.input}
               placeholder="Enter delivery address"
-              placeholderTextColor="#A08070"
+              placeholderTextColor="#8B88B0"
               value={address}
               onChangeText={setAddress}
               multiline
@@ -248,7 +248,7 @@ function CheckoutInner() {
             <TextInput
               style={[styles.input, { marginTop: 8 }]}
               placeholder="Landmark (optional)"
-              placeholderTextColor="#A08070"
+              placeholderTextColor="#8B88B0"
               value={landmark}
               onChangeText={setLandmark}
             />
@@ -372,46 +372,46 @@ export default function CheckoutScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FDF8F3' },
+  container: { flex: 1, backgroundColor: '#FFFFFF' },
   header: { paddingTop: 56, paddingHorizontal: 20, paddingBottom: 16 },
-  backText: { color: '#C0392B', fontSize: 16, fontWeight: '600', marginBottom: 8 },
-  title: { fontSize: 26, fontWeight: '800', color: '#1A0F0A' },
+  backText: { color: '#D02010', fontSize: 16, fontWeight: '600', marginBottom: 8 },
+  title: { fontSize: 26, fontWeight: '800', color: '#201060' },
   scrollContent: { paddingHorizontal: 20 },
   orderTypeBadge: {
-    backgroundColor: '#6B3A2A', borderRadius: 14, padding: 16, marginBottom: 16,
+    backgroundColor: '#1A1640', borderRadius: 14, padding: 16, marginBottom: 16,
   },
   orderTypeBadgeText: { fontSize: 18, fontWeight: '700', color: '#FFF', marginBottom: 4 },
   orderTypeBadgeSub: { fontSize: 13, color: 'rgba(255,255,255,0.8)' },
   section: { marginBottom: 20 },
-  sectionTitle: { fontSize: 17, fontWeight: '700', color: '#1A0F0A', marginBottom: 12 },
+  sectionTitle: { fontSize: 17, fontWeight: '700', color: '#201060', marginBottom: 12 },
   savedAddresses: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 },
   savedAddr: {
-    borderWidth: 1.5, borderColor: '#E8D5C4', borderRadius: 10, padding: 10, minWidth: 120,
+    borderWidth: 1.5, borderColor: '#E8E6F4', borderRadius: 10, padding: 10, minWidth: 120,
   },
-  savedAddrSelected: { borderColor: '#C0392B', backgroundColor: '#FFF5EC' },
-  savedAddrLabel: { fontSize: 12, fontWeight: '700', color: '#6B3A2A' },
-  savedAddrText: { fontSize: 12, color: '#8B6F5E', marginTop: 2 },
+  savedAddrSelected: { borderColor: '#D02010', backgroundColor: '#F4F3FB' },
+  savedAddrLabel: { fontSize: 12, fontWeight: '700', color: '#1A1640' },
+  savedAddrText: { fontSize: 12, color: '#6B6490', marginTop: 2 },
   input: {
-    backgroundColor: '#FFF5EC', borderWidth: 1.5, borderColor: '#E8D5C4',
-    borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12, fontSize: 15, color: '#1A0F0A',
+    backgroundColor: '#F4F3FB', borderWidth: 1.5, borderColor: '#E8E6F4',
+    borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12, fontSize: 15, color: '#201060',
   },
   scheduleRow: { flexDirection: 'row', gap: 12 },
   scheduleBtn: {
-    flex: 1, borderWidth: 2, borderColor: '#E8D5C4', borderRadius: 12,
+    flex: 1, borderWidth: 2, borderColor: '#E8E6F4', borderRadius: 12,
     paddingVertical: 12, alignItems: 'center',
   },
-  scheduleBtnActive: { borderColor: '#C0392B', backgroundColor: '#FFF5EC' },
-  scheduleBtnText: { fontSize: 15, fontWeight: '600', color: '#8B6F5E' },
-  scheduleBtnTextActive: { color: '#C0392B' },
+  scheduleBtnActive: { borderColor: '#D02010', backgroundColor: '#F4F3FB' },
+  scheduleBtnText: { fontSize: 15, fontWeight: '600', color: '#6B6490' },
+  scheduleBtnTextActive: { color: '#D02010' },
   paymentOption: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     backgroundColor: '#FFF', borderRadius: 12, padding: 14, marginBottom: 8,
-    borderWidth: 1.5, borderColor: '#E8D5C4',
+    borderWidth: 1.5, borderColor: '#E8E6F4',
   },
-  paymentOptionSelected: { borderColor: '#C0392B', backgroundColor: '#FFF5EC' },
+  paymentOptionSelected: { borderColor: '#D02010', backgroundColor: '#F4F3FB' },
   paymentIcon: { fontSize: 22 },
-  paymentLabel: { fontSize: 15, fontWeight: '600', color: '#1A0F0A' },
-  paymentSub: { fontSize: 11, color: '#8B6F5E', marginTop: 2 },
+  paymentLabel: { fontSize: 15, fontWeight: '600', color: '#201060' },
+  paymentSub: { fontSize: 11, color: '#6B6490', marginTop: 2 },
   loyaltyPoints: { fontSize: 13, color: '#F39C12', fontWeight: '700' },
   checkmark: { fontSize: 18, color: '#27AE60' },
   paystackBadge: {
@@ -420,23 +420,23 @@ const styles = StyleSheet.create({
   },
   paystackBadgeText: { fontSize: 12, color: '#166534', fontWeight: '600', textAlign: 'center' },
   summaryItem: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
-  summaryItemName: { flex: 1, fontSize: 14, color: '#8B6F5E', marginRight: 8 },
-  summaryItemPrice: { fontSize: 14, fontWeight: '600', color: '#1A0F0A' },
-  divider: { height: 1, backgroundColor: '#E8D5C4', marginVertical: 10 },
+  summaryItemName: { flex: 1, fontSize: 14, color: '#6B6490', marginRight: 8 },
+  summaryItemPrice: { fontSize: 14, fontWeight: '600', color: '#201060' },
+  divider: { height: 1, backgroundColor: '#E8E6F4', marginVertical: 10 },
   summaryRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
-  summaryLabel: { fontSize: 15, color: '#8B6F5E' },
-  summaryValue: { fontSize: 15, fontWeight: '600', color: '#1A0F0A' },
-  totalRow: { borderTopWidth: 1, borderTopColor: '#E8D5C4', paddingTop: 10, marginTop: 4 },
-  totalLabel: { fontSize: 18, fontWeight: '800', color: '#1A0F0A' },
-  totalValue: { fontSize: 20, fontWeight: '800', color: '#C0392B' },
+  summaryLabel: { fontSize: 15, color: '#6B6490' },
+  summaryValue: { fontSize: 15, fontWeight: '600', color: '#201060' },
+  totalRow: { borderTopWidth: 1, borderTopColor: '#E8E6F4', paddingTop: 10, marginTop: 4 },
+  totalLabel: { fontSize: 18, fontWeight: '800', color: '#201060' },
+  totalValue: { fontSize: 20, fontWeight: '800', color: '#D02010' },
   bottomBar: {
     position: 'absolute', bottom: 0, left: 0, right: 0,
-    backgroundColor: '#FFF', borderTopWidth: 1, borderTopColor: '#E8D5C4',
+    backgroundColor: '#FFF', borderTopWidth: 1, borderTopColor: '#E8E6F4',
     paddingHorizontal: 20, paddingVertical: 16, paddingBottom: 32,
   },
   placeOrderBtn: {
-    backgroundColor: '#C0392B', borderRadius: 16, paddingVertical: 16, alignItems: 'center',
+    backgroundColor: '#D02010', borderRadius: 16, paddingVertical: 16, alignItems: 'center',
   },
-  placeOrderBtnLoading: { backgroundColor: '#E8D5C4' },
+  placeOrderBtnLoading: { backgroundColor: '#E8E6F4' },
   placeOrderBtnText: { color: '#FFF', fontSize: 17, fontWeight: '700' },
 });
