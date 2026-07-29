@@ -31,7 +31,8 @@ export const adminProcedure = t.procedure.use(
   t.middleware(async (opts) => {
     const { ctx, next } = opts;
 
-    if (!ctx.user || ctx.user.role !== "admin") {
+    const ADMIN_ROLES = ['admin', 'kitchen', 'manager'] as const;
+    if (!ctx.user || !(ADMIN_ROLES as readonly string[]).includes(ctx.user.role)) {
       throw new TRPCError({ code: "FORBIDDEN", message: NOT_ADMIN_ERR_MSG });
     }
 
@@ -41,5 +42,16 @@ export const adminProcedure = t.procedure.use(
         user: ctx.user,
       },
     });
+  }),
+);
+
+// Strict admin-only procedure (admin + manager, NOT kitchen)
+export const strictAdminProcedure = t.procedure.use(
+  t.middleware(async (opts) => {
+    const { ctx, next } = opts;
+    if (!ctx.user || !['admin', 'manager'].includes(ctx.user.role)) {
+      throw new TRPCError({ code: "FORBIDDEN", message: NOT_ADMIN_ERR_MSG });
+    }
+    return next({ ctx: { ...ctx, user: ctx.user } });
   }),
 );

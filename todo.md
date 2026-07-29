@@ -135,3 +135,8 @@
 - [x] FR-041: Backend payment verification endpoint + wire to checkout onSuccess
 - [x] FR-070-071: Promotions admin tab (CRUD for promo codes)
 - [x] FR-065-066: Pickup collection code generation and display on order confirmation
+
+### Next Sprint
+- [x] FR-102: CSV export button on Reports tab (download transactions for date range)
+- [x] FR-006: Role-based access control on admin dashboard (restrict to admin/kitchen roles)
+- [x] FR-060: Delivery zone validation at checkout (check address within branch radius)

@@ -7,6 +7,62 @@ import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ScreenContainer } from '@/components/screen-container';
 import { trpc } from '@/lib/trpc';
+import { useEffect } from 'react';
+import * as Sharing from 'expo-sharing';
+import * as FileSystem from 'expo-file-system/legacy';
+import { Platform } from 'react-native';
+
+// ── CSV helpers ──────────────────────────────────────────────────────────────
+function escapeCsv(val: unknown): string {
+  const s = val == null ? '' : String(val);
+  return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+async function downloadTransactionsCsv(
+  rows: Array<{
+    orderNumber: string; createdAt: Date | string | null;
+    status: string; paymentStatus: string; paymentMethod: string;
+    paymentReference: string | null; total: string | number; orderType: string;
+  }>,
+  fromDate: string, toDate: string,
+) {
+  const header = ['Order #', 'Date', 'Status', 'Payment Status', 'Method', 'Reference', 'Total (₦)', 'Type'];
+  const csvLines = [
+    header.join(','),
+    ...rows.map(r => [
+      escapeCsv(r.orderNumber),
+      escapeCsv(r.createdAt ? new Date(r.createdAt).toISOString() : ''),
+      escapeCsv(r.status),
+      escapeCsv(r.paymentStatus),
+      escapeCsv(r.paymentMethod),
+      escapeCsv(r.paymentReference ?? ''),
+      escapeCsv(Number(r.total).toFixed(2)),
+      escapeCsv(r.orderType),
+    ].join(',')),
+  ];
+  const csvContent = csvLines.join('\n');
+  const dateTag = `${fromDate || 'all'}_to_${toDate || 'now'}`;
+  const filename = `amala_transactions_${dateTag}.csv`;
+
+  if (Platform.OS === 'web') {
+    // Web: trigger browser download
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename; a.click();
+    URL.revokeObjectURL(url);
+    return;
+  }
+
+  // Native: write to cache dir and share
+  const path = `${FileSystem.cacheDirectory}${filename}`;
+  await FileSystem.writeAsStringAsync(path, csvContent, { encoding: FileSystem.EncodingType.UTF8 });
+  if (await Sharing.isAvailableAsync()) {
+    await Sharing.shareAsync(path, { mimeType: 'text/csv', dialogTitle: 'Export Transactions' });
+  } else {
+    Alert.alert('Sharing unavailable', 'Cannot share files on this device.');
+  }
+}
 
 type DashTab = 'overview' | 'orders' | 'meals' | 'riders' | 'reports' | 'promos';
 
@@ -37,6 +93,20 @@ const STATUS_LABEL: Record<string, string> = {
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState<DashTab>('overview');
   const [refreshing, setRefreshing] = useState(false);
+
+  // ── Role-based access guard (FR-006) ─────────────────────────────────────
+  const { data: myProfile, isLoading: profileLoading } = trpc.profile.me.useQuery();
+  const ALLOWED_ROLES = ['admin', 'kitchen', 'manager'];
+  const hasAccess = myProfile && ALLOWED_ROLES.includes((myProfile as { role?: string }).role ?? '');
+
+  useEffect(() => {
+    if (!profileLoading && myProfile && !hasAccess) {
+      Alert.alert('Access Denied', 'You do not have permission to access the admin dashboard.', [
+        { text: 'Go Back', onPress: () => router.replace('/(tabs)' as never) },
+      ]);
+    }
+  }, [profileLoading, myProfile, hasAccess]);
+
   const [mealSearch, setMealSearch] = useState('');
   const [editingMeal, setEditingMeal] = useState<null | {
     id: number; name: string; price: string; isAvailable: boolean; description: string;
@@ -108,6 +178,37 @@ export default function AdminDashboard() {
   const filteredMeals = (allMeals ?? []).filter(m =>
     !mealSearch || m.name.toLowerCase().includes(mealSearch.toLowerCase())
   );
+
+  // Show loading while checking role
+  if (profileLoading) {
+    return (
+      <ScreenContainer containerClassName="bg-background" edges={['top', 'left', 'right']}>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ fontSize: 16, color: '#8B6F5E' }}>Checking access…</Text>
+        </View>
+      </ScreenContainer>
+    );
+  }
+
+  // Block non-admin roles
+  if (!hasAccess) {
+    return (
+      <ScreenContainer containerClassName="bg-background" edges={['top', 'left', 'right']}>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 }}>
+          <Text style={{ fontSize: 48, marginBottom: 16 }}>🚫</Text>
+          <Text style={{ fontSize: 20, fontWeight: '800', color: '#1E1060', marginBottom: 8 }}>Access Denied</Text>
+          <Text style={{ fontSize: 15, color: '#8B6F5E', textAlign: 'center', marginBottom: 24 }}>
+            You need admin, kitchen, or manager access to view this dashboard.
+          </Text>
+          <TouchableOpacity
+            style={{ backgroundColor: '#C0392B', borderRadius: 12, paddingHorizontal: 24, paddingVertical: 12 }}
+            onPress={() => router.replace('/(tabs)' as never)}>
+            <Text style={{ color: '#FFF', fontWeight: '700', fontSize: 16 }}>Go Back</Text>
+          </TouchableOpacity>
+        </View>
+      </ScreenContainer>
+    );
+  }
 
   return (
     <ScreenContainer containerClassName="bg-background" edges={['top', 'left', 'right']}>
@@ -383,6 +484,13 @@ export default function AdminDashboard() {
             <TouchableOpacity style={styles.addMealBtn} onPress={() => refetchReport()}>
               <Text style={styles.addMealBtnText}>🔍 Apply Filter</Text>
             </TouchableOpacity>
+            {(txReport?.rows ?? []).length > 0 && (
+              <TouchableOpacity
+                style={[styles.addMealBtn, { backgroundColor: '#1E1060', marginTop: 8 }]}
+                onPress={() => downloadTransactionsCsv(txReport!.rows, reportFrom, reportTo)}>
+                <Text style={styles.addMealBtnText}>⬇️ Download CSV</Text>
+              </TouchableOpacity>
+            )}
             {txReport?.summary && (
               <View style={[styles.statsGrid, { marginTop: 16 }]}>
                 {([

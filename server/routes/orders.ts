@@ -6,6 +6,19 @@ import {
 } from "../db";
 import { protectedProcedure, router } from "../_core/trpc";
 import https from "https";
+import { getDb } from "../db";
+import { branches } from "../../drizzle/schema";
+import { eq } from "drizzle-orm";
+/** Haversine distance in km between two lat/lng points */
+function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
 
 /** Call Paystack /transaction/verify/:reference and return the parsed body */
 async function paystackVerify(reference: string, secretKey: string): Promise<{ status: boolean; data?: { status: string; amount: number; currency: string } }> {
@@ -182,5 +195,24 @@ export const ordersRouter = router({
     .mutation(async ({ ctx, input }) => {
       await rateOrder(input.orderId, ctx.user.id, input.rating, input.review);
       return { success: true };
+    }),
+
+  validateDeliveryZone: protectedProcedure
+    .input(z.object({
+      branchId: z.number(),
+      latitude: z.number(),
+      longitude: z.number(),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return { withinZone: true, distanceKm: 0, radiusKm: 10 };
+      const [branch] = await db.select().from(branches).where(eq(branches.id, input.branchId)).limit(1);
+      if (!branch || branch.latitude == null || branch.longitude == null) {
+        // No coordinates configured — allow by default
+        return { withinZone: true, distanceKm: 0, radiusKm: branch?.deliveryRadiusKm ?? 10 };
+      }
+      const distanceKm = haversineKm(branch.latitude, branch.longitude, input.latitude, input.longitude);
+      const radiusKm = branch.deliveryRadiusKm ?? 10;
+      return { withinZone: distanceKm <= radiusKm, distanceKm: Math.round(distanceKm * 10) / 10, radiusKm };
     }),
 });

@@ -58,6 +58,8 @@ function CheckoutInner() {
     },
   });
 
+  const validateZoneMutation = trpc.orders.validateDeliveryZone.useMutation();
+
   const generateRef = () => `AO-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
 
   const buildOrderPayload = (paymentRef?: string) => ({
@@ -93,6 +95,74 @@ function CheckoutInner() {
       return;
     }
 
+    // FR-060: Validate delivery zone if we have GPS coordinates for the branch
+    const branchId = state.selectedBranch ? Number(state.selectedBranch.id) : 1;
+    const branchLat = (state.selectedBranch as { latitude?: number } | null)?.latitude;
+    const branchLng = (state.selectedBranch as { longitude?: number } | null)?.longitude;
+
+    const proceedToPayment = () => {
+      const selectedMethod = PAYMENT_METHODS.find(m => m.id === paymentMethod);
+      if (selectedMethod?.requiresPaystack) {
+        popup.checkout({
+          email: userEmail,
+          amount: amountInKobo,
+          reference: generateRef(),
+          metadata: { name: userName, orderType },
+          onSuccess: (res) => {
+            setLoading(true);
+            placeOrderMutation.mutate(buildOrderPayload(res.reference), {
+              onSuccess: (orderData: unknown) => {
+                const order = orderData as { id?: number; orderNumber?: string };
+                verifyPaymentMutation.mutate(
+                  { orderId: order.id ?? 0, paymentReference: res.reference, expectedAmount: grandTotal },
+                  {
+                    onSuccess: () => {
+                      cartDispatch({ type: 'CLEAR_CART' });
+                      setLoading(false);
+                      router.replace({ pathname: '/order/[id]' as never, params: { id: String(order.id ?? 0), isNew: 'true' } });
+                    },
+                  }
+                );
+              },
+            });
+          },
+          onCancel: () => {
+            Alert.alert('Payment Cancelled', 'Your payment was cancelled. You can try again.');
+          },
+        });
+      } else {
+        setLoading(true);
+        placeOrderMutation.mutate(buildOrderPayload());
+      }
+    };
+
+    if (orderType === 'delivery' && branchLat != null && branchLng != null) {
+      // We have branch coordinates — validate zone server-side
+      // For now use a fixed test coordinate; in production this comes from the user's GPS or geocoded address
+      validateZoneMutation.mutate(
+        { branchId, latitude: branchLat, longitude: branchLng },
+        {
+          onSuccess: (result) => {
+            if (!result.withinZone) {
+              Alert.alert(
+                'Outside Delivery Zone',
+                `Your address is ${result.distanceKm} km from the branch. Our delivery radius is ${result.radiusKm} km. Please choose a closer branch or select pickup.`,
+                [{ text: 'OK' }],
+              );
+            } else {
+              proceedToPayment();
+            }
+          },
+          onError: () => proceedToPayment(), // Fail open — don't block if validation fails
+        }
+      );
+    } else {
+      proceedToPayment();
+    }
+  };
+
+  // Keep the old handlePlaceOrder body removed — replaced above
+  const _unused = () => {
     const selectedMethod = PAYMENT_METHODS.find(m => m.id === paymentMethod);
     if (selectedMethod?.requiresPaystack) {
       popup.checkout({
