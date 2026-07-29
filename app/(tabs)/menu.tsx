@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  TextInput, Pressable,
+  TextInput, Pressable, ActivityIndicator,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -9,44 +9,96 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { ScreenContainer } from '@/components/screen-container';
 import { useAppStore } from '@/lib/store/app-store';
 import { MEALS, CATEGORIES } from '@/lib/data/mock-data';
-import type { Meal } from '@/lib/data/types';
+import { trpc } from '@/lib/trpc';
+import { toMealCard, type MealCard } from '@/lib/utils';
+
+// Category icon mapping for DB categories
+const CAT_ICONS: Record<string, string> = {
+  'Amala & Swallows': '🍲',
+  'Soups & Stews': '🥘',
+  'Rice Dishes': '🍚',
+  'Grills & BBQ': '🍖',
+  'Proteins': '🥩',
+  'Drinks': '🥤',
+  'Shawarma': '🌯',
+  'Desserts': '🍮',
+  'Family Packs': '👨‍👩‍👧',
+  'Catering': '🎉',
+};
 
 export default function MenuScreen() {
   const params = useLocalSearchParams<{ q?: string; categoryId?: string }>();
   const { state, dispatch } = useAppStore();
   const [search, setSearch] = useState(params.q ?? '');
-  const [activeCategory, setActiveCategory] = useState(params.categoryId ?? 'all');
+  const [activeCategoryId, setActiveCategoryId] = useState<number | null>(
+    params.categoryId ? Number(params.categoryId) : null
+  );
 
-  const allCategories = [
-    { id: 'all', name: 'All', icon: '🍽️', description: '', mealCount: MEALS.length },
-    ...CATEGORIES,
-  ];
+  // ── Live data from backend ──────────────────────────────────────────────────
+  const { data: liveCategories, isLoading: catsLoading } = trpc.menu.categories.useQuery(
+    undefined, { retry: 1, staleTime: 300_000 }
+  );
+  const { data: liveMeals, isLoading: mealsLoading } = trpc.menu.meals.useQuery(
+    {
+      categoryId: activeCategoryId ?? undefined,
+      search: search.trim() || undefined,
+    },
+    { retry: 1, staleTime: 30_000 }
+  );
 
-  const filtered = useMemo<Meal[]>(() => {
+  const isLoading = catsLoading || mealsLoading;
+
+  // ── Normalize categories (live DB or mock fallback) ─────────────────────────
+  const allCategories = useMemo(() => {
+    const base = { id: 0, name: 'All', icon: '🍽️' };
+    if (liveCategories && liveCategories.length > 0) {
+      return [
+        base,
+        ...liveCategories.map(c => ({
+          id: c.id,
+          name: c.name,
+          icon: CAT_ICONS[c.name] ?? '🍽️',
+        })),
+      ];
+    }
+    return [
+      base,
+      ...CATEGORIES.map(c => ({ id: Number(c.id) || 0, name: c.name, icon: c.icon ?? '🍽️' })),
+    ];
+  }, [liveCategories]);
+
+  // ── Normalize meals (live DB or mock fallback with client-side filter) ──────
+  const meals: MealCard[] = useMemo(() => {
+    if (liveMeals && liveMeals.length > 0) {
+      return liveMeals.map(m => toMealCard(m as unknown as Record<string, unknown>));
+    }
+    // Mock fallback with client-side filtering
     let list = MEALS;
-    if (activeCategory !== 'all') list = list.filter(m => m.categoryId === activeCategory);
+    if (activeCategoryId) list = list.filter(m => Number(m.categoryId) === activeCategoryId);
     if (search.trim()) {
       const q = search.toLowerCase();
       list = list.filter(m =>
         m.name.toLowerCase().includes(q) ||
-        m.description.toLowerCase().includes(q) ||
-        m.categoryName.toLowerCase().includes(q)
+        (m.description ?? '').toLowerCase().includes(q)
       );
     }
-    return list;
-  }, [activeCategory, search]);
+    return list.map(m => toMealCard(m as unknown as Record<string, unknown>));
+  }, [liveMeals, activeCategoryId, search]);
 
   return (
     <ScreenContainer containerClassName="bg-background" edges={['top', 'left', 'right']}>
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Menu</Text>
-        <TouchableOpacity
-          style={styles.builderBtn}
-          onPress={() => router.push('/meal/builder' as never)}
-        >
-          <Text style={styles.builderBtnText}>🍲 Build</Text>
-        </TouchableOpacity>
+        <View style={styles.headerRight}>
+          {isLoading && <ActivityIndicator size="small" color="#C0392B" style={{ marginRight: 8 }} />}
+          <TouchableOpacity
+            style={styles.builderBtn}
+            onPress={() => router.push('/meal/builder' as never)}
+          >
+            <Text style={styles.builderBtnText}>🍲 Build</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Search */}
@@ -72,17 +124,17 @@ export default function MenuScreen() {
       {/* Category Tabs */}
       <FlatList
         data={allCategories}
-        keyExtractor={c => c.id}
+        keyExtractor={c => String(c.id)}
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.catList}
         style={styles.catScroll}
         renderItem={({ item: cat }) => {
-          const active = cat.id === activeCategory;
+          const active = cat.id === (activeCategoryId ?? 0);
           return (
             <Pressable
               style={[styles.catTab, active && styles.catTabActive]}
-              onPress={() => setActiveCategory(cat.id)}
+              onPress={() => setActiveCategoryId(cat.id === 0 ? null : cat.id)}
             >
               <Text style={styles.catTabIcon}>{cat.icon}</Text>
               <Text style={[styles.catTabText, active && styles.catTabTextActive]}>
@@ -95,90 +147,107 @@ export default function MenuScreen() {
 
       {/* Meal List */}
       <FlatList
-        data={filtered}
-        keyExtractor={m => m.id}
+        data={meals}
+        keyExtractor={m => String(m.id)}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
           <Text style={styles.resultCount}>
-            {filtered.length} {filtered.length === 1 ? 'meal' : 'meals'} found
+            {meals.length} {meals.length === 1 ? 'meal' : 'meals'} found
+            {liveCategories ? ' · Live' : ' · Offline'}
           </Text>
         }
         ListEmptyComponent={
-          <View style={styles.empty}>
-            <Text style={styles.emptyEmoji}>🍽️</Text>
-            <Text style={styles.emptyTitle}>No meals found</Text>
-            <Text style={styles.emptyDesc}>Try a different search or category</Text>
-          </View>
-        }
-        renderItem={({ item: meal }) => (
-          <TouchableOpacity
-            style={styles.card}
-            onPress={() => router.push({ pathname: '/meal/[id]', params: { id: meal.id } } as never)}
-          >
-            <View style={styles.cardImgWrap}>
-              <Image source={{ uri: meal.imageUrl }} style={styles.cardImg} contentFit="cover" />
-              {!meal.isAvailable && (
-                <View style={styles.unavailableOverlay}>
-                  <Text style={styles.unavailableText}>Unavailable</Text>
-                </View>
-              )}
-              {meal.labels && meal.labels.length > 0 && (
-                <View style={[
-                  styles.labelBadge,
-                  meal.labels.includes('best_seller') ? styles.labelGold :
-                  meal.labels.includes('chefs_choice') ? styles.labelOrange :
-                  styles.labelRed,
-                ]}>
-                  <Text style={styles.labelText}>
-                    {meal.labels.includes('best_seller') ? '🏆 Best Seller' :
-                     meal.labels.includes('chefs_choice') ? "👨‍🍳 Chef's" :
-                     meal.labels.includes('new') ? '✨ New' : '🔥 Popular'}
-                  </Text>
-                </View>
-              )}
+          isLoading ? (
+            <View style={styles.empty}>
+              <ActivityIndicator size="large" color="#C0392B" />
+              <Text style={styles.emptyDesc}>Loading menu...</Text>
             </View>
-            <View style={styles.cardBody}>
-              <View style={styles.cardTop}>
-                <Text style={styles.cardName} numberOfLines={1}>{meal.name}</Text>
+          ) : (
+            <View style={styles.empty}>
+              <Text style={styles.emptyEmoji}>🍽️</Text>
+              <Text style={styles.emptyTitle}>No meals found</Text>
+              <Text style={styles.emptyDesc}>Try a different search or category</Text>
+            </View>
+          )
+        }
+        renderItem={({ item: meal }) => {
+          const isFav = state.favouriteMealIds.includes(String(meal.id));
+          const isAvailable = meal.isAvailable !== false;
+          return (
+            <TouchableOpacity
+              style={styles.card}
+              onPress={() => router.push({ pathname: '/meal/[id]', params: { id: String(meal.id) } } as never)}
+            >
+              <View style={styles.cardImgWrap}>
+                <Image
+                  source={{ uri: meal.imageUrl ?? undefined }}
+                  style={styles.cardImg}
+                  contentFit="cover"
+                  placeholder={{ uri: 'https://via.placeholder.com/400x200/FDF8F3/C0392B?text=Amala+Oluyole' }}
+                />
+                {!isAvailable && (
+                  <View style={styles.unavailableOverlay}>
+                    <Text style={styles.unavailableText}>Unavailable</Text>
+                  </View>
+                )}
+                {meal.labels && meal.labels.length > 0 && (
+                  <View style={[
+                    styles.labelBadge,
+                    meal.labels.includes('best_seller') ? styles.labelGold :
+                    meal.labels.includes('chefs_choice') ? styles.labelOrange :
+                    styles.labelRed,
+                  ]}>
+                    <Text style={styles.labelText}>
+                      {meal.labels.includes('best_seller') ? '🏆 Best Seller' :
+                       meal.labels.includes('chefs_choice') ? "👨‍🍳 Chef's" :
+                       meal.labels.includes('new') ? '✨ New' : '🔥 Popular'}
+                    </Text>
+                  </View>
+                )}
+              </View>
+              <View style={styles.cardBody}>
+                <View style={styles.cardTop}>
+                  <Text style={styles.cardName} numberOfLines={1}>{meal.name}</Text>
+                  <TouchableOpacity
+                    style={styles.heartBtn}
+                    onPress={() => dispatch({ type: 'TOGGLE_FAVOURITE', payload: String(meal.id) })}
+                  >
+                    <Text style={styles.heartIcon}>{isFav ? '❤️' : '♡'}</Text>
+                  </TouchableOpacity>
+                </View>
+                <Text style={styles.cardDesc} numberOfLines={2}>{meal.description}</Text>
+                <View style={styles.cardFooter}>
+                  <Text style={styles.cardPrice}>₦{meal.price.toLocaleString()}</Text>
+                  <View style={styles.cardMeta}>
+                    {meal.preparationTime ? (
+                      <Text style={styles.cardTime}>⏱ {meal.preparationTime}m</Text>
+                    ) : null}
+                    {meal.rating ? (
+                      <View style={styles.ratingRow}>
+                        <Text style={styles.ratingStar}>★</Text>
+                        <Text style={styles.ratingVal}>{meal.rating}</Text>
+                      </View>
+                    ) : null}
+                  </View>
+                </View>
                 <TouchableOpacity
-                  style={styles.heartBtn}
-                  onPress={() => dispatch({ type: 'TOGGLE_FAVOURITE', payload: meal.id })}
+                  style={[styles.addBtn, !isAvailable && styles.addBtnDisabled]}
+                  disabled={!isAvailable}
+                  onPress={() => router.push({ pathname: '/meal/[id]', params: { id: String(meal.id) } } as never)}
                 >
-                  <Text style={styles.heartIcon}>
-                    {state.favouriteMealIds.includes(meal.id) ? '❤️' : '♡'}
-                  </Text>
+                  <LinearGradient
+                    colors={isAvailable ? ['#C0392B', '#8B1A10'] : ['#CCC', '#AAA']}
+                    style={styles.addBtnGrad}
+                    start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                  >
+                    <Text style={styles.addBtnText}>{isAvailable ? 'Add to Cart' : 'Unavailable'}</Text>
+                  </LinearGradient>
                 </TouchableOpacity>
               </View>
-              <Text style={styles.cardDesc} numberOfLines={2}>{meal.description}</Text>
-              <View style={styles.cardFooter}>
-                <Text style={styles.cardPrice}>₦{meal.price.toLocaleString()}</Text>
-                <View style={styles.cardMeta}>
-                  <Text style={styles.cardTime}>⏱ {meal.preparationTime}m</Text>
-                  {meal.rating && (
-                    <View style={styles.ratingRow}>
-                      <Text style={styles.ratingStar}>★</Text>
-                      <Text style={styles.ratingVal}>{meal.rating}</Text>
-                    </View>
-                  )}
-                </View>
-              </View>
-              <TouchableOpacity
-                style={[styles.addBtn, !meal.isAvailable && styles.addBtnDisabled]}
-                disabled={!meal.isAvailable}
-                onPress={() => router.push({ pathname: '/meal/[id]', params: { id: meal.id } } as never)}
-              >
-                <LinearGradient
-                  colors={meal.isAvailable ? ['#C0392B', '#8B1A10'] : ['#CCC', '#AAA']}
-                  style={styles.addBtnGrad}
-                  start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-                >
-                  <Text style={styles.addBtnText}>{meal.isAvailable ? 'Add to Cart' : 'Unavailable'}</Text>
-                </LinearGradient>
-              </TouchableOpacity>
-            </View>
-          </TouchableOpacity>
-        )}
+            </TouchableOpacity>
+          );
+        }}
       />
     </ScreenContainer>
   );
@@ -190,6 +259,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20, paddingTop: 8, paddingBottom: 4,
   },
   headerTitle: { fontSize: 28, fontWeight: '900', color: '#1A0F0A' },
+  headerRight: { flexDirection: 'row', alignItems: 'center' },
   builderBtn: {
     backgroundColor: '#FFF5EC', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8,
     borderWidth: 1.5, borderColor: '#C0392B',
@@ -222,7 +292,7 @@ const styles = StyleSheet.create({
   resultCount: { fontSize: 13, color: '#8B6F5E', marginBottom: 12 },
   listContent: { paddingHorizontal: 16, paddingTop: 4, paddingBottom: 100 },
 
-  empty: { alignItems: 'center', paddingTop: 60, gap: 8 },
+  empty: { alignItems: 'center', paddingTop: 60, gap: 12 },
   emptyEmoji: { fontSize: 52 },
   emptyTitle: { fontSize: 18, fontWeight: '700', color: '#1A0F0A' },
   emptyDesc: { fontSize: 14, color: '#8B6F5E' },

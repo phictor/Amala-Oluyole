@@ -31,6 +31,7 @@ export interface MealCard {
   isChefSpecial?: boolean;
   isSpicy?: boolean;
   categoryId?: number;
+  isAvailable?: boolean;
 }
 
 // Normalizes a DB meal (price as string decimal) or mock meal (price as number) to MealCard
@@ -50,5 +51,6 @@ export function toMealCard(meal: Record<string, unknown>): MealCard {
     isChefSpecial: meal.isChefSpecial as boolean,
     isSpicy: meal.isSpicy as boolean,
     categoryId: meal.categoryId as number,
+    isAvailable: meal.isAvailable !== false,
   };
 }

@@ -94,3 +94,10 @@
 - [x] iOS permissions: location, camera, photos, notifications, privacy manifest
 - [x] Android permissions: notifications, location, camera, media, vibrate
 - [x] App store description added to app.config.ts
+
+### Live Backend Integrations
+- [ ] Wire Menu screen to live DB data via trpc.menu.meals.useQuery
+- [ ] Wire Menu categories to live DB via trpc.menu.categories.useQuery
+- [ ] Admin/Kitchen Dashboard — orders list, meal CRUD, rider monitoring, order status updates
+- [ ] Paystack payment integration in checkout screen
+- [ ] Payment verification via tRPC after Paystack callback
