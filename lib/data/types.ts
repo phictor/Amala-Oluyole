@@ -226,6 +226,7 @@ export interface User {
   addresses: Address[];
   loyaltyAccount: LoyaltyAccount;
   isGuest: boolean;
+  role?: string;
 }
 
 export interface Notification {

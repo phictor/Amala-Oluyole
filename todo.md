@@ -139,4 +139,7 @@
 ### Next Sprint
 - [x] FR-102: CSV export button on Reports tab (download transactions for date range)
 - [x] FR-006: Role-based access control on admin dashboard (restrict to admin/kitchen roles)
+- [x] Kitchen Portal: dedicated screen for kitchen staff with order queue, stock management, monthly report
+- [x] Inventory/stock DB table and tRPC endpoints (add/update/deplete stock items)
+- [x] Kitchen monthly report (order volumes, popular meals, stock usage)
 - [x] FR-060: Delivery zone validation at checkout (check address within branch radius)

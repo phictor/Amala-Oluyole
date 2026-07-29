@@ -356,6 +356,36 @@ export const favourites = mysqlTable("favourites", {
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
+// ─── INVENTORY ───────────────────────────────────────────────────────────────
+export const inventory = mysqlTable("inventory", {
+  id: int("id").autoincrement().primaryKey(),
+  branchId: int("branchId").notNull(),
+  name: varchar("name", { length: 128 }).notNull(),
+  category: mysqlEnum("category", ["swallow", "soup", "protein", "spice", "vegetable", "drink", "packaging", "other"]).default("other").notNull(),
+  unit: varchar("unit", { length: 32 }).default("kg").notNull(),
+  currentStock: decimal("currentStock", { precision: 10, scale: 2 }).default("0.00").notNull(),
+  minimumStock: decimal("minimumStock", { precision: 10, scale: 2 }).default("0.00").notNull(),
+  costPerUnit: decimal("costPerUnit", { precision: 10, scale: 2 }).default("0.00").notNull(),
+  supplier: varchar("supplier", { length: 128 }),
+  notes: text("notes"),
+  isActive: boolean("isActive").default(true).notNull(),
+  lastRestockedAt: timestamp("lastRestockedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+// ─── INVENTORY TRANSACTIONS ──────────────────────────────────────────────────
+export const inventoryTransactions = mysqlTable("inventory_transactions", {
+  id: int("id").autoincrement().primaryKey(),
+  inventoryId: int("inventoryId").notNull(),
+  branchId: int("branchId").notNull(),
+  type: mysqlEnum("type", ["restock", "usage", "waste", "adjustment"]).notNull(),
+  quantity: decimal("quantity", { precision: 10, scale: 2 }).notNull(),
+  note: text("note"),
+  recordedBy: int("recordedBy").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
 // ─── EXPORT TYPES ────────────────────────────────────────────────────────────
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
@@ -381,3 +411,6 @@ export type SupportTicket = typeof supportTickets.$inferSelect;
 export type Notification = typeof notifications.$inferSelect;
 export type CustomerAddress = typeof customerAddresses.$inferSelect;
 export type InsertCustomerAddress = typeof customerAddresses.$inferInsert;
+export type InventoryItem = typeof inventory.$inferSelect;
+export type InsertInventoryItem = typeof inventory.$inferInsert;
+export type InventoryTransaction = typeof inventoryTransactions.$inferSelect;

@@ -28,6 +28,7 @@ function MenuRow({ icon, label, onPress, danger }: {
 export default function ProfileScreen() {
   const { state, dispatch } = useAppStore();
   const user = state.user;
+  const isStaff = ['admin', 'manager', 'kitchen'].includes(user?.role ?? '');
   const loyalty = user?.loyaltyAccount;
   const tier = loyalty?.tier ? TIER_CONFIG[loyalty.tier] : TIER_CONFIG.bronze;
 
@@ -123,7 +124,20 @@ export default function ProfileScreen() {
 
         {/* Support Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Support</Text>
+        {/* Staff Portal — only visible to kitchen/admin/manager */}
+        {isStaff && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Staff Tools</Text>
+            <View style={styles.menuCard}>
+              <MenuRow icon="👨‍🍳" label="Kitchen Portal" onPress={() => router.push('/kitchen' as never)} />
+              {['admin', 'manager'].includes(user?.role ?? '') && (
+                <MenuRow icon="🛠️" label="Admin Dashboard" onPress={() => router.push('/admin' as never)} />
+              )}
+            </View>
+          </View>
+        )}
+
+        <Text style={styles.sectionTitle}>Support</Text>
           <View style={styles.menuCard}>
             <MenuRow icon="💬" label="Help & Support" onPress={() => router.push('/support' as never)} />
             <MenuRow icon="📞" label="Contact Us" onPress={() => router.push('/support' as never)} />
@@ -191,4 +205,3 @@ const styles = StyleSheet.create({
   menuLabelDanger: { color: '#E74C3C' },
   menuChevron: { fontSize: 20, color: '#D02010' },
 });
-
