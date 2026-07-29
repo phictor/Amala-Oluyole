@@ -7,6 +7,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useAppStore } from '@/lib/store/app-store';
 import type { User } from '@/lib/data/types';
+import { Image as ExpoImage } from 'expo-image';
+
+const LOGO_CHEF = require('@/assets/images/logo-chef.png');
 
 export default function LoginScreen() {
   const { dispatch } = useAppStore();
@@ -58,8 +61,8 @@ export default function LoginScreen() {
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.logo}>🍲</Text>
-          <Text style={styles.brand}>Amala Oluyole</Text>
+          <ExpoImage source={LOGO_CHEF} style={styles.logoImg} contentFit="contain" />
+          <Text style={styles.brand}>Àmàlà Olúyòlé</Text>
           <Text style={styles.tagline}>Welcome back! Sign in to continue.</Text>
         </View>
 
@@ -134,6 +137,7 @@ const styles = StyleSheet.create({
   scroll: { flexGrow: 1, paddingHorizontal: 24 },
   header: { alignItems: 'center', paddingTop: 64, paddingBottom: 40 },
   logo: { fontSize: 64, marginBottom: 12 },
+  logoImg: { width: 110, height: 110, marginBottom: 12 },
   brand: { fontSize: 28, fontWeight: '800', color: '#1A0F0A', marginBottom: 8 },
   tagline: { fontSize: 15, color: '#8B6F5E', textAlign: 'center' },
   form: { gap: 4 },

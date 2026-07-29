@@ -30,7 +30,7 @@ const env = {
   // App branding - update these values directly (do not use env vars)
   appName: "Amala Oluyole",
   appSlug: "amala_oluyole_app",
-  logoUrl: "/manus-storage/icon_4e4fdf7c.png",
+  logoUrl: "https://files.manuscdn.com/user_upload_by_module/session_file/310519663088610231/rsDGLFlAijpbpOkV.png",
   scheme: "amalaoluyole",
   iosBundleId: bundleId,
   androidPackage: bundleId,
@@ -68,7 +68,7 @@ const config: ExpoConfig = {
   },
   android: {
     adaptiveIcon: {
-      backgroundColor: "#E6F4FE",
+      backgroundColor: "#FFFFFF",
       foregroundImage: "./assets/images/android-icon-foreground.png",
       backgroundImage: "./assets/images/android-icon-background.png",
       monochromeImage: "./assets/images/android-icon-monochrome.png",

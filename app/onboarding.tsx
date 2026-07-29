@@ -3,6 +3,10 @@ import { View, Text, FlatList, Dimensions, TouchableOpacity, Image, StyleSheet }
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAppStore } from '@/lib/store/app-store';
+import { Image as ExpoImage } from 'expo-image';
+
+const LOGO_CHEF = require('@/assets/images/logo-chef.png');
+const LOGO_FULL = require('@/assets/images/logo-full.png');
 
 const { width } = Dimensions.get('window');
 
@@ -66,8 +70,14 @@ export default function OnboardingScreen() {
         renderItem={({ item }) => (
           <View style={[styles.slide, { backgroundColor: item.bg, width }]}>
             <View style={styles.emojiContainer}>
-              <Text style={styles.emoji}>{item.emoji}</Text>
+              {item.id === '1'
+                ? <ExpoImage source={LOGO_CHEF} style={styles.logoImg} contentFit="contain" />
+                : <Text style={styles.emoji}>{item.emoji}</Text>
+              }
             </View>
+            {item.id === '1' && (
+              <ExpoImage source={LOGO_FULL} style={styles.logoFull} contentFit="contain" />
+            )}
             <Text style={styles.title}>{item.title}</Text>
             <Text style={styles.subtitle}>{item.subtitle}</Text>
           </View>
@@ -111,6 +121,8 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center', marginBottom: 40,
   },
   emoji: { fontSize: 80 },
+  logoImg: { width: 140, height: 140 },
+  logoFull: { width: 220, height: 80, marginBottom: 16 },
   title: { fontSize: 28, fontWeight: '800', color: '#FFF', textAlign: 'center', marginBottom: 16 },
   subtitle: { fontSize: 16, color: 'rgba(255,255,255,0.85)', textAlign: 'center', lineHeight: 24 },
   footer: { backgroundColor: '#FDF8F3', paddingVertical: 32, paddingHorizontal: 24, alignItems: 'center' },

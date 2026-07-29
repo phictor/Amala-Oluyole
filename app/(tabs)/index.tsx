@@ -12,6 +12,8 @@ import { MEALS, PROMOTIONS, CATEGORIES } from '@/lib/data/mock-data';
 import { trpc } from '@/lib/trpc';
 import { toMealCard, type MealCard } from '@/lib/utils';
 
+const LOGO_CHEF = require('@/assets/images/logo-chef.png');
+
 const { width: W } = Dimensions.get('window');
 const CARD_W = W * 0.62;
 
@@ -61,6 +63,7 @@ export default function HomeScreen() {
       {/* Sticky animated header */}
       <Animated.View style={[styles.stickyHeader, { backgroundColor: headerBg }]}>
         <View style={styles.stickyHeaderInner}>
+          <Image source={LOGO_CHEF} style={styles.headerLogo} contentFit="contain" />
           <TouchableOpacity onPress={() => router.push('/branch-select' as never)}>
             <View style={styles.branchRow}>
               <Text style={styles.branchIcon}>📍</Text>
@@ -91,7 +94,7 @@ export default function HomeScreen() {
             <Text style={styles.heroSub}>Authentic Yoruba cuisine, delivered fresh</Text>
           </View>
           <View style={styles.heroBowl}>
-            <Text style={styles.heroBowlEmoji}>🍲</Text>
+            <Image source={LOGO_CHEF} style={styles.heroBowlImg} contentFit="contain" />
           </View>
         </LinearGradient>
 
@@ -289,6 +292,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingHorizontal: 20,
   },
+  headerLogo: { width: 36, height: 36 },
   branchRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   branchIcon: { fontSize: 14 },
   branchName: { fontSize: 15, fontWeight: '700', color: '#FFF', maxWidth: 180 },
@@ -315,6 +319,7 @@ const styles = StyleSheet.create({
     marginLeft: 12,
   },
   heroBowlEmoji: { fontSize: 52 },
+  heroBowlImg: { width: 90, height: 90 },
 
   searchContainer: {
     paddingHorizontal: 16, marginTop: -20, marginBottom: 4, zIndex: 10,
