@@ -108,15 +108,15 @@
 - [x] Add/Edit Meal admin screen (dedicated form for meal CRUD — FR-014, UC-09)
 - [x] Transaction monitoring Reports tab in admin dashboard (FR-100, FR-101, FR-102) — accessible via web preview URL
 - [ ] Report export to CSV/spreadsheet (FR-102, AC-023)
-- [ ] Payment server-side verification endpoint (FR-041 — verify Paystack reference on backend before marking order paid)
-- [ ] Pickup collection code generation and verification (FR-065, FR-066, AC-016)
+- [x] Payment server-side verification endpoint (FR-041 — verify Paystack reference on backend before marking order paid)
+- [x] Pickup collection code generation and verification (FR-065, FR-066, AC-016)
 - [ ] Role-based access control on admin screens (FR-006, AC-021)
 - [ ] Audit log for admin actions (FR-007)
 - [ ] Delivery zone validation at checkout (FR-060, AC-008)
 
 ### SRS Gap Items — Phase 1 Should-Haves
 - [ ] Scheduled ordering within branch hours (FR-033)
-- [ ] Promotion admin CRUD (create/edit/delete promo codes and campaigns — FR-070, FR-071)
+- [x] Promotion admin CRUD (create/edit/delete promo codes and campaigns — FR-070, FR-071)
 - [ ] Verified reviews linked to completed orders (FR-090, AC-014)
 - [ ] Structured support tickets linked to orders (FR-091)
 - [ ] Order preparation time flag / SLA alert (FR-056)
@@ -130,3 +130,8 @@
 - [ ] Corporate accounts and bulk orders (FR-084)
 - [ ] iOS App Store publication
 - [ ] Inventory and wastage management
+- [x] Fix duplicate-key FlatList bug in menu.tsx category tabs
+- [x] Extract logo brand colours and apply to theme.config.js app-wide
+- [x] FR-041: Backend payment verification endpoint + wire to checkout onSuccess
+- [x] FR-070-071: Promotions admin tab (CRUD for promo codes)
+- [x] FR-065-066: Pickup collection code generation and display on order confirmation

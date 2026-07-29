@@ -8,7 +8,17 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { ScreenContainer } from '@/components/screen-container';
 import { trpc } from '@/lib/trpc';
 
-type DashTab = 'overview' | 'orders' | 'meals' | 'riders' | 'reports';
+type DashTab = 'overview' | 'orders' | 'meals' | 'riders' | 'reports' | 'promos';
+
+type PromoForm = {
+  code: string; description: string; type: 'percentage' | 'fixed' | 'free_delivery' | 'bogo';
+  value: string; minOrderAmount: string; maxDiscount: string; usageLimit: string;
+  perUserLimit: string; isActive: boolean; startsAt: string; expiresAt: string;
+};
+const EMPTY_PROMO: PromoForm = {
+  code: '', description: '', type: 'percentage', value: '', minOrderAmount: '0',
+  maxDiscount: '', usageLimit: '', perUserLimit: '1', isActive: true, startsAt: '', expiresAt: '',
+};
 
 const STATUS_COLOR: Record<string, string> = {
   created: '#8B6F5E', awaiting_payment: '#F59E0B', payment_confirmed: '#3B82F6',
@@ -33,6 +43,9 @@ export default function AdminDashboard() {
   }>(null);
   const [reportFrom, setReportFrom] = useState('');
   const [reportTo, setReportTo] = useState('');
+  const [promoForm, setPromoForm] = useState<PromoForm>(EMPTY_PROMO);
+  const [editingPromoId, setEditingPromoId] = useState<number | null>(null);
+  const [showPromoForm, setShowPromoForm] = useState(false);
 
   const utils = trpc.useUtils();
 
@@ -47,6 +60,13 @@ export default function AdminDashboard() {
     { fromDate: reportFrom || undefined, toDate: reportTo || undefined, limit: 100 },
     { retry: 1, enabled: activeTab === 'reports' }
   );
+  const { data: allPromoCodes, refetch: refetchPromos } = trpc.admin.allPromoCodes.useQuery(
+    undefined, { retry: 1, enabled: activeTab === 'promos' }
+  );
+  const createPromo = trpc.admin.createPromoCode.useMutation({ onSuccess: () => { refetchPromos(); setShowPromoForm(false); setPromoForm(EMPTY_PROMO); } });
+  const updatePromo = trpc.admin.updatePromoCode.useMutation({ onSuccess: () => { refetchPromos(); setShowPromoForm(false); setEditingPromoId(null); setPromoForm(EMPTY_PROMO); } });
+  const togglePromo = trpc.admin.togglePromoCode.useMutation({ onSuccess: () => refetchPromos() });
+  const deletePromo = trpc.admin.deletePromoCode.useMutation({ onSuccess: () => refetchPromos() });
 
   const updateStatus = trpc.admin.updateOrderStatus.useMutation({
     onSuccess: () => { refetchOrders(); utils.admin.activeOrders.invalidate(); },
@@ -102,15 +122,15 @@ export default function AdminDashboard() {
 
       {/* Tab Bar */}
       <View style={styles.tabBar}>
-      {(['overview', 'orders', 'meals', 'riders', 'reports'] as DashTab[]).map(tab => (
+      {(['overview', 'orders', 'meals', 'riders', 'reports', 'promos'] as DashTab[]).map(tab => (
           <TouchableOpacity
             key={tab}
             style={[styles.tabBtn, activeTab === tab && styles.tabBtnActive]}
             onPress={() => setActiveTab(tab)}
           >
             <Text style={[styles.tabBtnText, activeTab === tab && styles.tabBtnTextActive]}>
-              {tab === 'overview' ? '📊' : tab === 'orders' ? '📋' : tab === 'meals' ? '🍲' : tab === 'riders' ? '🛵' : '💳'}
-              {' '}{tab.charAt(0).toUpperCase() + tab.slice(1)}
+              {tab === 'overview' ? '📊' : tab === 'orders' ? '📋' : tab === 'meals' ? '🍲' : tab === 'riders' ? '🛵' : tab === 'reports' ? '💳' : '🎟️'}
+              {' '}{tab === 'promos' ? 'Promos' : tab.charAt(0).toUpperCase() + tab.slice(1)}
             </Text>
           </TouchableOpacity>
         ))}
@@ -408,6 +428,142 @@ export default function AdminDashboard() {
             )}
           </View>
         </ScrollView>
+      )}
+
+      {/* ── PROMOS TAB ───────────────────────────────────────────────────── */}
+      {activeTab === 'promos' && (
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 40 }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#1E1060" />}>
+          <View style={styles.section}>
+            <View style={styles.mealsHeader}>
+              <Text style={styles.sectionTitle}>Promo Codes</Text>
+              <TouchableOpacity style={[styles.addMealBtn, { backgroundColor: '#1E1060' }]}
+                onPress={() => { setPromoForm(EMPTY_PROMO); setEditingPromoId(null); setShowPromoForm(true); }}>
+                <Text style={styles.addMealBtnText}>+ New Promo</Text>
+              </TouchableOpacity>
+            </View>
+            {(allPromoCodes ?? []).length === 0 ? (
+              <View style={styles.empty}><Text style={styles.emptyEmoji}>🎟️</Text><Text style={styles.emptyText}>No promo codes yet</Text></View>
+            ) : (
+              (allPromoCodes ?? []).map(promo => (
+                <View key={promo.id} style={[styles.mealCard, { borderLeftWidth: 4, borderLeftColor: promo.isActive ? '#22C55E' : '#9B94C4' }]}>
+                  <View style={styles.mealCardTop}>
+                    <View>
+                      <Text style={[styles.mealName, { color: '#1E1060' }]}>{promo.code}</Text>
+                      <Text style={styles.mealDesc}>{promo.description ?? 'No description'}</Text>
+                    </View>
+                    <View style={styles.mealBadges}>
+                      <View style={[styles.availBadge, { backgroundColor: promo.isActive ? '#22C55E' : '#9B94C4' }]}>
+                        <Text style={styles.availBadgeText}>{promo.isActive ? 'ACTIVE' : 'OFF'}</Text>
+                      </View>
+                    </View>
+                  </View>
+                  <Text style={styles.mealPrice}>
+                    {promo.type === 'percentage' ? `${promo.value}% off` : promo.type === 'fixed' ? `₦${Number(promo.value).toLocaleString()} off` : promo.type === 'free_delivery' ? 'Free Delivery' : 'BOGO'}
+                    {promo.minOrderAmount && Number(promo.minOrderAmount) > 0 ? `  ·  Min ₦${Number(promo.minOrderAmount).toLocaleString()}` : ''}
+                  </Text>
+                  <Text style={[styles.mealDesc, { marginTop: 2 }]}>
+                    Used {promo.usageCount}{promo.usageLimit ? `/${promo.usageLimit}` : ''} times
+                    {promo.expiresAt ? `  ·  Expires ${new Date(promo.expiresAt).toLocaleDateString()}` : ''}
+                  </Text>
+                  <View style={styles.mealActions}>
+                    <TouchableOpacity style={styles.editBtn} onPress={() => {
+                      setPromoForm({
+                        code: promo.code, description: promo.description ?? '',
+                        type: promo.type as PromoForm['type'], value: String(promo.value),
+                        minOrderAmount: String(promo.minOrderAmount ?? '0'),
+                        maxDiscount: String(promo.maxDiscount ?? ''), usageLimit: String(promo.usageLimit ?? ''),
+                        perUserLimit: String(promo.perUserLimit), isActive: promo.isActive,
+                        startsAt: promo.startsAt ? new Date(promo.startsAt).toISOString().slice(0, 10) : '',
+                        expiresAt: promo.expiresAt ? new Date(promo.expiresAt).toISOString().slice(0, 10) : '',
+                      });
+                      setEditingPromoId(promo.id);
+                      setShowPromoForm(true);
+                    }}>
+                      <Text style={styles.editBtnText}>Edit</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.toggleBtn} onPress={() => togglePromo.mutate({ id: promo.id, isActive: !promo.isActive })}>
+                      <Text style={styles.toggleBtnText}>{promo.isActive ? 'Deactivate' : 'Activate'}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.deleteBtn} onPress={() =>
+                      Alert.alert('Delete Promo', `Delete "${promo.code}"?`, [
+                        { text: 'Cancel', style: 'cancel' },
+                        { text: 'Delete', style: 'destructive', onPress: () => deletePromo.mutate({ id: promo.id }) },
+                      ])}>
+                      <Text style={styles.deleteBtnText}>🗑️</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ))
+            )}
+          </View>
+        </ScrollView>
+      )}
+
+      {showPromoForm && (
+        <View style={styles.modalOverlay}>
+          <ScrollView style={{ width: '100%' }} contentContainerStyle={{ alignItems: 'center', paddingVertical: 40 }}>
+            <View style={[styles.modal, { width: '92%' }]}>
+              <Text style={styles.modalTitle}>{editingPromoId ? 'Edit Promo Code' : 'New Promo Code'}</Text>
+              {([
+                { label: 'Code (e.g. SAVE20)', key: 'code' as keyof PromoForm, placeholder: 'SUMMER20' },
+                { label: 'Description', key: 'description' as keyof PromoForm, placeholder: 'Summer discount' },
+                { label: 'Value (% or ₦)', key: 'value' as keyof PromoForm, placeholder: '20' },
+                { label: 'Min Order Amount (₦)', key: 'minOrderAmount' as keyof PromoForm, placeholder: '0' },
+                { label: 'Max Discount (₦, optional)', key: 'maxDiscount' as keyof PromoForm, placeholder: '' },
+                { label: 'Usage Limit (optional)', key: 'usageLimit' as keyof PromoForm, placeholder: '' },
+                { label: 'Per User Limit', key: 'perUserLimit' as keyof PromoForm, placeholder: '1' },
+                { label: 'Starts At (YYYY-MM-DD)', key: 'startsAt' as keyof PromoForm, placeholder: '' },
+                { label: 'Expires At (YYYY-MM-DD)', key: 'expiresAt' as keyof PromoForm, placeholder: '' },
+              ]).map(({ label, key, placeholder }) => (
+                <View key={key as string}>
+                  <Text style={styles.inputLabel}>{label}</Text>
+                  <TextInput style={styles.input} value={String(promoForm[key])}
+                    onChangeText={v => setPromoForm(f => ({ ...f, [key]: v }))}
+                    placeholder={placeholder} placeholderTextColor="#B09080" returnKeyType="done"
+                    autoCapitalize={key === 'code' ? 'characters' : 'none'} />
+                </View>
+              ))}
+              <Text style={styles.inputLabel}>Type</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
+                {(['percentage', 'fixed', 'free_delivery', 'bogo'] as const).map(t => (
+                  <TouchableOpacity key={t} onPress={() => setPromoForm(f => ({ ...f, type: t }))}
+                    style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: promoForm.type === t ? '#1E1060' : '#F0EEF9' }}>
+                    <Text style={{ color: promoForm.type === t ? '#FFF' : '#1E1060', fontWeight: '700', fontSize: 12 }}>{t}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <View style={styles.switchRow}>
+                <Text style={styles.inputLabel}>Active</Text>
+                <Switch value={promoForm.isActive} onValueChange={v => setPromoForm(f => ({ ...f, isActive: v }))} />
+              </View>
+              <View style={styles.modalBtns}>
+                <TouchableOpacity style={styles.cancelBtn} onPress={() => { setShowPromoForm(false); setEditingPromoId(null); }}>
+                  <Text style={styles.cancelBtnText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.saveBtn, { backgroundColor: '#1E1060' }]} onPress={() => {
+                  const payload = {
+                    code: promoForm.code.toUpperCase(),
+                    description: promoForm.description || undefined,
+                    type: promoForm.type,
+                    value: parseFloat(promoForm.value) || 0,
+                    minOrderAmount: parseFloat(promoForm.minOrderAmount) || 0,
+                    maxDiscount: promoForm.maxDiscount ? parseFloat(promoForm.maxDiscount) : undefined,
+                    usageLimit: promoForm.usageLimit ? parseInt(promoForm.usageLimit) : undefined,
+                    perUserLimit: parseInt(promoForm.perUserLimit) || 1,
+                    isActive: promoForm.isActive,
+                    startsAt: promoForm.startsAt || undefined,
+                    expiresAt: promoForm.expiresAt || undefined,
+                  };
+                  if (editingPromoId) { updatePromo.mutate({ id: editingPromoId, ...payload }); }
+                  else { createPromo.mutate(payload); }
+                }}>
+                  <Text style={styles.saveBtnText}>{editingPromoId ? 'Save Changes' : 'Create Promo'}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </ScrollView>
+        </View>
       )}
 
       {editingMeal && (

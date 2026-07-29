@@ -150,6 +150,7 @@ export const orders = mysqlTable("orders", {
   review: text("review"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  pickupCode: varchar("pickupCode", { length: 6 }),
 });
 
 // ─── ORDER ITEMS ─────────────────────────────────────────────────────────────

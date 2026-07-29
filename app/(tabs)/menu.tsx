@@ -63,7 +63,7 @@ export default function MenuScreen() {
     }
     return [
       base,
-      ...CATEGORIES.map(c => ({ id: Number(c.id) || 0, name: c.name, icon: c.icon ?? '🍽️' })),
+      ...CATEGORIES.map((c, i) => ({ id: -(i + 1), name: c.name, icon: c.icon ?? '🍽️', mockId: c.id })),
     ];
   }, [liveCategories]);
 
@@ -124,7 +124,7 @@ export default function MenuScreen() {
       {/* Category Tabs */}
       <FlatList
         data={allCategories}
-        keyExtractor={c => String(c.id)}
+        keyExtractor={(c, index) => `cat-${c.id}-${index}`}
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.catList}

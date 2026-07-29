@@ -129,13 +129,22 @@ export default function OrderDetailScreen() {
           </View>
 
           {order.estimatedTime && currentStatusIndex < steps.length - 1 && (
-            <View style={styles.etaBox}>
-              <Text style={styles.etaText}>
-                ⏱️ Estimated {order.orderType === 'delivery' ? 'delivery' : 'ready'} time: {order.estimatedTime} min
-              </Text>
-            </View>
-          )}
-        </View>
+          <View style={styles.etaBox}>
+            <Text style={styles.etaText}>
+              ⏱️ Estimated {order.orderType === 'delivery' ? 'delivery' : 'ready'} time: {order.estimatedTime} min
+            </Text>
+          </View>
+        )}
+      </View>
+
+        {/* FR-065/066: Pickup Collection Code */}
+        {order.orderType === 'pickup' && order.pickupCode && (
+          <View style={pickupStyles.pickupCodeCard}>
+            <Text style={pickupStyles.pickupCodeTitle}>🥡 Your Pickup Code</Text>
+            <Text style={pickupStyles.pickupCodeValue}>{order.pickupCode}</Text>
+            <Text style={pickupStyles.pickupCodeHint}>Show this code to the cashier when collecting your order</Text>
+          </View>
+        )}
 
         {/* Order Items */}
         <View style={styles.section}>
@@ -264,4 +273,17 @@ const styles = StyleSheet.create({
   actionBtnSecondary: { backgroundColor: '#FFF', borderWidth: 2, borderColor: '#C0392B' },
   actionBtnText: { color: '#FFF', fontSize: 16, fontWeight: '700' },
   actionBtnTextSecondary: { color: '#C0392B', fontSize: 16, fontWeight: '700' },
+});
+
+// Append pickup code styles (avoids StyleSheet.create re-declaration)
+const pickupStyles = StyleSheet.create({
+  pickupCodeCard: {
+    marginHorizontal: 16, marginTop: 12, borderRadius: 16, backgroundColor: '#1E1060',
+    padding: 20, alignItems: 'center',
+  },
+  pickupCodeTitle: { fontSize: 15, fontWeight: '700', color: '#FFF', marginBottom: 8 },
+  pickupCodeValue: {
+    fontSize: 52, fontWeight: '900', color: '#D4AF37', letterSpacing: 8, marginBottom: 8,
+  },
+  pickupCodeHint: { fontSize: 13, color: 'rgba(255,255,255,0.75)', textAlign: 'center' },
 });

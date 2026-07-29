@@ -155,6 +155,7 @@ export interface Order {
   riderPhone?: string;
   createdAt: string;
   updatedAt: string;
+  pickupCode?: string;
 }
 
 export interface Promotion {
@@ -236,4 +237,3 @@ export interface Notification {
   createdAt: string;
   orderId?: string;
 }
-

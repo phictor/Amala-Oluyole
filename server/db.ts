@@ -291,7 +291,15 @@ export async function getUserOrders(userId: number, limit = 20, offset = 0): Pro
 export async function updateOrderStatus(orderId: number, status: Order["status"], note?: string, changedBy?: number) {
   const db = await getDb();
   if (!db) return;
-  await db.update(orders).set({ status, updatedAt: new Date() }).where(eq(orders.id, orderId));
+  // FR-065/066: auto-generate 4-digit pickup code when a pickup order becomes ready
+  const updateFields: Record<string, unknown> = { status, updatedAt: new Date() };
+  if (status === 'ready') {
+    const [orderRow] = await db.select({ orderType: orders.orderType, pickupCode: orders.pickupCode }).from(orders).where(eq(orders.id, orderId)).limit(1);
+    if (orderRow?.orderType === 'pickup' && !orderRow.pickupCode) {
+      updateFields.pickupCode = String(Math.floor(1000 + Math.random() * 9000));
+    }
+  }
+  await db.update(orders).set(updateFields).where(eq(orders.id, orderId));
   await db.insert(orderStatusHistory).values({ orderId, status, note: note || null, changedBy: changedBy || null });
 }
 

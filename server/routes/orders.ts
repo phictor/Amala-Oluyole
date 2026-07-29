@@ -5,6 +5,30 @@ import {
   updateOrderStatus, validatePromoCode,
 } from "../db";
 import { protectedProcedure, router } from "../_core/trpc";
+import https from "https";
+
+/** Call Paystack /transaction/verify/:reference and return the parsed body */
+async function paystackVerify(reference: string, secretKey: string): Promise<{ status: boolean; data?: { status: string; amount: number; currency: string } }> {
+  return new Promise((resolve, reject) => {
+    const req = https.request(
+      {
+        hostname: "api.paystack.co",
+        path: `/transaction/verify/${encodeURIComponent(reference)}`,
+        method: "GET",
+        headers: { Authorization: `Bearer ${secretKey}` },
+      },
+      (res) => {
+        let body = "";
+        res.on("data", (chunk) => (body += chunk));
+        res.on("end", () => {
+          try { resolve(JSON.parse(body)); } catch { reject(new Error("Invalid Paystack response")); }
+        });
+      }
+    );
+    req.on("error", reject);
+    req.end();
+  });
+}
 
 export const ordersRouter = router({
   list: protectedProcedure
@@ -88,6 +112,43 @@ export const ordersRouter = router({
         data: { orderId: order.id, orderNumber: order.orderNumber },
       });
       return order;
+    }),
+
+  /** FR-041: Server-side Paystack verification before confirming payment */
+  verifyPayment: protectedProcedure
+    .input(z.object({ orderId: z.number(), paymentReference: z.string(), expectedAmount: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      const order = await getOrderById(input.orderId);
+      if (!order || order.userId !== ctx.user.id) throw new Error("Order not found");
+      if (order.paymentStatus === "paid") return { success: true, alreadyConfirmed: true };
+
+      const secretKey = process.env.PAYSTACK_SECRET_KEY ?? "";
+      if (!secretKey) throw new Error("Paystack secret key not configured on server");
+
+      const result = await paystackVerify(input.paymentReference, secretKey);
+      if (!result.status || result.data?.status !== "success") {
+        throw new Error(`Payment verification failed: ${result.data?.status ?? "unknown"}`);
+      }
+
+      // Verify amount matches (Paystack amounts are in kobo)
+      const paidKobo = result.data.amount;
+      const expectedKobo = Math.round(input.expectedAmount * 100);
+      if (paidKobo < expectedKobo) {
+        throw new Error(`Amount mismatch: paid ₦${paidKobo / 100} but expected ₦${input.expectedAmount}`);
+      }
+
+      // Store the verified reference on the order
+      await updateOrderStatus(input.orderId, "payment_confirmed", "Payment verified via Paystack");
+      await awardLoyaltyPoints(ctx.user.id, input.orderId, Number(order.total));
+      await createNotification({
+        userId: ctx.user.id,
+        orderId: input.orderId,
+        type: "order_update",
+        title: "Payment Confirmed ✅",
+        body: `Payment verified for order #${order.orderNumber}. Your food is being prepared!`,
+        data: { orderId: order.id },
+      });
+      return { success: true, alreadyConfirmed: false };
     }),
 
   confirmPayment: protectedProcedure

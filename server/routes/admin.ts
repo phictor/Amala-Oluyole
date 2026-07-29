@@ -6,7 +6,7 @@ import {
 import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
 import { TRPCError } from "@trpc/server";
 import { getDb } from "../db";
-import { meals, mealCategories, orders, users, riders, branches } from "../../drizzle/schema";
+import { meals, mealCategories, orders, users, riders, branches, promoCodes } from "../../drizzle/schema";
 import { eq, desc, count, and, gte, lte, sql } from "drizzle-orm";
 
 // Admin-only middleware
@@ -218,4 +218,91 @@ export const adminRouter = router({
       totalBranches: totalBranches.count,
     };
   }),
+
+  // ── FR-070 / FR-071: Promo Code Management ──────────────────────────────
+  allPromoCodes: adminProcedure
+    .query(async () => {
+      const db = await getDb();
+      if (!db) return [];
+      return db.select().from(promoCodes).orderBy(desc(promoCodes.createdAt));
+    }),
+
+  createPromoCode: adminProcedure
+    .input(z.object({
+      code: z.string().min(3).max(32),
+      description: z.string().optional(),
+      type: z.enum(["percentage", "fixed", "free_delivery", "bogo"]),
+      value: z.number().min(0),
+      minOrderAmount: z.number().min(0).default(0),
+      maxDiscount: z.number().optional(),
+      usageLimit: z.number().optional(),
+      perUserLimit: z.number().min(1).default(1),
+      isActive: z.boolean().default(true),
+      startsAt: z.string().optional(),
+      expiresAt: z.string().optional(),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+      await db.insert(promoCodes).values({
+        code: input.code.toUpperCase(),
+        description: input.description,
+        type: input.type,
+        value: String(input.value),
+        minOrderAmount: String(input.minOrderAmount),
+        maxDiscount: input.maxDiscount != null ? String(input.maxDiscount) : undefined,
+        usageLimit: input.usageLimit,
+        perUserLimit: input.perUserLimit,
+        isActive: input.isActive,
+        startsAt: input.startsAt ? new Date(input.startsAt) : undefined,
+        expiresAt: input.expiresAt ? new Date(input.expiresAt) : undefined,
+      });
+      return { success: true };
+    }),
+
+  updatePromoCode: adminProcedure
+    .input(z.object({
+      id: z.number(),
+      description: z.string().optional(),
+      type: z.enum(["percentage", "fixed", "free_delivery", "bogo"]).optional(),
+      value: z.number().optional(),
+      minOrderAmount: z.number().optional(),
+      maxDiscount: z.number().optional(),
+      usageLimit: z.number().optional(),
+      perUserLimit: z.number().optional(),
+      isActive: z.boolean().optional(),
+      startsAt: z.string().optional(),
+      expiresAt: z.string().optional(),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+      const { id, value, minOrderAmount, maxDiscount, startsAt, expiresAt, ...rest } = input;
+      const updates: Record<string, unknown> = { ...rest };
+      if (value !== undefined) updates.value = String(value);
+      if (minOrderAmount !== undefined) updates.minOrderAmount = String(minOrderAmount);
+      if (maxDiscount !== undefined) updates.maxDiscount = String(maxDiscount);
+      if (startsAt !== undefined) updates.startsAt = new Date(startsAt);
+      if (expiresAt !== undefined) updates.expiresAt = new Date(expiresAt);
+      await db.update(promoCodes).set(updates).where(eq(promoCodes.id, id));
+      return { success: true };
+    }),
+
+  togglePromoCode: adminProcedure
+    .input(z.object({ id: z.number(), isActive: z.boolean() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+      await db.update(promoCodes).set({ isActive: input.isActive }).where(eq(promoCodes.id, input.id));
+      return { success: true };
+    }),
+
+  deletePromoCode: adminProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+      await db.delete(promoCodes).where(eq(promoCodes.id, input.id));
+      return { success: true };
+    }),
 });

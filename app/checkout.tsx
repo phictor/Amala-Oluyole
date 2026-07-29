@@ -51,6 +51,13 @@ function CheckoutInner() {
     },
   });
 
+  const verifyPaymentMutation = trpc.orders.verifyPayment.useMutation({
+    onError: (err: { message?: string }) => {
+      setLoading(false);
+      Alert.alert('Payment Verification Failed', err.message || 'We could not verify your payment. Please contact support with your reference.');
+    },
+  });
+
   const generateRef = () => `AO-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
 
   const buildOrderPayload = (paymentRef?: string) => ({
@@ -95,7 +102,23 @@ function CheckoutInner() {
         metadata: { name: userName, orderType },
         onSuccess: (res) => {
           setLoading(true);
-          placeOrderMutation.mutate(buildOrderPayload(res.reference));
+          // Step 1: Place the order (creates DB record in pending state)
+          placeOrderMutation.mutate(buildOrderPayload(res.reference), {
+            onSuccess: (orderData: unknown) => {
+              const order = orderData as { id?: number; orderNumber?: string };
+              // Step 2: Verify payment server-side via Paystack API (FR-041)
+              verifyPaymentMutation.mutate(
+                { orderId: order.id ?? 0, paymentReference: res.reference, expectedAmount: grandTotal },
+                {
+                  onSuccess: () => {
+                    cartDispatch({ type: 'CLEAR_CART' });
+                    setLoading(false);
+                    router.replace({ pathname: '/order/[id]' as never, params: { id: String(order.id ?? 0), isNew: 'true' } });
+                  },
+                }
+              );
+            },
+          });
         },
         onCancel: () => {
           Alert.alert('Payment Cancelled', 'Your payment was cancelled. You can try again.');
