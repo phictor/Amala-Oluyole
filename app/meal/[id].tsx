@@ -1,21 +1,36 @@
 import React, { useState } from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity, Image, StyleSheet, Alert,
+  View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useAppStore } from '@/lib/store/app-store';
-import { MEALS } from '@/lib/data/mock-data';
+import { trpc } from '@/lib/trpc';
+import { ActivityIndicator } from 'react-native';
 import type { CartItem } from '@/lib/data/types';
 
 export default function MealDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { state, dispatch } = useAppStore();
-  const meal = MEALS.find(m => m.id === id);
   const [quantity, setQuantity] = useState(1);
   const [instructions, setInstructions] = useState('');
 
-  if (!meal) {
+  const { data: mealData, isLoading } = trpc.menu.meal.useQuery(
+    { id: Number(id) },
+    { enabled: !!id, staleTime: 60_000 }
+  );
+
+  if (isLoading) {
+    return (
+      <View style={[styles.notFound, { gap: 12 }]}>
+        <ActivityIndicator size="large" color="#D02010" />
+        <Text style={{ color: '#6B6490', fontSize: 14 }}>Loading meal...</Text>
+      </View>
+    );
+  }
+
+  if (!mealData) {
     return (
       <View style={styles.notFound}>
         <Text style={styles.notFoundText}>Meal not found</Text>
@@ -26,13 +41,23 @@ export default function MealDetailScreen() {
     );
   }
 
+  // Normalise DB meal (price is a decimal string) to numbers
+  const meal = {
+    ...mealData,
+    id: String(mealData.id),
+    price: typeof mealData.price === 'string' ? parseFloat(mealData.price) : (mealData.price as number),
+    labels: mealData.labels ?? [],
+    categoryName: '',
+    imageUrl: mealData.imageUrl ?? undefined,
+  };
+
   const isFavourite = state.favouriteMealIds.includes(meal.id);
   const totalPrice = meal.price * quantity;
 
   const handleAddToCart = () => {
     const cartItem: CartItem = {
       id: `${meal.id}-${Date.now()}`,
-      meal,
+      meal: meal as unknown as CartItem['meal'],
       quantity,
       unitPrice: meal.price,
       totalPrice,
@@ -58,7 +83,7 @@ export default function MealDetailScreen() {
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Hero Image */}
         <View style={styles.imageContainer}>
-          <Image source={{ uri: meal.imageUrl }} style={styles.heroImage} />
+          <Image source={meal.imageUrl ? { uri: meal.imageUrl } : undefined} style={styles.heroImage} />
           <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
             <Text style={styles.backBtnText}>←</Text>
           </TouchableOpacity>
@@ -89,7 +114,7 @@ export default function MealDetailScreen() {
             {meal.rating && (
               <View style={styles.metaItem}>
                 <Text style={styles.metaIcon}>⭐</Text>
-                <Text style={styles.metaText}>{meal.rating.toFixed(1)} ({meal.reviewCount} reviews)</Text>
+                <Text style={styles.metaText}>{meal.rating.toFixed(1)} ({(meal as { ratingCount?: number }).ratingCount ?? 0} reviews)</Text>
               </View>
             )}
             <View style={styles.metaItem}>
@@ -219,4 +244,3 @@ const styles = StyleSheet.create({
   addToCartBtnDisabled: { backgroundColor: '#E8E6F4' },
   addToCartBtnText: { color: '#FFF', fontSize: 16, fontWeight: '700' },
 });
-

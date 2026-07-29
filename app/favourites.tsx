@@ -1,15 +1,23 @@
 import React from 'react';
 import {
-  View, Text, FlatList, TouchableOpacity, Image, StyleSheet,
+  View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator,
 } from 'react-native';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { Image } from 'expo-image';
 import { useAppStore } from '@/lib/store/app-store';
-import { MEALS } from '@/lib/data/mock-data';
+import { trpc } from '@/lib/trpc';
 
 export default function FavouritesScreen() {
   const { state, dispatch } = useAppStore();
-  const favourites = MEALS.filter(m => state.favouriteMealIds.includes(m.id));
+  const { data: liveFavourites, isLoading } = trpc.menu.favourites.useQuery(undefined, { staleTime: 30_000 });
+
+  // Normalise DB meals (price as decimal string) to numbers
+  const favourites = (liveFavourites ?? []).map(m => ({
+    ...m,
+    id: String(m.id),
+    price: typeof m.price === 'string' ? parseFloat(m.price) : (m.price as number),
+  }));
 
   return (
     <View style={styles.container}>
@@ -20,6 +28,12 @@ export default function FavouritesScreen() {
         </TouchableOpacity>
         <Text style={styles.title}>Favourites</Text>
       </View>
+
+      {isLoading && (
+        <View style={{ alignItems: 'center', paddingVertical: 40 }}>
+          <ActivityIndicator size="large" color="#D02010" />
+        </View>
+      )}
 
       <FlatList
         data={favourites}
@@ -41,7 +55,7 @@ export default function FavouritesScreen() {
             style={styles.mealCard}
             onPress={() => router.push({ pathname: '/meal/[id]' as never, params: { id: item.id } })}
           >
-            <Image source={{ uri: item.imageUrl }} style={styles.mealImage} />
+            <Image source={item.imageUrl ? { uri: item.imageUrl } : undefined} style={styles.mealImage} />
             <View style={styles.mealInfo}>
               <Text style={styles.mealName}>{item.name}</Text>
               <Text style={styles.mealDesc} numberOfLines={2}>{item.description}</Text>
@@ -85,4 +99,3 @@ const styles = StyleSheet.create({
   browseBtn: { backgroundColor: '#D02010', borderRadius: 14, paddingVertical: 12, paddingHorizontal: 28 },
   browseBtnText: { color: '#FFF', fontSize: 15, fontWeight: '700' },
 });
-

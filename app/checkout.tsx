@@ -161,45 +161,6 @@ function CheckoutInner() {
     }
   };
 
-  // Keep the old handlePlaceOrder body removed — replaced above
-  const _unused = () => {
-    const selectedMethod = PAYMENT_METHODS.find(m => m.id === paymentMethod);
-    if (selectedMethod?.requiresPaystack) {
-      popup.checkout({
-        email: userEmail,
-        amount: amountInKobo,
-        reference: generateRef(),
-        metadata: { name: userName, orderType },
-        onSuccess: (res) => {
-          setLoading(true);
-          // Step 1: Place the order (creates DB record in pending state)
-          placeOrderMutation.mutate(buildOrderPayload(res.reference), {
-            onSuccess: (orderData: unknown) => {
-              const order = orderData as { id?: number; orderNumber?: string };
-              // Step 2: Verify payment server-side via Paystack API (FR-041)
-              verifyPaymentMutation.mutate(
-                { orderId: order.id ?? 0, paymentReference: res.reference, expectedAmount: grandTotal },
-                {
-                  onSuccess: () => {
-                    cartDispatch({ type: 'CLEAR_CART' });
-                    setLoading(false);
-                    router.replace({ pathname: '/order/[id]' as never, params: { id: String(order.id ?? 0), isNew: 'true' } });
-                  },
-                }
-              );
-            },
-          });
-        },
-        onCancel: () => {
-          Alert.alert('Payment Cancelled', 'Your payment was cancelled. You can try again.');
-        },
-      });
-    } else {
-      setLoading(true);
-      placeOrderMutation.mutate(buildOrderPayload());
-    }
-  };
-
   return (
     <View style={styles.container}>
       <StatusBar style="dark" />
@@ -353,6 +314,10 @@ function CheckoutInner() {
             <Text style={styles.placeOrderBtnText}>
               {paymentMethod === 'card'
                 ? `Pay ₦${grandTotal.toLocaleString()} with Paystack`
+                : paymentMethod === 'opay'
+                ? `Pay ₦${grandTotal.toLocaleString()} with OPay`
+                : paymentMethod === 'transfer'
+                ? `Transfer ₦${grandTotal.toLocaleString()} (Bank)`
                 : `Place Order — ₦${grandTotal.toLocaleString()}`}
             </Text>
           )}

@@ -143,3 +143,17 @@
 - [x] Inventory/stock DB table and tRPC endpoints (add/update/deplete stock items)
 - [x] Kitchen monthly report (order volumes, popular meals, stock usage)
 - [x] FR-060: Delivery zone validation at checkout (check address within branch radius)
+
+### Backend Wiring & Payment Methods (Jul 2026)
+- [x] Add activePromotions tRPC endpoint (live promo codes from DB)
+- [x] Add builderOptions tRPC endpoint (swallows, soups, proteins, extras)
+- [x] Wire promotions screen to live backend (activePromotions)
+- [x] Wire branch-select screen to live backend branches query
+- [x] Wire meal detail screen to live backend meal query
+- [x] Wire favourites screen to live backend favourites query
+- [x] Wire reservation screen to live backend (branches + reservations.create)
+- [x] Wire meal builder to live backend builderOptions endpoint
+- [x] Add OPay payment method to checkout (with merchant phone number flow)
+- [x] Add bank transfer payment method to checkout (with account details flow)
+- [x] Update branch address: Plot 4, Block 1, Opp. Sumal Industry, Oluyole Town Planning Area, Ibadan
+- [x] Remove dead _unused code block from checkout.tsx

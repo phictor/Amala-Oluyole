@@ -6,9 +6,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as Clipboard from 'expo-clipboard';
 import { useAppStore } from '@/lib/store/app-store';
-import {
-  SWALLOW_OPTIONS, SOUP_OPTIONS, PROTEIN_OPTIONS, EXTRA_OPTIONS,
-} from '@/lib/data/mock-data';
+import { trpc } from '@/lib/trpc';
 import type {
   SwallowOption, SoupOption, ProteinOption, ExtraOption, CartItem, CustomMeal,
 } from '@/lib/data/types';
@@ -20,26 +18,6 @@ const BASE_PRICE = 1500;
 
 /** Normalise a name for fuzzy matching (lowercase, strip punctuation/spaces) */
 const normalise = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
-
-/** Find a swallow option by name (case/punctuation-insensitive) */
-const findSwallow = (name: string): SwallowOption | null =>
-  SWALLOW_OPTIONS.find(o => normalise(o.name) === normalise(name)) ?? null;
-
-/** Find a soup option by name */
-const findSoup = (name: string): SoupOption | null =>
-  SOUP_OPTIONS.find(o => normalise(o.name) === normalise(name)) ?? null;
-
-/** Find protein options from a comma-separated name list */
-const findProteins = (csv: string): ProteinOption[] =>
-  csv.split(',')
-    .map(n => PROTEIN_OPTIONS.find(o => normalise(o.name) === normalise(n.trim())))
-    .filter((o): o is ProteinOption => o !== undefined);
-
-/** Find extra options from a comma-separated name list */
-const findExtras = (csv: string): ExtraOption[] =>
-  csv.split(',')
-    .map(n => EXTRA_OPTIONS.find(o => normalise(o.name) === normalise(n.trim())))
-    .filter((o): o is ExtraOption => o !== undefined);
 
 // ─── Share-link builder ───────────────────────────────────────────────────────
 
@@ -95,6 +73,27 @@ export default function MealBuilderScreen() {
     price?: string;
   }>();
 
+  // Live builder options from backend
+  const { data: builderOpts, isLoading: optsLoading } = trpc.menu.builderOptions.useQuery(undefined, { staleTime: 300_000 });
+  const SWALLOW_OPTIONS: SwallowOption[] = builderOpts?.swallows ?? [];
+  const SOUP_OPTIONS: SoupOption[] = builderOpts?.soups ?? [];
+  const PROTEIN_OPTIONS: ProteinOption[] = builderOpts?.proteins ?? [];
+  const EXTRA_OPTIONS: ExtraOption[] = (builderOpts?.extras ?? []) as ExtraOption[];
+
+  // Deep-link finders (depend on live options)
+  const findSwallow = (name: string): SwallowOption | null =>
+    SWALLOW_OPTIONS.find(o => normalise(o.name) === normalise(name)) ?? null;
+  const findSoup = (name: string): SoupOption | null =>
+    SOUP_OPTIONS.find(o => normalise(o.name) === normalise(name)) ?? null;
+  const findProteins = (csv: string): ProteinOption[] =>
+    csv.split(',')
+      .map(n => PROTEIN_OPTIONS.find(o => normalise(o.name) === normalise(n.trim())))
+      .filter((o): o is ProteinOption => o !== undefined);
+  const findExtras = (csv: string): ExtraOption[] =>
+    csv.split(',')
+      .map(n => EXTRA_OPTIONS.find(o => normalise(o.name) === normalise(n.trim())))
+      .filter((o): o is ExtraOption => o !== undefined);
+
   const [step, setStep] = useState(0);
   const [selectedSwallow, setSelectedSwallow] = useState<SwallowOption | null>(null);
   const [selectedSoup, setSelectedSoup] = useState<SoupOption | null>(null);
@@ -104,8 +103,9 @@ export default function MealBuilderScreen() {
   const [linkCopied, setLinkCopied] = useState(false);
   const [loadedFromLink, setLoadedFromLink] = useState(false);
 
-  // ── Pre-populate from deep-link params on first mount ──────────────────────
+  // ── Pre-populate from deep-link params once builder options are loaded ──────
   useEffect(() => {
+    if (!builderOpts) return; // wait for live options to load
     const { sw, so, pr, ex } = params;
     if (!sw && !so && !pr) return; // no link params — fresh builder
 
@@ -130,11 +130,10 @@ export default function MealBuilderScreen() {
 
     if (populated) {
       setLoadedFromLink(true);
-      // Jump straight to the Extras step so the user can review the full combo
       setStep(3);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // run once on mount only
+  }, [builderOpts]); // re-run when live options arrive
 
   // ── Derived price ──────────────────────────────────────────────────────────
   const totalPrice = BASE_PRICE +

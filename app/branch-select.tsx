@@ -5,24 +5,44 @@ import {
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useAppStore } from '@/lib/store/app-store';
-import { BRANCHES } from '@/lib/data/mock-data';
-import type { Branch } from '@/lib/data/types';
+import { trpc } from '@/lib/trpc';
 
 export default function BranchSelectScreen() {
   const { dispatch } = useAppStore();
   const [search, setSearch] = useState('');
 
-  const filtered = BRANCHES.filter(b =>
+  const { data: liveBranches = [] } = trpc.menu.branches.useQuery(undefined, { staleTime: 300_000 });
+
+  // Map DB branch to the shape the UI expects
+  const branches = liveBranches.map(b => ({
+    id: String(b.id),
+    name: b.name,
+    address: b.address,
+    city: b.city,
+    phone: b.phone ?? '',
+    latitude: b.latitude ?? 0,
+    longitude: b.longitude ?? 0,
+    openingTime: b.openingTime,
+    closingTime: b.closingTime,
+    isOpen: b.isActive,
+    supportsDelivery: b.acceptsDelivery,
+    supportsPickup: b.acceptsPickup,
+    supportsDineIn: b.acceptsReservations,
+    supportsReservations: b.acceptsReservations,
+    distanceKm: undefined as number | undefined,
+  }));
+
+  const filtered = branches.filter(b =>
     b.name.toLowerCase().includes(search.toLowerCase()) ||
     b.address.toLowerCase().includes(search.toLowerCase())
   );
 
-  const handleSelect = (branch: Branch) => {
+  const handleSelect = (branch: typeof branches[number]) => {
     dispatch({ type: 'SET_BRANCH', payload: branch });
     router.replace('/(tabs)' as never);
   };
 
-  const renderBranch = ({ item }: { item: Branch }) => (
+  const renderBranch = ({ item }: { item: typeof branches[number] }) => (
     <TouchableOpacity
       style={[styles.card, !item.isOpen && styles.cardClosed]}
       onPress={() => item.isOpen && handleSelect(item)}

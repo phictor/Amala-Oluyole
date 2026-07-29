@@ -5,7 +5,8 @@ import {
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useAppStore } from '@/lib/store/app-store';
-import { BRANCHES } from '@/lib/data/mock-data';
+import { trpc } from '@/lib/trpc';
+import { useAuth } from '@/hooks/use-auth';
 
 const SEATING = [
   { id: 'indoor', label: 'Indoor', icon: '🏠' },
@@ -17,6 +18,14 @@ const TIME_SLOTS = ['11:00', '12:00', '13:00', '14:00', '15:00', '17:00', '18:00
 
 export default function ReservationScreen() {
   const { state } = useAppStore();
+  const { user } = useAuth();
+  const { data: liveBranches = [] } = trpc.menu.branches.useQuery(undefined, { staleTime: 300_000 });
+  const createReservation = trpc.reservations.create.useMutation();
+
+  const dineInBranches = liveBranches
+    .filter(b => b.acceptsReservations)
+    .map(b => ({ id: String(b.id), name: b.name }));
+
   const [branchId, setBranchId] = useState(state.selectedBranch?.id || '');
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
@@ -32,19 +41,38 @@ export default function ReservationScreen() {
       Alert.alert('Missing Information', 'Please fill in all required fields.');
       return;
     }
+    if (!user) {
+      Alert.alert('Sign In Required', 'Please sign in to make a reservation.');
+      return;
+    }
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      const code = `RES-${Date.now().toString().slice(-6)}`;
-      Alert.alert(
-        '🍽️ Reservation Confirmed!',
-        `Your reservation has been confirmed.\n\nConfirmation Code: ${code}\n\nWe look forward to seeing you!`,
-        [{ text: 'Done', onPress: () => router.back() }]
-      );
-    }, 1200);
+    const reservationDate = new Date(`${date}T${time}:00`);
+    createReservation.mutate(
+      {
+        branchId: Number(branchId),
+        guestName: name,
+        guestPhone: phone,
+        partySize: parseInt(guests, 10) || 2,
+        reservationDate: reservationDate.toISOString(),
+        occasion: seating !== 'indoor' ? seating : undefined,
+        specialRequests: requests || undefined,
+      },
+      {
+        onSuccess: (data) => {
+          setLoading(false);
+          Alert.alert(
+            '🍽️ Reservation Confirmed!',
+            `Your reservation has been confirmed.\n\nRef: #${data.id}\n\nWe look forward to seeing you!`,
+            [{ text: 'Done', onPress: () => router.back() }]
+          );
+        },
+        onError: (err) => {
+          setLoading(false);
+          Alert.alert('Reservation Failed', err.message || 'Could not book your reservation. Please try again.');
+        },
+      }
+    );
   };
-
-  const dineInBranches = BRANCHES.filter(b => b.supportsDineIn);
 
   return (
     <View style={styles.container}>
@@ -211,4 +239,3 @@ const styles = StyleSheet.create({
   submitBtnLoading: { backgroundColor: '#E8E6F4' },
   submitBtnText: { color: '#FFF', fontSize: 18, fontWeight: '700' },
 });
-
