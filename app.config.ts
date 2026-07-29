@@ -39,7 +39,7 @@ const env = {
 const config: ExpoConfig = {
   name: env.appName,
   slug: env.appSlug,
-  version: "1.0.0",
+  version: "1.0.0",  // Public version shown in App Store / Play Store
   description: "Order authentic Yoruba cuisine from Amala Oluyole Restaurant. Build your swallow, track your rider, earn loyalty points, and enjoy the best amala in Ibadan — delivered to your door.",
   orientation: "portrait",
   icon: "./assets/images/icon.png",
@@ -49,6 +49,7 @@ const config: ExpoConfig = {
   ios: {
     supportsTablet: true,
     bundleIdentifier: env.iosBundleId,
+    buildNumber: "1",  // Increment this for every new TestFlight / App Store submission
     infoPlist: {
       ITSAppUsesNonExemptEncryption: false,
       NSLocationWhenInUseUsageDescription: "Amala Oluyole uses your location to show nearby branches and track your delivery.",
@@ -76,6 +77,7 @@ const config: ExpoConfig = {
     edgeToEdgeEnabled: true,
     predictiveBackGestureEnabled: false,
     package: env.androidPackage,
+    versionCode: 1,  // Increment this integer for every new Play Store submission
     permissions: [
       "POST_NOTIFICATIONS",
       "ACCESS_FINE_LOCATION",
