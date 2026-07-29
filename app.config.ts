@@ -40,6 +40,7 @@ const config: ExpoConfig = {
   name: env.appName,
   slug: env.appSlug,
   version: "1.0.0",
+  description: "Order authentic Yoruba cuisine from Amala Oluyole Restaurant. Build your swallow, track your rider, earn loyalty points, and enjoy the best amala in Ibadan — delivered to your door.",
   orientation: "portrait",
   icon: "./assets/images/icon.png",
   scheme: ["amalaoluyole", schemeFromBundleId],
@@ -48,9 +49,22 @@ const config: ExpoConfig = {
   ios: {
     supportsTablet: true,
     bundleIdentifier: env.iosBundleId,
-    "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
-      }
+    infoPlist: {
+      ITSAppUsesNonExemptEncryption: false,
+      NSLocationWhenInUseUsageDescription: "Amala Oluyole uses your location to show nearby branches and track your delivery.",
+      NSLocationAlwaysAndWhenInUseUsageDescription: "Amala Oluyole uses your location to track your delivery in real time.",
+      NSCameraUsageDescription: "Allow Amala Oluyole to access your camera to upload a profile photo.",
+      NSPhotoLibraryUsageDescription: "Allow Amala Oluyole to access your photos to upload a profile photo.",
+      NSUserNotificationsUsageDescription: "Amala Oluyole sends order updates, promotions, and loyalty rewards via notifications.",
+    },
+    privacyManifests: {
+      NSPrivacyAccessedAPITypes: [
+        {
+          NSPrivacyAccessedAPIType: "NSPrivacyAccessedAPICategoryUserDefaults",
+          NSPrivacyAccessedAPITypeReasons: ["CA92.1"],
+        },
+      ],
+    },
   },
   android: {
     adaptiveIcon: {
@@ -62,7 +76,15 @@ const config: ExpoConfig = {
     edgeToEdgeEnabled: true,
     predictiveBackGestureEnabled: false,
     package: env.androidPackage,
-    permissions: ["POST_NOTIFICATIONS"],
+    permissions: [
+      "POST_NOTIFICATIONS",
+      "ACCESS_FINE_LOCATION",
+      "ACCESS_COARSE_LOCATION",
+      "CAMERA",
+      "READ_MEDIA_IMAGES",
+      "VIBRATE",
+      "RECEIVE_BOOT_COMPLETED",
+    ],
     intentFilters: [
       {
         action: "VIEW",

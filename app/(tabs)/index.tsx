@@ -9,6 +9,8 @@ import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAppStore } from '@/lib/store/app-store';
 import { MEALS, PROMOTIONS, CATEGORIES } from '@/lib/data/mock-data';
+import { trpc } from '@/lib/trpc';
+import { toMealCard, type MealCard } from '@/lib/utils';
 
 const { width: W } = Dimensions.get('window');
 const CARD_W = W * 0.62;
@@ -27,8 +29,20 @@ export default function HomeScreen() {
 
   const cartCount = state.cartItems.reduce((s, i) => s + i.quantity, 0);
   const branch = state.selectedBranch;
-  const popularMeals = MEALS.filter(m => m.labels?.includes('popular') || m.labels?.includes('best_seller')).slice(0, 8);
-  const featuredMeals = MEALS.slice(0, 6);
+
+  // Live data from backend, fallback to mock data
+  const { data: liveFeatured } = trpc.menu.featured.useQuery(undefined, { retry: 1, staleTime: 60_000 });
+  const { data: livePopular } = trpc.menu.meals.useQuery({ popular: true }, { retry: 1, staleTime: 60_000 });
+  const { data: liveBranches } = trpc.menu.branches.useQuery(undefined, { retry: 1, staleTime: 300_000 });
+
+  const popularMeals: MealCard[] = (livePopular && livePopular.length > 0
+    ? livePopular.map(m => toMealCard(m as unknown as Record<string, unknown>))
+    : MEALS.filter(m => m.labels?.includes('popular') || m.labels?.includes('best_seller')).map(m => toMealCard(m as unknown as Record<string, unknown>))
+  ).slice(0, 8);
+  const featuredMeals: MealCard[] = (liveFeatured && liveFeatured.length > 0
+    ? liveFeatured.map(m => toMealCard(m as unknown as Record<string, unknown>))
+    : MEALS.map(m => toMealCard(m as unknown as Record<string, unknown>))
+  ).slice(0, 6);
 
   const headerBg = scrollY.interpolate({
     inputRange: [0, 80],
@@ -185,7 +199,7 @@ export default function HomeScreen() {
           </View>
           <FlatList
             data={popularMeals}
-            keyExtractor={m => m.id}
+            keyExtractor={m => String(m.id)}
             horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={{ paddingHorizontal: 16, gap: 14 }}
@@ -195,7 +209,7 @@ export default function HomeScreen() {
                 onPress={() => router.push({ pathname: '/meal/[id]', params: { id: meal.id } } as never)}
               >
                 <View style={styles.mealCardImgWrap}>
-                  <Image source={{ uri: meal.imageUrl }} style={styles.mealCardImg} contentFit="cover" />
+                  <Image source={{ uri: meal.imageUrl ?? undefined }} style={styles.mealCardImg} contentFit="cover" />
                   <LinearGradient colors={['transparent', 'rgba(0,0,0,0.55)']} style={styles.mealCardImgGrad} />
                   {(meal.labels?.includes('popular') || meal.labels?.includes('best_seller')) && (
                     <View style={[styles.mealBadge, meal.labels?.includes('best_seller') && styles.mealBadgeBest]}>
@@ -236,7 +250,7 @@ export default function HomeScreen() {
               style={styles.listCard}
               onPress={() => router.push({ pathname: '/meal/[id]', params: { id: meal.id } } as never)}
             >
-              <Image source={{ uri: meal.imageUrl }} style={styles.listCardImg} contentFit="cover" />
+              <Image source={{ uri: meal.imageUrl ?? undefined }} style={styles.listCardImg} contentFit="cover" />
               <View style={styles.listCardBody}>
                 <View style={styles.listCardTop}>
                   <Text style={styles.listCardName} numberOfLines={1}>{meal.name}</Text>

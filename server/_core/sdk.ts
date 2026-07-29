@@ -313,7 +313,7 @@ function buildCronUser(userInfo: GetUserInfoWithJwtResponse): AuthenticatedUser 
     lastSignedIn: now,
     taskUid: userInfo.taskUid ?? undefined,
     isCron: true,
-  } as AuthenticatedUser;
+  } as unknown as AuthenticatedUser;
 }
 
 export const sdk = new SDKServer();

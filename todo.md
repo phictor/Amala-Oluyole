@@ -79,3 +79,18 @@
 - [x] Show amber "Loaded from a shared link" dismissible banner
 - [x] Fuzzy name matching (case/punctuation-insensitive) for robust param decoding
 - [x] Skip unavailable options silently when pre-filling from link
+
+### Backend & Database
+- [x] Full production database schema (21 tables: users, branches, meals, categories, orders, order_items, riders, loyalty, reservations, catering, support, notifications, addresses, promo_codes, etc.)
+- [x] Database seeded with 4 branches, 7 categories, 22 meals, 2 promo codes
+- [x] server/db.ts with all query helpers for every feature domain
+- [x] tRPC routes: menu, orders, loyalty, rider, reservations, catering, support, notifications, addresses, profile, admin
+- [x] Home screen wired to live backend with graceful mock fallback
+
+### Store Submission Readiness
+- [x] EAS Build config (eas.json) for development, preview, and production builds
+- [x] Privacy Policy screen
+- [x] Terms of Service screen
+- [x] iOS permissions: location, camera, photos, notifications, privacy manifest
+- [x] Android permissions: notifications, location, camera, media, vibrate
+- [x] App store description added to app.config.ts
