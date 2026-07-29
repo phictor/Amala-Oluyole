@@ -96,8 +96,37 @@
 - [x] App store description added to app.config.ts
 
 ### Live Backend Integrations
-- [ ] Wire Menu screen to live DB data via trpc.menu.meals.useQuery
-- [ ] Wire Menu categories to live DB via trpc.menu.categories.useQuery
-- [ ] Admin/Kitchen Dashboard — orders list, meal CRUD, rider monitoring, order status updates
-- [ ] Paystack payment integration in checkout screen
-- [ ] Payment verification via tRPC after Paystack callback
+- [x] Wire Menu screen to live DB data via trpc.menu.meals.useQuery
+- [x] Wire Menu categories to live DB via trpc.menu.categories.useQuery
+- [x] Admin/Kitchen Dashboard — orders list, meal CRUD, rider monitoring, order status updates
+- [x] Paystack payment integration in checkout screen (react-native-paystack-webview v5.1.0)
+- [x] Payment verification via tRPC after Paystack callback
+- [x] Fix TypeScript errors in checkout.tsx (onSuccess type + CustomMeal.name)
+
+### SRS Gap Items — Phase 1 Must-Haves (from SRS review)
+- [x] Cart badge counter on tab bar (show item count on Cart tab icon)
+- [x] Add/Edit Meal admin screen (dedicated form for meal CRUD — FR-014, UC-09)
+- [x] Transaction monitoring Reports tab in admin dashboard (FR-100, FR-101, FR-102) — accessible via web preview URL
+- [ ] Report export to CSV/spreadsheet (FR-102, AC-023)
+- [ ] Payment server-side verification endpoint (FR-041 — verify Paystack reference on backend before marking order paid)
+- [ ] Pickup collection code generation and verification (FR-065, FR-066, AC-016)
+- [ ] Role-based access control on admin screens (FR-006, AC-021)
+- [ ] Audit log for admin actions (FR-007)
+- [ ] Delivery zone validation at checkout (FR-060, AC-008)
+
+### SRS Gap Items — Phase 1 Should-Haves
+- [ ] Scheduled ordering within branch hours (FR-033)
+- [ ] Promotion admin CRUD (create/edit/delete promo codes and campaigns — FR-070, FR-071)
+- [ ] Verified reviews linked to completed orders (FR-090, AC-014)
+- [ ] Structured support tickets linked to orders (FR-091)
+- [ ] Order preparation time flag / SLA alert (FR-056)
+- [ ] Refund recording and monitoring (FR-045, AC-019)
+
+### SRS Gap Items — Phase 2 (Future)
+- [ ] Loyalty points earn/redeem (FR-072, FR-073)
+- [ ] QR-code dine-in ordering
+- [ ] Table reservations with capacity check (FR-080, FR-081)
+- [ ] Catering quotation + deposit workflow (FR-083)
+- [ ] Corporate accounts and bulk orders (FR-084)
+- [ ] iOS App Store publication
+- [ ] Inventory and wastage management

@@ -7,7 +7,7 @@ import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
 import { TRPCError } from "@trpc/server";
 import { getDb } from "../db";
 import { meals, mealCategories, orders, users, riders, branches } from "../../drizzle/schema";
-import { eq, desc, count, and, gte } from "drizzle-orm";
+import { eq, desc, count, and, gte, lte, sql } from "drizzle-orm";
 
 // Admin-only middleware
 const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
@@ -41,6 +41,64 @@ export const adminRouter = router({
     )),
 
   // Active orders monitoring
+  // Transaction / payment reconciliation report (FR-100, FR-101, FR-102)
+  transactionReport: adminProcedure
+    .input(z.object({
+      branchId: z.number().optional(),
+      fromDate: z.string().optional(),
+      toDate: z.string().optional(),
+      limit: z.number().default(50),
+      offset: z.number().default(0),
+    }).optional())
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return { rows: [], summary: null };
+      const conditions: Parameters<typeof and>[0][] = [];
+      if (input?.branchId) conditions.push(eq(orders.branchId, input.branchId));
+      if (input?.fromDate) conditions.push(gte(orders.createdAt, new Date(input.fromDate)));
+      if (input?.toDate) conditions.push(lte(orders.createdAt, new Date(input.toDate)));
+      const whereClause = conditions.length ? and(...conditions as [Parameters<typeof and>[0], ...Parameters<typeof and>[0][]]) : undefined;
+      const rows = await db
+        .select({
+          id: orders.id,
+          orderNumber: orders.orderNumber,
+          createdAt: orders.createdAt,
+          status: orders.status,
+          paymentStatus: orders.paymentStatus,
+          paymentMethod: orders.paymentMethod,
+          paymentReference: orders.paymentReference,
+          total: orders.total,
+          orderType: orders.orderType,
+          branchId: orders.branchId,
+        })
+        .from(orders)
+        .where(whereClause)
+        .orderBy(desc(orders.createdAt))
+        .limit(input?.limit ?? 50)
+        .offset(input?.offset ?? 0);
+      const [summary] = await db
+        .select({
+          totalOrders: count(),
+          totalRevenue: sql<number>`COALESCE(SUM(CAST(${orders.total} AS DECIMAL(12,2))),0)`,
+          paidOrders: sql<number>`SUM(CASE WHEN ${orders.paymentStatus}='paid' THEN 1 ELSE 0 END)`,
+          pendingOrders: sql<number>`SUM(CASE WHEN ${orders.paymentStatus}='pending' THEN 1 ELSE 0 END)`,
+          failedOrders: sql<number>`SUM(CASE WHEN ${orders.paymentStatus}='failed' THEN 1 ELSE 0 END)`,
+          cardRevenue: sql<number>`COALESCE(SUM(CASE WHEN ${orders.paymentMethod}='card' THEN CAST(${orders.total} AS DECIMAL(12,2)) ELSE 0 END),0)`,
+          transferRevenue: sql<number>`COALESCE(SUM(CASE WHEN ${orders.paymentMethod}='transfer' THEN CAST(${orders.total} AS DECIMAL(12,2)) ELSE 0 END),0)`,
+          cashRevenue: sql<number>`COALESCE(SUM(CASE WHEN ${orders.paymentMethod}='cash_on_delivery' THEN CAST(${orders.total} AS DECIMAL(12,2)) ELSE 0 END),0)`,
+        })
+        .from(orders)
+        .where(whereClause);
+      return { rows, summary };
+    }),
+
+  // All branches for filter dropdowns
+  allBranches: adminProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) return [];
+    return db.select({ id: branches.id, name: branches.name }).from(branches).where(eq(branches.isActive, true));
+  }),
+
   activeOrders: kitchenProcedure
     .input(z.object({ branchId: z.number().optional() }).optional())
     .query(({ input }) => getActiveOrders(input?.branchId)),

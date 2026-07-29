@@ -8,7 +8,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { ScreenContainer } from '@/components/screen-container';
 import { trpc } from '@/lib/trpc';
 
-type DashTab = 'overview' | 'orders' | 'meals' | 'riders';
+type DashTab = 'overview' | 'orders' | 'meals' | 'riders' | 'reports';
 
 const STATUS_COLOR: Record<string, string> = {
   created: '#8B6F5E', awaiting_payment: '#F59E0B', payment_confirmed: '#3B82F6',
@@ -31,6 +31,8 @@ export default function AdminDashboard() {
   const [editingMeal, setEditingMeal] = useState<null | {
     id: number; name: string; price: string; isAvailable: boolean; description: string;
   }>(null);
+  const [reportFrom, setReportFrom] = useState('');
+  const [reportTo, setReportTo] = useState('');
 
   const utils = trpc.useUtils();
 
@@ -41,6 +43,11 @@ export default function AdminDashboard() {
   const { data: riders, refetch: refetchRiders } = trpc.admin.riders.useQuery(undefined, { retry: 1 });
 
   // ── Mutations ────────────────────────────────────────────────────────────
+  const { data: txReport, refetch: refetchReport } = trpc.admin.transactionReport.useQuery(
+    { fromDate: reportFrom || undefined, toDate: reportTo || undefined, limit: 100 },
+    { retry: 1, enabled: activeTab === 'reports' }
+  );
+
   const updateStatus = trpc.admin.updateOrderStatus.useMutation({
     onSuccess: () => { refetchOrders(); utils.admin.activeOrders.invalidate(); },
   });
@@ -54,6 +61,7 @@ export default function AdminDashboard() {
   const onRefresh = async () => {
     setRefreshing(true);
     await Promise.all([refetchOverview(), refetchOrders(), refetchMeals(), refetchRiders()]);
+    if (activeTab === 'reports') await refetchReport();
     setRefreshing(false);
   };
 
@@ -94,14 +102,14 @@ export default function AdminDashboard() {
 
       {/* Tab Bar */}
       <View style={styles.tabBar}>
-        {(['overview', 'orders', 'meals', 'riders'] as DashTab[]).map(tab => (
+      {(['overview', 'orders', 'meals', 'riders', 'reports'] as DashTab[]).map(tab => (
           <TouchableOpacity
             key={tab}
             style={[styles.tabBtn, activeTab === tab && styles.tabBtnActive]}
             onPress={() => setActiveTab(tab)}
           >
             <Text style={[styles.tabBtnText, activeTab === tab && styles.tabBtnTextActive]}>
-              {tab === 'overview' ? '📊' : tab === 'orders' ? '📋' : tab === 'meals' ? '🍲' : '🛵'}
+              {tab === 'overview' ? '📊' : tab === 'orders' ? '📋' : tab === 'meals' ? '🍲' : tab === 'riders' ? '🛵' : '💳'}
               {' '}{tab.charAt(0).toUpperCase() + tab.slice(1)}
             </Text>
           </TouchableOpacity>
@@ -253,13 +261,7 @@ export default function AdminDashboard() {
                 <View style={styles.mealActions}>
                   <TouchableOpacity
                     style={styles.editBtn}
-                    onPress={() => setEditingMeal({
-                      id: meal.id,
-                      name: meal.name,
-                      price: String(parseFloat(String(meal.price))),
-                      isAvailable: meal.isAvailable,
-                      description: meal.description ?? '',
-                    })}
+                    onPress={() => router.push({ pathname: '/admin/add-meal' as never, params: { id: String(meal.id) } })}
                   >
                     <Text style={styles.editBtnText}>✏️ Edit</Text>
                   </TouchableOpacity>
@@ -337,6 +339,77 @@ export default function AdminDashboard() {
       </ScrollView>
 
       {/* Edit Meal Modal */}
+      {/* ── REPORTS TAB ──────────────────────────────────────────────────── */}
+      {activeTab === 'reports' && (
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ paddingBottom: 40 }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#C0392B" />}
+        >
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Transaction Report</Text>
+            <View style={{ flexDirection: 'row', gap: 10, marginBottom: 14 }}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.inputLabel}>From (YYYY-MM-DD)</Text>
+                <TextInput style={styles.input} value={reportFrom} onChangeText={setReportFrom}
+                  placeholder="2025-01-01" placeholderTextColor="#B09080" returnKeyType="done" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.inputLabel}>To (YYYY-MM-DD)</Text>
+                <TextInput style={styles.input} value={reportTo} onChangeText={setReportTo}
+                  placeholder="2025-12-31" placeholderTextColor="#B09080" returnKeyType="done" />
+              </View>
+            </View>
+            <TouchableOpacity style={styles.addMealBtn} onPress={() => refetchReport()}>
+              <Text style={styles.addMealBtnText}>🔍 Apply Filter</Text>
+            </TouchableOpacity>
+            {txReport?.summary && (
+              <View style={[styles.statsGrid, { marginTop: 16 }]}>
+                {([
+                  ['Total Orders', txReport.summary.totalOrders, '📦', '#C0392B'],
+                  ['Total Revenue', `₦${Number(txReport.summary.totalRevenue).toLocaleString()}`, '💰', '#10B981'],
+                  ['Paid', txReport.summary.paidOrders, '✅', '#3B82F6'],
+                  ['Pending', txReport.summary.pendingOrders, '⏳', '#F59E0B'],
+                  ['Failed', txReport.summary.failedOrders, '❌', '#EF4444'],
+                  ['Card Rev.', `₦${Number(txReport.summary.cardRevenue).toLocaleString()}`, '💳', '#8B5CF6'],
+                  ['Transfer Rev.', `₦${Number(txReport.summary.transferRevenue).toLocaleString()}`, '🏦', '#06B6D4'],
+                  ['Cash Rev.', `₦${Number(txReport.summary.cashRevenue).toLocaleString()}`, '💵', '#F97316'],
+                ] as [string, string | number, string, string][]).map(([label, value, icon, color], i) => (
+                  <View key={i} style={[styles.statCard, { borderLeftColor: color }]}>
+                    <Text style={styles.statIcon}>{icon}</Text>
+                    <Text style={[styles.statValue, { color, fontSize: 18 }]}>{value}</Text>
+                    <Text style={styles.statLabel}>{label}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+            <Text style={[styles.sectionTitle, { fontSize: 15, marginTop: 16 }]}>
+              Transactions ({txReport?.rows?.length ?? 0})
+            </Text>
+            {(txReport?.rows ?? []).length === 0 ? (
+              <View style={styles.empty}>
+                <Text style={styles.emptyEmoji}>💳</Text>
+                <Text style={styles.emptyText}>No transactions found</Text>
+              </View>
+            ) : (
+              (txReport?.rows ?? []).map(tx => (
+                <View key={tx.id} style={[styles.orderCard, { borderLeftWidth: 4, borderLeftColor: tx.paymentStatus === 'paid' ? '#10B981' : tx.paymentStatus === 'failed' ? '#EF4444' : '#F59E0B' }]}>
+                  <View style={styles.orderCardTop}>
+                    <Text style={styles.orderNum}>#{tx.orderNumber}</Text>
+                    <View style={[styles.statusBadge, { backgroundColor: tx.paymentStatus === 'paid' ? '#10B981' : tx.paymentStatus === 'failed' ? '#EF4444' : '#F59E0B' }]}>
+                      <Text style={styles.statusBadgeText}>{(tx.paymentStatus ?? 'pending').toUpperCase()}</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.orderMeta}>₦{parseFloat(String(tx.total)).toLocaleString()} · {tx.paymentMethod ?? 'N/A'} · {tx.orderType}</Text>
+                  {tx.paymentReference ? <Text style={[styles.orderMeta, { fontSize: 11 }]}>Ref: {tx.paymentReference}</Text> : null}
+                  <Text style={[styles.orderMeta, { fontSize: 11 }]}>{tx.createdAt ? new Date(tx.createdAt).toLocaleString() : ''}</Text>
+                </View>
+              ))
+            )}
+          </View>
+        </ScrollView>
+      )}
+
       {editingMeal && (
         <View style={styles.modalOverlay}>
           <View style={styles.modal}>
