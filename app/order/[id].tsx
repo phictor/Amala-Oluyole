@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { trpc } from '@/lib/trpc';
+import { RiderMap } from '@/components/rider-map';
 
 const DELIVERY_STEPS = [
   { key: 'payment_confirmed', label: 'Order Confirmed', icon: '✅', desc: 'Your order has been received' },
@@ -18,6 +19,43 @@ const PICKUP_STEPS = [
   { key: 'delivered', label: 'Collected', icon: '🎉', desc: 'Thank you for dining with us!' },
 ];
 
+// Rider tracking sub-component
+function RiderTracker({ riderId }: { riderId: number }) {
+  const { data: loc, isLoading } = trpc.rider.getLocation.useQuery(
+    { riderId },
+    { refetchInterval: 10_000, enabled: !!riderId }
+  );
+  if (isLoading) {
+    return (
+      <View style={s.mapLoading}>
+        <ActivityIndicator color="#D02010" />
+        <Text style={s.mapLoadingText}>Locating rider...</Text>
+      </View>
+    );
+  }
+
+  if (!loc?.latitude || !loc?.longitude) {
+    return (
+      <View style={s.mapLoading}>
+        <Text style={s.mapLoadingText}>📍 Waiting for rider location...</Text>
+      </View>
+    );
+  }
+  return (
+    <View style={s.mapContainer}>
+      <RiderMap riderLat={loc.latitude} riderLng={loc.longitude} />
+      <View style={s.mapOverlay}>
+        <Text style={s.mapOverlayText}>🛵 Rider is on the way</Text>
+        {loc.lastUpdate && (
+          <Text style={s.mapOverlayTime}>
+            Updated {Math.round((Date.now() - new Date(loc.lastUpdate).getTime()) / 1000)}s ago
+          </Text>
+        )}
+      </View>
+    </View>
+  );
+}
+
 export default function OrderDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data, isLoading, error } = trpc.orders.get.useQuery({ id: Number(id) }, { enabled: !!id, refetchInterval: 15_000 });
@@ -26,6 +64,11 @@ export default function OrderDetailScreen() {
   const steps = order?.orderType === 'pickup' ? PICKUP_STEPS : DELIVERY_STEPS;
   const stepIdx = order ? Math.max(0, steps.findIndex(s => s.key === order.status)) : 0;
   const step = steps[stepIdx];
+
+  // Show map when rider is assigned or out for delivery
+  const showRiderMap = order?.orderType === 'delivery' &&
+    ['rider_assigned', 'out_for_delivery'].includes(order?.status ?? '') &&
+    order?.riderId;
 
   if (isLoading) return <View style={s.center}><ActivityIndicator size="large" color="#D02010" /></View>;
   if (error || !order) return (
@@ -56,6 +99,15 @@ export default function OrderDetailScreen() {
             </View>
           ))}
         </View>
+
+        {/* Live Rider Tracking Map */}
+        {showRiderMap && (
+          <View style={s.section}>
+            <Text style={s.sectionTitle}>🗺️ Live Rider Tracking</Text>
+            <RiderTracker riderId={order.riderId!} />
+          </View>
+        )}
+
         {order.orderType === 'pickup' && order.pickupCode && (
           <View style={s.pickupCard}>
             <Text style={s.pickupTitle}>Pickup Code</Text>
@@ -133,4 +185,17 @@ const s = StyleSheet.create({
   totalRow: { borderBottomWidth: 0 },
   totalLabel: { fontSize: 16, fontWeight: '800', color: '#201060' },
   totalVal: { fontSize: 18, fontWeight: '900', color: '#D02010' },
+  // Map styles
+  mapContainer: { borderRadius: 12, overflow: 'hidden', height: 220, position: 'relative' },
+  map: { width: '100%', height: '100%' },
+  mapOverlay: {
+    position: 'absolute', bottom: 0, left: 0, right: 0,
+    backgroundColor: 'rgba(32,16,96,0.85)', padding: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+  },
+  mapOverlayText: { color: '#FFF', fontWeight: '700', fontSize: 13 },
+  mapOverlayTime: { color: '#A8A9D8', fontSize: 11 },
+  riderMarker: { backgroundColor: '#D02010', borderRadius: 20, padding: 6, borderWidth: 2, borderColor: '#FFF' },
+  riderMarkerIcon: { fontSize: 18 },
+  mapLoading: { height: 120, alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#F4F3FB', borderRadius: 12 },
+  mapLoadingText: { color: '#6B6490', fontSize: 14 },
 });

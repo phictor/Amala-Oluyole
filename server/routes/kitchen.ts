@@ -195,11 +195,12 @@ export const kitchenRouter = router({
         ));
 
       // Daily order counts for the month
+      // MySQL only_full_group_by: use identical raw SQL expression in SELECT and GROUP BY
       const dailyOrders = await db
         .select({
-          day: sql<string>`DATE(${orders.createdAt})`,
+          day: sql<string>`DATE(orders.createdAt)`,
           count: sql<number>`COUNT(*)`,
-          revenue: sql<number>`SUM(CAST(${orders.total} AS DECIMAL(10,2)))`,
+          revenue: sql<number>`SUM(CAST(orders.total AS DECIMAL(10,2)))`,
         })
         .from(orders)
         .where(and(
@@ -207,8 +208,8 @@ export const kitchenRouter = router({
           gte(orders.createdAt, startDate),
           lte(orders.createdAt, endDate),
         ))
-        .groupBy(sql`DATE(${orders.createdAt})`)
-        .orderBy(sql`DATE(${orders.createdAt})`);
+        .groupBy(sql`DATE(orders.createdAt)`)
+        .orderBy(sql`DATE(orders.createdAt)`);
 
       // Top 10 most ordered meals
       const topMeals = await db
@@ -254,12 +255,12 @@ export const kitchenRouter = router({
         ));
 
       return {
-        period: { year: input.year, month: input.month, startDate, endDate },
-        summary: orderStats[0] ?? { totalOrders: 0, totalRevenue: 0, completedOrders: 0, cancelledOrders: 0, avgOrderValue: 0 },
-        dailyOrders,
-        topMeals,
-        orderTypeBreakdown,
-        lowStockItems,
-      };
+       period: { year: input.year, month: input.month, startDate, endDate },
+       summary: orderStats[0] ?? { totalOrders: 0, totalRevenue: 0, completedOrders: 0, cancelledOrders: 0, avgOrderValue: 0 },
+       dailyOrders,
+       topMeals,
+       orderTypeBreakdown,
+       lowStockItems,
+     };
     }),
 });

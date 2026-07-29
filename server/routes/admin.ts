@@ -80,7 +80,7 @@ export const adminRouter = router({
       const [summary] = await db
         .select({
           totalOrders: count(),
-          totalRevenue: sql<number>`COALESCE(SUM(CAST(${orders.total} AS DECIMAL(12,2))),0)`,
+          totalRevenue: sql<number>`COALESCE(SUM(CASE WHEN CAST(${orders.total} AS DECIMAL(12,2)) > 0 THEN CAST(${orders.total} AS DECIMAL(12,2)) ELSE 0 END),0)`,
           paidOrders: sql<number>`SUM(CASE WHEN ${orders.paymentStatus}='paid' THEN 1 ELSE 0 END)`,
           pendingOrders: sql<number>`SUM(CASE WHEN ${orders.paymentStatus}='pending' THEN 1 ELSE 0 END)`,
           failedOrders: sql<number>`SUM(CASE WHEN ${orders.paymentStatus}='failed' THEN 1 ELSE 0 END)`,
@@ -220,14 +220,18 @@ export const adminRouter = router({
       return { success: true };
     }),
 
-  deleteMeal: adminProcedure
-    .input(z.object({ id: z.number() }))
-    .mutation(async ({ input }) => {
-      const db = await getDb();
-      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+ deleteMeal: adminProcedure
+   .input(z.object({ id: z.number() }))
+   .mutation(async ({ input }) => {
+     const db = await getDb();
+     if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+      const existing = await db.select({ id: meals.id }).from(meals).where(eq(meals.id, input.id)).limit(1);
+      if (!existing.length) {
+        throw new TRPCError({ code: "NOT_FOUND", message: `Meal with id ${input.id} not found` });
+      }
       await db.update(meals).set({ isAvailable: false, updatedAt: new Date() }).where(eq(meals.id, input.id));
       return { success: true };
-    }),
+   }),
 
   // ── Dashboard Overview ────────────────────────────────────────────────────
   overview: adminProcedure.query(async () => {

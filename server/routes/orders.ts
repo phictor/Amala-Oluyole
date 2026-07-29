@@ -57,7 +57,7 @@ export const ordersRouter = router({
     }),
 
   validatePromo: protectedProcedure
-    .input(z.object({ code: z.string(), orderAmount: z.number() }))
+    .input(z.object({ code: z.string().max(50, "Promo code must be 50 characters or fewer"), orderAmount: z.number() }))
     .mutation(({ ctx, input }) => validatePromoCode(input.code, ctx.user.id, input.orderAmount)),
 
   place: protectedProcedure
@@ -88,7 +88,7 @@ export const ordersRouter = router({
         }).optional(),
         name: z.string(),
         unitPrice: z.number(),
-        quantity: z.number(),
+        quantity: z.number().min(1, "Quantity must be at least 1"),
         subtotal: z.number(),
         specialInstructions: z.string().optional(),
       })),

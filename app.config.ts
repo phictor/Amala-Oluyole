@@ -121,6 +121,14 @@ const config: ExpoConfig = {
   plugins: [
     "expo-router",
     [
+      "expo-location",
+      {
+        locationAlwaysAndWhenInUsePermission: "Allow Amala Oluyole to use your location for delivery tracking.",
+        locationWhenInUsePermission: "Allow Amala Oluyole to use your location for delivery tracking.",
+        isAndroidBackgroundLocationEnabled: true,
+      },
+    ],
+    [
       "expo-audio",
       {
         microphonePermission: "Allow $(PRODUCT_NAME) to access your microphone.",
