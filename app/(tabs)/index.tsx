@@ -11,11 +11,37 @@ import { useAppStore } from '@/lib/store/app-store';
 import { MEALS, PROMOTIONS, CATEGORIES } from '@/lib/data/mock-data';
 import { trpc } from '@/lib/trpc';
 import { toMealCard, type MealCard } from '@/lib/utils';
-
 const LOGO_CHEF = require('@/assets/images/logo-chef.png');
 
 const { width: W } = Dimensions.get('window');
 const CARD_W = W * 0.62;
+
+const EXPERIENCE_CARDS = [
+  {
+    id: 'bistro',
+    title: 'Bistro',
+    subtitle: 'Drinks & light bites',
+    emoji: '🍹',
+    gradient: ['#1A5276', '#0E3460'] as const,
+    route: '/bistro',
+  },
+  {
+    id: 'events',
+    title: 'Events',
+    subtitle: 'Book a seat at our next event',
+    emoji: '🎉',
+    gradient: ['#7D3C98', '#4A235A'] as const,
+    route: '/events',
+  },
+  {
+    id: 'fine-dining',
+    title: 'Fine Dining',
+    subtitle: 'Premium cuisine & ambiance',
+    emoji: '🍽️',
+    gradient: ['#7B241C', '#4A1511'] as const,
+    route: '/fine-dining',
+  },
+];
 
 const GREETING = (() => {
   const h = new Date().getHours();
@@ -30,7 +56,6 @@ export default function HomeScreen() {
   const scrollY = useRef(new Animated.Value(0)).current;
 
   const cartCount = state.cartItems.reduce((s, i) => s + i.quantity, 0);
-  const branch = state.selectedBranch;
 
   // Live data from backend, fallback to mock data
   const { data: liveFeatured } = trpc.menu.featured.useQuery(undefined, { retry: 1, staleTime: 60_000 });
@@ -64,15 +89,7 @@ export default function HomeScreen() {
       <Animated.View style={[styles.stickyHeader, { backgroundColor: headerBg }]}>
         <View style={styles.stickyHeaderInner}>
           <Image source={LOGO_CHEF} style={styles.headerLogo} contentFit="contain" />
-          <TouchableOpacity onPress={() => router.push('/branch-select' as never)}>
-            <View style={styles.branchRow}>
-              <Text style={styles.branchIcon}>📍</Text>
-              <Text style={styles.branchName} numberOfLines={1}>
-                {branch ? branch.name : 'Select a branch'}
-              </Text>
-              <Text style={styles.branchChevron}>›</Text>
-            </View>
-          </TouchableOpacity>
+          <Text style={styles.headerBrand}>Amala Oluyole</Text>
           <TouchableOpacity onPress={() => router.push('/notifications' as never)} style={styles.bellBtn}>
             <Text style={styles.bellIcon}>🔔</Text>
             <View style={styles.bellDot} />
@@ -164,6 +181,36 @@ export default function HomeScreen() {
               </View>
             </LinearGradient>
           </TouchableOpacity>
+        </View>
+
+        {/* ── Experiences ── */}
+        <View style={styles.section}>
+          <View style={[styles.sectionHeader, styles.sectionPadded]}>
+            <Text style={styles.sectionTitle}>Experiences</Text>
+          </View>
+          <FlatList
+            data={EXPERIENCE_CARDS}
+            keyExtractor={e => e.id}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: 16, gap: 12 }}
+            renderItem={({ item: exp }) => (
+              <TouchableOpacity
+                style={[styles.expCard, { width: W * 0.55 }]}
+                onPress={() => router.push(exp.route as never)}
+                activeOpacity={0.85}
+              >
+                <LinearGradient colors={exp.gradient} style={styles.expCardGrad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
+                  <Text style={styles.expEmoji}>{exp.emoji}</Text>
+                  <Text style={styles.expTitle}>{exp.title}</Text>
+                  <Text style={styles.expSub}>{exp.subtitle}</Text>
+                  <View style={styles.expArrow}>
+                    <Text style={styles.expArrowText}>›</Text>
+                  </View>
+                </LinearGradient>
+              </TouchableOpacity>
+            )}
+          />
         </View>
 
         {/* ── Categories ── */}
@@ -293,10 +340,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   headerLogo: { width: 36, height: 36 },
-  branchRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  branchIcon: { fontSize: 14 },
-  branchName: { fontSize: 15, fontWeight: '700', color: '#FFF', maxWidth: 180 },
-  branchChevron: { fontSize: 18, color: 'rgba(255,255,255,0.8)', fontWeight: '700' },
+  headerBrand: { fontSize: 16, fontWeight: '800', color: '#FFF', letterSpacing: 0.3 },
   bellBtn: { position: 'relative', padding: 4 },
   bellIcon: { fontSize: 22 },
   bellDot: {
@@ -433,4 +477,17 @@ const styles = StyleSheet.create({
   listCardRating: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   listCardStar: { fontSize: 12, color: '#F0C000' },
   listCardRatingText: { fontSize: 12, fontWeight: '600', color: '#6B6490' },
+
+  expCard: { borderRadius: 18, overflow: 'hidden' },
+  expCardGrad: { padding: 20, minHeight: 130, justifyContent: 'space-between' },
+  expEmoji: { fontSize: 32, marginBottom: 6 },
+  expTitle: { fontSize: 18, fontWeight: '900', color: '#FFF', marginBottom: 2 },
+  expSub: { fontSize: 12, color: 'rgba(255,255,255,0.8)', lineHeight: 17 },
+  expArrow: {
+    alignSelf: 'flex-end', marginTop: 8,
+    width: 28, height: 28, borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  expArrowText: { fontSize: 18, color: '#FFF', fontWeight: '700' },
 });

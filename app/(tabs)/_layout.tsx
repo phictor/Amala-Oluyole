@@ -15,7 +15,6 @@ export default function TabLayout() {
   const bottomPadding = Platform.OS === "web" ? 12 : Math.max(insets.bottom, 8);
   const tabBarHeight = 56 + bottomPadding;
   const cartCount = state.cartItems.reduce((sum, i) => sum + i.quantity, 0);
-  const notifCount = state.unreadNotificationCount;
 
   return (
     <Tabs
@@ -78,13 +77,15 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => (
             <View>
               <IconSymbol size={26} name="person.fill" color={color} />
-              {notifCount > 0 && (
-                <View style={tabStyles.badge}>
-                  <Text style={tabStyles.badgeText}>{notifCount > 9 ? '9+' : notifCount}</Text>
-                </View>
-              )}
             </View>
           ),
+        }}
+      />
+      <Tabs.Screen
+        name="contact"
+        options={{
+          title: "Contact",
+          tabBarIcon: ({ color }) => <IconSymbol size={26} name="phone.fill" color={color} />,
         }}
       />
     </Tabs>
