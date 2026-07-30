@@ -6,39 +6,37 @@ interface RiderMapProps {
   riderLng: number;
   destinationLat?: number;
   destinationLng?: number;
+  etaMinutes?: number;
+  riderName?: string;
+  height?: number;
 }
 
-/**
- * Web stub for the rider tracking map.
- * react-native-maps is not supported on web — show a text fallback instead.
- */
-export function RiderMap({ riderLat, riderLng }: RiderMapProps) {
+export function RiderMap({ riderLat, riderLng, etaMinutes, riderName = "Your Rider", height = 220 }: RiderMapProps) {
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { height }]}>
       <Text style={styles.icon}>🛵</Text>
-      <Text style={styles.text}>Live rider tracking</Text>
-      <Text style={styles.coords}>
-        {riderLat.toFixed(4)}, {riderLng.toFixed(4)}
-      </Text>
-      <Text style={styles.note}>Open in the mobile app for the full map view</Text>
+      <Text style={styles.name}>{riderName}</Text>
+      <Text style={styles.coords}>{riderLat.toFixed(5)}, {riderLng.toFixed(5)}</Text>
+      {etaMinutes !== undefined && (
+        <View style={styles.etaChip}>
+          <Text style={styles.etaText}>🕐 ETA ~{etaMinutes} min</Text>
+        </View>
+      )}
+      <Text style={styles.note}>Open in the mobile app for the full live map</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    width: "100%",
-    height: 220,
-    borderRadius: 12,
-    backgroundColor: "#F5F5F5",
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
+    width: "100%", borderRadius: 14, backgroundColor: "#F4F3FB",
+    alignItems: "center", justifyContent: "center",
+    borderWidth: 1.5, borderColor: "#D8D4EE", gap: 6,
   },
-  icon: { fontSize: 40, marginBottom: 8 },
-  text: { fontSize: 16, fontWeight: "600", color: "#11181C" },
-  coords: { fontSize: 12, color: "#687076", marginTop: 4 },
-  note: { fontSize: 11, color: "#9BA1A6", marginTop: 8, textAlign: "center", paddingHorizontal: 20 },
+  icon: { fontSize: 40 },
+  name: { fontSize: 15, fontWeight: "700", color: "#201060" },
+  coords: { fontSize: 12, color: "#6B6490" },
+  etaChip: { backgroundColor: "#201060", borderRadius: 20, paddingHorizontal: 12, paddingVertical: 5 },
+  etaText: { fontSize: 12, fontWeight: "700", color: "#FFF" },
+  note: { fontSize: 11, color: "#9B94C4", textAlign: "center", paddingHorizontal: 24 },
 });
-

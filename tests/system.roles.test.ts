@@ -10,7 +10,8 @@
  *
  * These tests use the tRPC router directly (no HTTP layer) with mock contexts.
  */
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, beforeAll } from "vitest";
+import { ensureTestFixtures } from "./fixtures/seed";
 import { appRouter } from "../server/routers";
 import type { TrpcContext } from "../server/_core/context";
 
@@ -47,6 +48,12 @@ function makeGuestCtx(): TrpcContext {
     res: { clearCookie: () => {} } as unknown as TrpcContext["res"],
   };
 }
+
+// ─── SEED FIXTURES ───────────────────────────────────────────────────────────
+// Ensure branch id=1, meal id=1, and rider for userId=30 exist before tests run
+beforeAll(async () => {
+  await ensureTestFixtures();
+}, 30_000);
 
 // ─── ROLE 1: CUSTOMER WORKFLOW ────────────────────────────────────────────────
 describe("Customer Workflow", () => {
@@ -206,8 +213,9 @@ describe("Rider Workflow", () => {
 
   it("rider can update their online/offline status", async () => {
     const caller = appRouter.createCaller(makeCtx("rider", 30));
-    // User 30 has no rider profile in the DB, so setStatus throws "Rider profile not found"
-    await expect(caller.rider.setStatus({ isOnline: true })).rejects.toThrow();
+    // Rider profile for userId=30 is seeded in beforeAll — expect success
+    const result = await caller.rider.setStatus({ isOnline: true });
+    expect(result).toEqual({ success: true });
   });
 
   it("rider cannot access admin procedures", async () => {

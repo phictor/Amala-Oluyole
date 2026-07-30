@@ -62,14 +62,14 @@ export const ordersRouter = router({
 
   place: protectedProcedure
     .input(z.object({
-      branchId: z.number(),
-      orderType: z.enum(["delivery", "pickup"]),
-      paymentMethod: z.enum(["card", "transfer", "cash_on_delivery", "wallet", "loyalty_points"]),
-      subtotal: z.number(),
-      deliveryFee: z.number().default(0),
-      discount: z.number().default(0),
-      loyaltyPointsUsed: z.number().default(0),
-      total: z.number(),
+     branchId: z.number(),
+     orderType: z.enum(["delivery", "pickup"]),
+     paymentMethod: z.enum(["card", "transfer", "cash_on_delivery", "wallet", "loyalty_points"]),
+      subtotal: z.number().positive("Subtotal must be greater than 0"),
+      deliveryFee: z.number().min(0, "Delivery fee cannot be negative").default(0),
+      discount: z.number().min(0, "Discount cannot be negative").default(0),
+     loyaltyPointsUsed: z.number().default(0),
+      total: z.number().positive("Order total must be greater than 0"),
       promoCode: z.string().optional(),
       deliveryAddress: z.string().optional(),
       deliveryLatitude: z.number().optional(),

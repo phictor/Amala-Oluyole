@@ -157,3 +157,14 @@
 - [x] Add bank transfer payment method to checkout (with account details flow)
 - [x] Update branch address: Plot 4, Block 1, Opp. Sumal Industry, Oluyole Town Planning Area, Ibadan
 - [x] Remove dead _unused code block from checkout.tsx
+
+### Consistency, Validation & Seed Fixtures (Jul 2026)
+- [x] Add server-side order total/subtotal/deliveryFee positive validation in orders.ts
+- [x] Create tests/fixtures/seed.ts with deterministic branch, meal-category, meal, and rider (userId=30) seed data
+- [x] Update system.roles.test.ts rider.setStatus test to use happy path (seed rider first)
+- [x] Build shared reusable component library: StatCard, SectionHeader, EmptyState, LoadingState, BadgeChip, ActionButton, InfoRow
+- [x] Build Kitchen Monthly Report dedicated screen (app/kitchen/monthly-report.tsx) with bar chart, top meals, low stock
+- [x] Build Transaction Report dedicated screen (app/admin/transaction-report.tsx) with filters, summary tiles, CSV export
+- [x] Enhance interactive rider map: live polling, route polyline, ETA display
+- [x] Add admin rider tracking screen (app/admin/rider-tracking.tsx) showing all online riders on map
+- [ ] Create reusable skill from this project workflow
