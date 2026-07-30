@@ -7,6 +7,9 @@ import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ScreenContainer } from '@/components/screen-container';
+import { Alert, Platform } from 'react-native';
+import * as Haptics from 'expo-haptics';
+import { useAppStore } from '@/lib/store/app-store';
 
 const { width: W } = Dimensions.get('window');
 
@@ -21,23 +24,23 @@ const BISTRO_CATEGORIES = [
 
 const BISTRO_ITEMS = [
   // Drinks
-  { id: 'b1', category: 'drinks', name: 'Chapman', description: 'Classic Nigerian Chapman with Fanta, Sprite, Grenadine, cucumber and orange slices.', price: 1500, emoji: '🍊', badge: 'Fan Favourite' },
-  { id: 'b2', category: 'drinks', name: 'Zobo Delight', description: 'Chilled hibiscus drink with ginger, pineapple and a hint of cloves.', price: 800, emoji: '🌺', badge: 'Local' },
-  { id: 'b3', category: 'drinks', name: 'Kunu Aya', description: 'Refreshing tiger nut drink, naturally sweet and dairy-free.', price: 700, emoji: '🥛', badge: 'Healthy' },
+  { id: 'b1', category: 'drinks', name: 'Chapman', description: 'Classic Nigerian Chapman with Fanta, Sprite, Grenadine, cucumber and orange slices.', price: 1500, emoji: '🍊', badge: 'Fan Favourite', image: '/manus-storage/bistro-drinks_99bdd786.jpg' },
+  { id: 'b2', category: 'drinks', name: 'Zobo Delight', description: 'Chilled hibiscus drink with ginger, pineapple and a hint of cloves.', price: 800, emoji: '🌺', badge: 'Local', image: '/manus-storage/bistro-drinks_99bdd786.jpg' },
+  { id: 'b3', category: 'drinks', name: 'Kunu Aya', description: 'Refreshing tiger nut drink, naturally sweet and dairy-free.', price: 700, emoji: '🥛', badge: 'Healthy', image: '/manus-storage/bistro-drinks_99bdd786.jpg' },
   { id: 'b4', category: 'drinks', name: 'Bottled Water', description: 'Chilled 75cl still water.', price: 300, emoji: '💧', badge: null },
   { id: 'b5', category: 'drinks', name: 'Soft Drinks', description: 'Coke, Fanta, Sprite, Malt — chilled and ready.', price: 500, emoji: '🥤', badge: null },
-  { id: 'b6', category: 'drinks', name: 'Fruit Juice', description: 'Freshly blended seasonal fruits — no added sugar.', price: 1200, emoji: '🍓', badge: 'Fresh' },
+  { id: 'b6', category: 'drinks', name: 'Fruit Juice', description: 'Freshly blended seasonal fruits — no added sugar.', price: 1200, emoji: '🍓', badge: 'Fresh', image: '/manus-storage/bistro-drinks_99bdd786.jpg' },
   // Cocktails
-  { id: 'c1', category: 'cocktails', name: 'Wazobia Punch', description: 'A bold blend of palm wine, pineapple juice and ginger beer.', price: 2500, emoji: '🍹', badge: 'Signature' },
-  { id: 'c2', category: 'cocktails', name: 'Lagos Sunset', description: 'Mango, passion fruit and a splash of grenadine over ice.', price: 2200, emoji: '🌅', badge: 'Popular' },
-  { id: 'c3', category: 'cocktails', name: 'Ibadan Breeze', description: 'Coconut water, lime and mint — light and refreshing.', price: 2000, emoji: '🌴', badge: null },
-  { id: 'c4', category: 'cocktails', name: 'Mocktail of the Day', description: 'Ask your server for today\'s special creation.', price: 1800, emoji: '✨', badge: 'Daily Special' },
+  { id: 'c1', category: 'cocktails', name: 'Wazobia Punch', description: 'A bold blend of palm wine, pineapple juice and ginger beer.', price: 2500, emoji: '🍹', badge: 'Signature', image: '/manus-storage/bistro-cocktails_46ad81ec.jpg' },
+  { id: 'c2', category: 'cocktails', name: 'Lagos Sunset', description: 'Mango, passion fruit and a splash of grenadine over ice.', price: 2200, emoji: '🌅', badge: 'Popular', image: '/manus-storage/bistro-cocktails_46ad81ec.jpg' },
+  { id: 'c3', category: 'cocktails', name: 'Ibadan Breeze', description: 'Coconut water, lime and mint — light and refreshing.', price: 2000, emoji: '🌴', badge: null, image: '/manus-storage/bistro-cocktails_46ad81ec.jpg' },
+  { id: 'c4', category: 'cocktails', name: 'Mocktail of the Day', description: "Ask your server for today's special creation.", price: 1800, emoji: '✨', badge: 'Daily Special', image: '/manus-storage/bistro-cocktails_46ad81ec.jpg' },
   // Snacks
-  { id: 's1', category: 'snacks', name: 'Puff Puff', description: 'Golden deep-fried dough balls, lightly sweetened. Served with pepper sauce.', price: 600, emoji: '🟡', badge: 'Bestseller' },
-  { id: 's2', category: 'snacks', name: 'Samosa (3 pcs)', description: 'Crispy pastry filled with spiced minced beef and vegetables.', price: 900, emoji: '🥟', badge: null },
-  { id: 's3', category: 'snacks', name: 'Chin Chin', description: 'Crunchy fried dough snack, lightly spiced. Perfect with a cold drink.', price: 500, emoji: '🟤', badge: null },
-  { id: 's4', category: 'snacks', name: 'Suya Skewers (2 pcs)', description: 'Spiced grilled beef skewers with onion and tomato.', price: 1500, emoji: '🍢', badge: 'Hot & Spicy' },
-  { id: 's5', category: 'snacks', name: 'Spring Rolls (4 pcs)', description: 'Crispy rolls filled with seasoned vegetables and chicken.', price: 1200, emoji: '🌯', badge: null },
+  { id: 's1', category: 'snacks', name: 'Puff Puff', description: 'Golden deep-fried dough balls, lightly sweetened. Served with pepper sauce.', price: 600, emoji: '🟡', badge: 'Bestseller', image: '/manus-storage/bistro-snacks_cb3edcac.jpg' },
+  { id: 's2', category: 'snacks', name: 'Samosa (3 pcs)', description: 'Crispy pastry filled with spiced minced beef and vegetables.', price: 900, emoji: '🥟', badge: null, image: '/manus-storage/bistro-snacks_cb3edcac.jpg' },
+  { id: 's3', category: 'snacks', name: 'Chin Chin', description: 'Crunchy fried dough snack, lightly spiced. Perfect with a cold drink.', price: 500, emoji: '🟤', badge: null, image: '/manus-storage/bistro-snacks_cb3edcac.jpg' },
+  { id: 's4', category: 'snacks', name: 'Suya Skewers (2 pcs)', description: 'Spiced grilled beef skewers with onion and tomato.', price: 1500, emoji: '🍢', badge: 'Hot & Spicy', image: '/manus-storage/bistro-snacks_cb3edcac.jpg' },
+  { id: 's5', category: 'snacks', name: 'Spring Rolls (4 pcs)', description: 'Crispy rolls filled with seasoned vegetables and chicken.', price: 1200, emoji: '🌯', badge: null, image: '/manus-storage/bistro-snacks_cb3edcac.jpg' },
   // Pastries
   { id: 'p1', category: 'pastries', name: 'Meat Pie', description: 'Flaky shortcrust pastry filled with seasoned minced meat, potatoes and carrots.', price: 800, emoji: '🥧', badge: 'Classic' },
   { id: 'p2', category: 'pastries', name: 'Sausage Roll', description: 'Buttery puff pastry wrapped around a seasoned pork sausage.', price: 700, emoji: '🌭', badge: null },
@@ -51,6 +54,35 @@ const BISTRO_ITEMS = [
 
 export default function BistroScreen() {
   const [activeCategory, setActiveCategory] = useState('all');
+
+  const { dispatch, state } = useAppStore();
+
+  const handleAddToCart = (item: { id: string; name: string; price: number }) => {
+    if (Platform.OS !== 'web') {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
+    dispatch({
+      type: 'ADD_TO_CART',
+      payload: {
+        id: `bistro-${item.id}`,
+        quantity: 1,
+        unitPrice: item.price,
+        totalPrice: item.price,
+        specialInstructions: `Bistro: ${item.name}`,
+      },
+    });
+    Alert.alert(
+      'Added to Cart',
+      `${item.name} has been added to your cart.`,
+      [
+        { text: 'Continue', style: 'cancel' },
+        { text: 'View Cart', onPress: () => router.push('/(tabs)/cart' as never) },
+      ],
+    );
+  };
+
+  const getCartQty = (itemId: string) =>
+    state.cartItems.find(i => i.id === `bistro-${itemId}`)?.quantity ?? 0;
 
   const filtered = activeCategory === 'all'
     ? BISTRO_ITEMS
@@ -99,8 +131,10 @@ export default function BistroScreen() {
 
         {/* Items Grid */}
         <View style={s.grid}>
-          {filtered.map(item => (
-            <TouchableOpacity key={item.id} style={s.itemCard} activeOpacity={0.85}>
+          {filtered.map(item => {
+            const qty = getCartQty(item.id);
+            return (
+            <View key={item.id} style={s.itemCard}>
               <LinearGradient
                 colors={
                   item.category === 'drinks' ? ['#EBF5FB', '#D6EAF8'] :
@@ -111,25 +145,46 @@ export default function BistroScreen() {
                 }
                 style={s.itemCardGrad}
               >
-                <View style={s.itemTop}>
-                  <Text style={s.itemEmoji}>{item.emoji}</Text>
-                  {item.badge && (
-                    <View style={s.badge}>
-                      <Text style={s.badgeText}>{item.badge}</Text>
-                    </View>
-                  )}
-                </View>
+                {(item as { image?: string }).image ? (
+                  <View style={s.itemImageContainer}>
+                    <Image
+                      source={(item as { image?: string }).image}
+                      style={s.itemImage}
+                      contentFit="cover"
+                      transition={300}
+                    />
+                    {item.badge && (
+                      <View style={s.itemImageBadge}>
+                        <Text style={s.badgeText}>{item.badge}</Text>
+                      </View>
+                    )}
+                  </View>
+                ) : (
+                  <View style={s.itemTop}>
+                    <Text style={s.itemEmoji}>{item.emoji}</Text>
+                    {item.badge && (
+                      <View style={s.badge}>
+                        <Text style={s.badgeText}>{item.badge}</Text>
+                      </View>
+                    )}
+                  </View>
+                )}
                 <Text style={s.itemName}>{item.name}</Text>
                 <Text style={s.itemDesc} numberOfLines={2}>{item.description}</Text>
                 <View style={s.itemFooter}>
                   <Text style={s.itemPrice}>₦{item.price.toLocaleString()}</Text>
-                  <TouchableOpacity style={s.addBtn} activeOpacity={0.8}>
-                    <Text style={s.addBtnText}>+ Add</Text>
+                  <TouchableOpacity
+                    style={[s.addBtn, qty > 0 && s.addBtnActive]}
+                    onPress={() => handleAddToCart(item)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={s.addBtnText}>{qty > 0 ? `✓ ${qty}` : '+ Add'}</Text>
                   </TouchableOpacity>
                 </View>
               </LinearGradient>
-            </TouchableOpacity>
-          ))}
+            </View>
+            );
+          })}
         </View>
 
         {/* Visit CTA */}
@@ -190,6 +245,16 @@ const s = StyleSheet.create({
     shadowOpacity: 0.07, shadowRadius: 8, elevation: 3,
   },
   itemCardGrad: { padding: 14, minHeight: 160 },
+  itemImageContainer: {
+    height: 90, borderRadius: 10, overflow: 'hidden',
+    marginBottom: 10, position: 'relative',
+  },
+  itemImage: { width: '100%', height: '100%' },
+  itemImageBadge: {
+    position: 'absolute', top: 6, right: 6,
+    backgroundColor: '#D02010', borderRadius: 6,
+    paddingHorizontal: 6, paddingVertical: 2,
+  },
   itemTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 },
   itemEmoji: { fontSize: 32 },
   badge: {
@@ -205,6 +270,7 @@ const s = StyleSheet.create({
     backgroundColor: '#1A5276', borderRadius: 8,
     paddingHorizontal: 10, paddingVertical: 5,
   },
+  addBtnActive: { backgroundColor: '#27AE60' },
   addBtnText: { fontSize: 12, fontWeight: '700', color: '#FFF' },
 
   ctaCard: {

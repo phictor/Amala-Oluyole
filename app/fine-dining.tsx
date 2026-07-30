@@ -6,6 +6,7 @@ import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ScreenContainer } from '@/components/screen-container';
+import { Image } from 'expo-image';
 
 const { width: W } = Dimensions.get('window');
 
@@ -121,6 +122,69 @@ export default function FineDiningScreen() {
           </LinearGradient>
         </TouchableOpacity>
 
+        {/* Tasting Menu */}
+        <View style={s.tastingSection}>
+          <View style={s.tastingImageContainer}>
+            <Image
+              source="/manus-storage/fine-dining-tasting_c871be05.jpg"
+              style={s.tastingImage}
+              contentFit="cover"
+              transition={400}
+            />
+            <LinearGradient
+              colors={['transparent', 'rgba(0,0,0,0.65)', 'rgba(0,0,0,0.92)']}
+              style={s.tastingImageOverlay}
+            />
+            <View style={s.tastingImageContent}>
+              <View style={s.tastingBadge}>
+                <Text style={s.tastingBadgeText}>CHEF'S TASTING MENU</Text>
+              </View>
+              <Text style={s.tastingTitle}>5-Course Set Menu</Text>
+              <Text style={s.tastingPrice}>₦25,000 per person</Text>
+            </View>
+          </View>
+          <View style={s.tastingBody}>
+            <Text style={s.tastingDesc}>
+              An immersive journey through the finest flavours of Nigerian cuisine, curated by our head chef.
+              Each course is thoughtfully paired with a complementary drink.
+            </Text>
+            <View style={s.tastingCourses}>
+              {[
+                { num: '01', label: 'Amuse-bouche', dish: 'Peppered Snail on Plantain Crisp' },
+                { num: '02', label: 'Starter', dish: 'Ofe Akwu Bisque with Coconut Cream' },
+                { num: '03', label: 'Fish Course', dish: 'Suya-Spiced Grilled Tilapia' },
+                { num: '04', label: 'Main', dish: 'Signature Amala & Ewedu with Assorted Protein' },
+                { num: '05', label: 'Dessert', dish: 'Puff Puff Soufflé with Vanilla Cream' },
+              ].map(course => (
+                <View key={course.num} style={s.tastingCourseRow}>
+                  <View style={s.tastingCourseNum}>
+                    <Text style={s.tastingCourseNumText}>{course.num}</Text>
+                  </View>
+                  <View style={s.tastingCourseInfo}>
+                    <Text style={s.tastingCourseLabel}>{course.label}</Text>
+                    <Text style={s.tastingCourseDish}>{course.dish}</Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+            <TouchableOpacity
+              style={s.tastingCta}
+              onPress={() => Alert.alert(
+                'Book Tasting Menu',
+                'The 5-course tasting menu is available Tuesday to Sunday from 12 PM. Advance booking required.\n\nPrice: ₦25,000 per person (inclusive of service charge).',
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  { text: 'Call to Book', onPress: () => Linking.openURL('tel:+2348030000003') },
+                  { text: 'WhatsApp', onPress: () => Linking.openURL('https://wa.me/2348030000003?text=I%20want%20to%20book%20the%20Tasting%20Menu') },
+                ],
+              )}
+              activeOpacity={0.85}
+            >
+              <Text style={s.tastingCtaText}>🍽️ Book Tasting Menu</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
         {/* Ambiance */}
         <View style={s.sectionPadded}>
           <Text style={s.sectionTitle}>The Experience</Text>
@@ -231,6 +295,41 @@ const s = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   reserveCtaArrowText: { fontSize: 22, color: '#FFF', fontWeight: '700' },
+
+  tastingSection: {
+    marginHorizontal: 16, marginBottom: 8,
+    borderRadius: 20, overflow: 'hidden',
+    borderWidth: 1.5, borderColor: '#D4AF37',
+  },
+  tastingImageContainer: { height: 200, position: 'relative' },
+  tastingImage: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
+  tastingImageOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
+  tastingImageContent: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 20 },
+  tastingBadge: {
+    alignSelf: 'flex-start', backgroundColor: '#D4AF37',
+    borderRadius: 6, paddingHorizontal: 10, paddingVertical: 4, marginBottom: 8,
+  },
+  tastingBadgeText: { fontSize: 10, fontWeight: '900', color: '#2C1A0E', letterSpacing: 1 },
+  tastingTitle: { fontSize: 22, fontWeight: '900', color: '#FFF', marginBottom: 4 },
+  tastingPrice: { fontSize: 16, fontWeight: '700', color: '#D4AF37' },
+  tastingBody: { backgroundColor: '#FDF9F0', padding: 20 },
+  tastingDesc: { fontSize: 13, color: '#5D3A1A', lineHeight: 21, marginBottom: 16 },
+  tastingCourses: { gap: 12, marginBottom: 20 },
+  tastingCourseRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+  tastingCourseNum: {
+    width: 32, height: 32, borderRadius: 16,
+    backgroundColor: '#2C1A0E', alignItems: 'center', justifyContent: 'center',
+    flexShrink: 0,
+  },
+  tastingCourseNumText: { fontSize: 11, fontWeight: '900', color: '#D4AF37' },
+  tastingCourseInfo: { flex: 1 },
+  tastingCourseLabel: { fontSize: 11, fontWeight: '700', color: '#7B4A2A', textTransform: 'uppercase', letterSpacing: 0.5 },
+  tastingCourseDish: { fontSize: 14, fontWeight: '600', color: '#2C1A0E', marginTop: 1 },
+  tastingCta: {
+    backgroundColor: '#2C1A0E', borderRadius: 14,
+    paddingVertical: 14, alignItems: 'center',
+  },
+  tastingCtaText: { fontSize: 15, fontWeight: '800', color: '#D4AF37' },
 
   sectionPadded: { paddingHorizontal: 16, marginTop: 20, marginBottom: 8 },
   sectionTitle: { fontSize: 20, fontWeight: '800', color: '#201060', marginBottom: 4 },

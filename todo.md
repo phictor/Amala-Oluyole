@@ -184,3 +184,16 @@
 - [x] PDF export for Kitchen Monthly Report screen (justified text, tables, branded header)
 - [x] Shared pdf-generator.ts utility with A4 layout, stat boxes, tables, footer
 - [x] expo-print installed for native PDF generation
+
+### Photography, Cart & Fine Dining (Jul 2026)
+- [x] Remove "Select Branch" header from home screen; add brand name + notification bell
+- [x] Add Experiences section on home screen (Bistro, Events, Fine Dining CTAs)
+- [x] Add Contact Us tab (5th tab) with addresses, phone, WhatsApp, directions, social links
+- [x] Build Bistro screen: drinks, cocktails, snacks, pastries, desserts with category filter
+- [x] Build Events screen: 5 events with bottom sheet detail and book CTA
+- [x] Build Fine Dining screen: full premium menu, ambiance section, reservation CTA
+- [x] Add real event photography to Events screen (expo-image, gradient overlays)
+- [x] Add real bistro photography to Bistro screen (drinks, cocktails, snacks images)
+- [x] Wire Bistro "Add" buttons to cart store (haptics, ADD_TO_CART dispatch, qty badge)
+- [x] Add Fine Dining Tasting Menu section (5-course ₦25,000 set menu with real photo)
+- [x] Update performance test thresholds to 2000ms for sandbox load variability

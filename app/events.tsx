@@ -6,6 +6,7 @@ import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ScreenContainer } from '@/components/screen-container';
+import { Image } from 'expo-image';
 
 const { width: W } = Dimensions.get('window');
 
@@ -29,6 +30,7 @@ interface EventItem {
   venue: string;
   price: string;
   emoji: string;
+  image: string;
   gradient: readonly [string, string];
   spotsLeft: number | null;
   description: string;
@@ -46,6 +48,7 @@ const EVENTS: EventItem[] = [
     venue: 'Amala Oluyole Main Branch',
     price: '₦5,000 per person',
     emoji: '🥁',
+    image: '/manus-storage/event-yoruba-cultural_a3a2cc92.jpg',
     gradient: ['#7B241C', '#4A1511'] as const,
     spotsLeft: 24,
     description: 'An immersive evening celebrating Yoruba culture with traditional music, dance, storytelling and an exclusive Yoruba feast curated by our head chef.',
@@ -61,6 +64,7 @@ const EVENTS: EventItem[] = [
     venue: 'Amala Oluyole Bistro',
     price: '₦3,500 per person',
     emoji: '🎷',
+    image: '/manus-storage/event-jazz-amala_8fc9dbac.jpg',
     gradient: ['#1A5276', '#0E3460'] as const,
     spotsLeft: 12,
     description: 'Unwind on a Friday evening with smooth jazz from our resident band while enjoying our full swallow menu and bistro cocktails.',
@@ -76,6 +80,7 @@ const EVENTS: EventItem[] = [
     venue: 'Amala Oluyole Outdoor Grounds',
     price: 'Free entry · Food purchased separately',
     emoji: '🍲',
+    image: '/manus-storage/event-food-festival_af2d0366.jpg',
     gradient: ['#1E8449', '#145A32'] as const,
     spotsLeft: null,
     description: 'A day-long open-air celebration of Ibadan\'s rich food culture. Featuring over 20 food stalls, cooking demonstrations, and live entertainment.',
@@ -91,6 +96,7 @@ const EVENTS: EventItem[] = [
     venue: 'Amala Oluyole Fine Dining',
     price: '₦8,000 per person (inclusive)',
     emoji: '🎶',
+    image: '/manus-storage/event-afrobeats-brunch_7be12714.jpg',
     gradient: ['#7D3C98', '#4A235A'] as const,
     spotsLeft: 8,
     description: 'A premium Sunday brunch experience with a live Afrobeats band, a three-course brunch menu and free-flow cocktails for the first hour.',
@@ -106,6 +112,7 @@ const EVENTS: EventItem[] = [
     venue: 'Any Amala Oluyole venue',
     price: 'Custom quote',
     emoji: '🎊',
+    image: '/manus-storage/event-private-hire_1b74d099.jpg',
     gradient: ['#B7950B', '#7D6608'] as const,
     spotsLeft: null,
     description: 'Host your private event at Amala Oluyole. We cater for birthdays, corporate dinners, wedding receptions, and more. Our events team will handle everything.',
@@ -116,29 +123,41 @@ const EVENTS: EventItem[] = [
 function EventCard({ event, onPress }: { event: EventItem; onPress: () => void }) {
   return (
     <TouchableOpacity style={s.eventCard} onPress={onPress} activeOpacity={0.88}>
-      <LinearGradient colors={event.gradient} style={s.eventCardGrad}>
-        <View style={s.eventCardTop}>
-          <Text style={s.eventEmoji}>{event.emoji}</Text>
-          {event.spotsLeft !== null && event.spotsLeft <= 15 && (
-            <View style={s.urgencyBadge}>
-              <Text style={s.urgencyText}>Only {event.spotsLeft} spots left!</Text>
+      <View style={s.eventCardContainer}>
+        <Image
+          source={event.image}
+          style={s.eventCardImage}
+          contentFit="cover"
+          transition={300}
+        />
+        <LinearGradient
+          colors={['transparent', 'rgba(0,0,0,0.72)', 'rgba(0,0,0,0.92)']}
+          style={s.eventCardOverlay}
+        />
+        <View style={s.eventCardContent}>
+          <View style={s.eventCardTop}>
+            <View style={s.eventEmojiCircle}><Text style={s.eventEmoji}>{event.emoji}</Text></View>
+            {event.spotsLeft !== null && event.spotsLeft <= 15 && (
+              <View style={s.urgencyBadge}>
+                <Text style={s.urgencyText}>Only {event.spotsLeft} spots left!</Text>
+              </View>
+            )}
+          </View>
+          <Text style={s.eventTitle}>{event.title}</Text>
+          <Text style={s.eventSubtitle}>{event.subtitle}</Text>
+          <View style={s.eventMeta}>
+            <Text style={s.eventMetaText}>📅 {event.date}</Text>
+            <Text style={s.eventMetaText}>🕐 {event.time}</Text>
+            <Text style={s.eventMetaText}>📍 {event.venue}</Text>
+          </View>
+          <View style={s.eventFooter}>
+            <Text style={s.eventPrice}>{event.price}</Text>
+            <View style={s.bookBtn}>
+              <Text style={s.bookBtnText}>Book Now →</Text>
             </View>
-          )}
-        </View>
-        <Text style={s.eventTitle}>{event.title}</Text>
-        <Text style={s.eventSubtitle}>{event.subtitle}</Text>
-        <View style={s.eventMeta}>
-          <Text style={s.eventMetaText}>📅 {event.date}</Text>
-          <Text style={s.eventMetaText}>🕐 {event.time}</Text>
-          <Text style={s.eventMetaText}>📍 {event.venue}</Text>
-        </View>
-        <View style={s.eventFooter}>
-          <Text style={s.eventPrice}>{event.price}</Text>
-          <View style={s.bookBtn}>
-            <Text style={s.bookBtnText}>Book Now →</Text>
           </View>
         </View>
-      </LinearGradient>
+      </View>
     </TouchableOpacity>
   );
 }
@@ -164,11 +183,15 @@ function EventDetailSheet({ event, onClose }: { event: EventItem; onClose: () =>
     <View style={s.sheetOverlay}>
       <TouchableOpacity style={s.sheetBackdrop} onPress={onClose} activeOpacity={1} />
       <View style={s.sheet}>
-        <LinearGradient colors={event.gradient} style={s.sheetHeader}>
-          <Text style={s.sheetEmoji}>{event.emoji}</Text>
-          <Text style={s.sheetTitle}>{event.title}</Text>
-          <Text style={s.sheetSubtitle}>{event.subtitle}</Text>
-        </LinearGradient>
+        <View style={s.sheetHeaderImg}>
+          <Image source={event.image} style={s.sheetHeaderImageBg} contentFit="cover" />
+          <LinearGradient colors={['transparent', 'rgba(0,0,0,0.8)']} style={s.sheetHeaderImgOverlay} />
+          <View style={s.sheetHeaderImgContent}>
+            <Text style={s.sheetEmoji}>{event.emoji}</Text>
+            <Text style={s.sheetTitle}>{event.title}</Text>
+            <Text style={s.sheetSubtitle}>{event.subtitle}</Text>
+          </View>
+        </View>
         <ScrollView style={s.sheetBody} showsVerticalScrollIndicator={false}>
           <View style={s.sheetMetaRow}>
             <View style={s.sheetMetaItem}><Text style={s.sheetMetaLabel}>Date</Text><Text style={s.sheetMetaValue}>{event.date}</Text></View>
@@ -301,9 +324,13 @@ const s = StyleSheet.create({
   list: { paddingHorizontal: 16, gap: 14, marginTop: 12 },
 
   eventCard: { borderRadius: 20, overflow: 'hidden', marginBottom: 2 },
-  eventCardGrad: { padding: 20 },
-  eventCardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 },
-  eventEmoji: { fontSize: 40 },
+  eventCardContainer: { borderRadius: 20, overflow: 'hidden', height: 240 },
+  eventCardImage: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
+  eventCardOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
+  eventCardContent: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, padding: 20, justifyContent: 'flex-end' },
+  eventCardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8, position: 'absolute', top: 16, left: 20, right: 20 },
+  eventEmojiCircle: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
+  eventEmoji: { fontSize: 24 },
   urgencyBadge: { backgroundColor: '#F39C12', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
   urgencyText: { fontSize: 11, fontWeight: '800', color: '#FFF' },
   eventTitle: { fontSize: 20, fontWeight: '900', color: '#FFF', marginBottom: 4 },
@@ -336,8 +363,11 @@ const s = StyleSheet.create({
     backgroundColor: '#FFF', borderTopLeftRadius: 24, borderTopRightRadius: 24,
     maxHeight: '90%', overflow: 'hidden',
   },
-  sheetHeader: { padding: 24, alignItems: 'center', gap: 6 },
-  sheetEmoji: { fontSize: 44, marginBottom: 4 },
+  sheetHeaderImg: { height: 200, overflow: 'hidden', borderTopLeftRadius: 24, borderTopRightRadius: 24 },
+  sheetHeaderImageBg: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
+  sheetHeaderImgOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
+  sheetHeaderImgContent: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 20, alignItems: 'center', gap: 4 },
+  sheetEmoji: { fontSize: 36 },
   sheetTitle: { fontSize: 22, fontWeight: '900', color: '#FFF', textAlign: 'center' },
   sheetSubtitle: { fontSize: 13, color: 'rgba(255,255,255,0.8)', textAlign: 'center' },
   sheetBody: { padding: 20 },
