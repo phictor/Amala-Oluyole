@@ -1,13 +1,13 @@
 /**
  * Admin Rider Tracking Screen
  *
- * Shows all active riders on a map with live location polling every 15 seconds.
+ * Shows all active riders on a map with real-time location updates via SSE (web) / 5s polling (native).
  * Features:
  *   - All online riders displayed as markers on the map (native) or list (web)
  *   - Rider status badges (online/offline, available/busy)
  *   - Last location update timestamp
  *   - Tap a rider to see their details
- *   - Auto-refresh every 15 seconds
+ *   - Real-time push via SSE (web) / 5s tRPC polling (native fallback)
  */
 import React, { useState, useCallback } from "react";
 import {
@@ -19,6 +19,8 @@ import { ScreenContainer } from "@/components/screen-container";
 import { SectionHeader, EmptyState, LoadingState, BadgeChip, StatCard } from "@/components/ui";
 import { RiderMap } from "@/components/rider-map";
 import { trpc } from "@/lib/trpc";
+import { useRiderLocations } from "@/hooks/use-rider-locations";
+import { useRequireRole } from "@/hooks/use-require-role";
 
 function fmtTime(d: Date | string | null | undefined): string {
   if (!d) return "Never";
@@ -29,20 +31,35 @@ function fmtTime(d: Date | string | null | undefined): string {
 }
 
 export default function RiderTracking() {
+  const { allowed, loading: roleLoading } = useRequireRole(["admin"]);
+  if (roleLoading) return <LoadingState fullScreen message="Checking access..." />;
+  if (!allowed) return null;
+
   const [selectedRiderId, setSelectedRiderId] = useState<number | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
-  const { data: riderList = [], isLoading, refetch } = trpc.admin.riders.useQuery(
+
+  // SSE real-time stream (web only)
+  const { riders: sseRiders, connected: sseConnected, lastUpdate: sseLastUpdate } = useRiderLocations();
+
+  // tRPC polling fallback for native (5 s) and web safety net (30 s)
+  const { data: trpcRiders = [], isLoading, refetch } = trpc.admin.riders.useQuery(
     undefined,
-    { refetchInterval: 15_000 }, // live poll every 15 seconds
+    { refetchInterval: Platform.OS === "web" ? 30_000 : 5_000 },
   );
+
+  // Prefer SSE data on web when connected, otherwise use tRPC data
+  const riderList = Platform.OS === "web" && sseConnected && sseRiders.length > 0
+    ? sseRiders
+    : trpcRiders;
+
+  const lastUpdate = sseLastUpdate ?? null;
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await refetch();
     setRefreshing(false);
   }, [refetch]);
-
   const onlineRiders = riderList.filter(r => r.rider.isOnline);
   const offlineRiders = riderList.filter(r => !r.rider.isOnline);
   const selectedEntry = riderList.find(r => r.rider.id === selectedRiderId);
@@ -56,8 +73,10 @@ export default function RiderTracking() {
         </TouchableOpacity>
         <Text style={s.headerTitle}>Rider Tracking</Text>
         <View style={s.liveIndicator}>
-          <View style={s.liveDot} />
-          <Text style={s.liveText}>Live</Text>
+          <View style={[s.liveDot, { backgroundColor: sseConnected ? "#22C55E" : "#F59E0B" }]} />
+          <Text style={[s.liveText, { color: sseConnected ? "#22C55E" : "#F59E0B" }]}>
+            {sseConnected ? "Live" : "Polling"}
+          </Text>
         </View>
       </View>
 

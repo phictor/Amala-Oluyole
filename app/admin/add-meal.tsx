@@ -5,10 +5,16 @@ import {
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { trpc } from '@/lib/trpc';
+import { useRequireRole } from "@/hooks/use-require-role";
+import { LoadingState } from "@/components/ui";
 
 const LABELS = ['Popular', 'New', 'Best Seller', "Chef's Special", 'Spicy', 'Gluten-Free', 'Vegetarian'];
 
 export default function AddEditMealScreen() {
+  const { allowed, loading: roleLoading } = useRequireRole(["admin"]);
+  if (roleLoading) return <LoadingState fullScreen message="Checking access..." />;
+  if (!allowed) return null;
+
   const router = useRouter();
   const params = useLocalSearchParams<{ id?: string }>();
   const isEdit = !!params.id;

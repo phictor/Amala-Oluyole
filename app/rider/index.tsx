@@ -6,6 +6,8 @@ import {
 import { router } from 'expo-router';
 import * as Location from 'expo-location';
 import { trpc } from '@/lib/trpc';
+import { useRequireRole } from "@/hooks/use-require-role";
+import { LoadingState } from "@/components/ui";
 
 type OrderStatus = 'rider_assigned' | 'out_for_delivery' | 'delivered';
 
@@ -28,6 +30,10 @@ const STATUS_COLOR: Record<string, string> = {
 };
 
 export default function RiderPortal() {
+  const { allowed, loading: roleLoading } = useRequireRole(["rider", "admin"]);
+  if (roleLoading) return <LoadingState fullScreen message="Checking access..." />;
+  if (!allowed) return null;
+
   const [isOnline, setIsOnline] = useState(false);
   const [locationGranted, setLocationGranted] = useState(false);
   const [refreshing, setRefreshing] = useState(false);

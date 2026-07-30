@@ -6,6 +6,8 @@ import {
 import { useRouter } from 'expo-router';
 import { ScreenContainer } from '@/components/screen-container';
 import { trpc } from '@/lib/trpc';
+import { useRequireRole } from "@/hooks/use-require-role";
+import { LoadingState } from "@/components/ui";
 
 type KitchenTab = 'orders' | 'meals' | 'stock' | 'report';
 
@@ -15,6 +17,10 @@ const MONTH_NAMES = [
 ];
 
 export default function KitchenPortal() {
+  const { allowed, loading: roleLoading } = useRequireRole(["kitchen", "admin"]);
+  if (roleLoading) return <LoadingState fullScreen message="Checking access..." />;
+  if (!allowed) return null;
+
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<KitchenTab>('orders');
   const [branchId] = useState(1); // TODO: derive from user.preferredBranchId

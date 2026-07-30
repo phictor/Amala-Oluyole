@@ -19,6 +19,8 @@ import {
   StatCard, SectionHeader, EmptyState, LoadingState, BadgeChip,
 } from "@/components/ui";
 import { trpc } from "@/lib/trpc";
+import { generatePdf, type PdfSection } from "@/lib/pdf-generator";
+import { useRequireRole } from "@/hooks/use-require-role";
 
 const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June",
@@ -32,7 +34,92 @@ function fmt(n: number | string | null | undefined): string {
   return `₦${v.toLocaleString()}`;
 }
 
+
+// ── PDF Export ────────────────────────────────────────────────────────────────
+async function exportMonthlyPDF(
+  month: number,
+  year: number,
+  summary: any,
+  dailyOrders: any[],
+  topMeals: any[],
+  orderTypeBreakdown: any[],
+  lowStockItems: any[],
+) {
+  const monthName = MONTH_NAMES[month - 1];
+  const completionRate = summary && Number(summary.totalOrders) > 0
+    ? Math.round((Number(summary.completedOrders) / Number(summary.totalOrders)) * 100)
+    : 0;
+
+  const sections: PdfSection[] = [
+    {
+      type: "stats",
+      title: "Performance Summary",
+      stats: [
+        { label: "Total Orders", value: Number(summary?.totalOrders ?? 0), color: "#201060" },
+        { label: "Revenue", value: fmt(summary?.totalRevenue), color: "#D02010" },
+        { label: "Completion Rate", value: `${completionRate}%`, color: "#22C55E" },
+        { label: "Avg Order Value", value: fmt(summary?.avgOrderValue), color: "#F0C000" },
+        { label: "Completed", value: Number(summary?.completedOrders ?? 0), color: "#22C55E" },
+        { label: "Cancelled", value: Number(summary?.cancelledOrders ?? 0), color: "#EF4444" },
+      ],
+    },
+    {
+      type: "table",
+      title: "Daily Order Volume",
+      headers: ["Date", "Orders"],
+      colWidths: ["60%", "40%"],
+      rows: dailyOrders.map(d => [d.date, Number(d.count)]),
+    },
+    {
+      type: "table",
+      title: "Top Meals by Orders",
+      headers: ["#", "Meal", "Qty Sold", "Revenue"],
+      colWidths: ["8%", "42%", "20%", "30%"],
+      rows: topMeals.map((m, i) => [
+        i + 1,
+        m.name,
+        Number(m.totalQuantity),
+        fmt(m.totalRevenue),
+      ]),
+    },
+    {
+      type: "table",
+      title: "Order Type Breakdown",
+      headers: ["Type", "Count"],
+      colWidths: ["60%", "40%"],
+      rows: orderTypeBreakdown.map(t => [t.orderType, Number(t.count)]),
+    },
+  ];
+
+  if (lowStockItems.length > 0) {
+    sections.push({
+      type: "table",
+      title: "Low Stock Alerts",
+      headers: ["Item", "Current Stock", "Min Stock"],
+      colWidths: ["50%", "25%", "25%"],
+      rows: lowStockItems.map(item => [item.name, item.currentStock, item.minStock]),
+    });
+  }
+
+  sections.push({
+    type: "text",
+    body: `This report covers kitchen performance for ${monthName} ${year}. All revenue figures are in Nigerian Naira (₦). Completion rate reflects orders marked as completed or delivered. This document is confidential and intended for kitchen management and administrators only.`,
+  });
+
+  await generatePdf({
+    title: "Kitchen Monthly Report",
+    subtitle: `${monthName} ${year} — Performance & Inventory`,
+    dateRange: `${monthName} ${year}`,
+    sections,
+    filename: `kitchen_monthly_report_${year}_${String(month).padStart(2, "0")}`,
+  });
+}
+
 export default function KitchenMonthlyReport() {
+  const { allowed, loading: roleLoading } = useRequireRole(["kitchen", "admin"]);
+  if (roleLoading) return <LoadingState fullScreen message="Checking access..." />;
+  if (!allowed) return null;
+
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
@@ -83,7 +170,13 @@ export default function KitchenMonthlyReport() {
           <Text style={s.backIcon}>←</Text>
         </TouchableOpacity>
         <Text style={s.headerTitle}>Monthly Report</Text>
-        <View style={{ width: 36 }} />
+        <TouchableOpacity
+          onPress={() => exportMonthlyPDF(month, year, summary, dailyOrders, topMeals, orderTypeBreakdown, lowStockItems)}
+          style={{ backgroundColor: "#D02010", paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 }}
+          activeOpacity={0.75}
+        >
+          <Text style={{ color: "#fff", fontSize: 12, fontWeight: "700" }}>⬇ PDF</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Month Selector */}

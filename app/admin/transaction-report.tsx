@@ -19,6 +19,8 @@ import {
   StatCard, SectionHeader, EmptyState, LoadingState, BadgeChip, ActionButton, InfoRow,
 } from "@/components/ui";
 import { trpc } from "@/lib/trpc";
+import { generatePdf, type PdfSection } from "@/lib/pdf-generator";
+import { useRequireRole } from "@/hooks/use-require-role";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 function fmtCurrency(n: number | string | null | undefined): string {
@@ -86,8 +88,70 @@ function exportCSV(rows: any[]) {
   }
 }
 
+
+// ── PDF Export ────────────────────────────────────────────────────────────────
+async function exportPDF(
+  rows: any[],
+  summary: any,
+  fromDate: string,
+  toDate: string,
+) {
+  const sections: PdfSection[] = [
+    {
+      type: "stats",
+      title: "Summary",
+      stats: [
+        { label: "Total Orders", value: Number(summary?.totalOrders ?? 0), color: "#201060" },
+        { label: "Revenue", value: fmtCurrency(summary?.totalRevenue), color: "#D02010" },
+        { label: "Paid", value: Number(summary?.paidOrders ?? 0), color: "#22C55E" },
+        { label: "Pending", value: Number(summary?.pendingOrders ?? 0), color: "#F59E0B" },
+        { label: "Failed", value: Number(summary?.failedOrders ?? 0), color: "#EF4444" },
+      ],
+    },
+    {
+      type: "stats",
+      title: "By Payment Method",
+      stats: [
+        { label: "Card", value: fmtCurrency(summary?.cardRevenue), color: "#3B82F6" },
+        { label: "Transfer", value: fmtCurrency(summary?.transferRevenue), color: "#8B5CF6" },
+        { label: "Cash on Delivery", value: fmtCurrency(summary?.cashRevenue), color: "#F97316" },
+      ],
+    },
+    {
+      type: "table",
+      title: `Transactions (${rows.length})`,
+      headers: ["Order #", "Date", "Status", "Payment", "Method", "Total", "Type"],
+      colWidths: ["12%", "14%", "14%", "12%", "14%", "14%", "10%"],
+      rows: rows.map(r => [
+        `#${r.orderNumber ?? r.id}`,
+        fmtDate(r.createdAt),
+        r.status.replace(/_/g, " "),
+        r.paymentStatus,
+        r.paymentMethod.replace(/_/g, " "),
+        fmtCurrency(r.total),
+        r.orderType,
+      ]),
+    },
+    {
+      type: "text",
+      body: `This report covers transactions from ${fromDate} to ${toDate}. All amounts are in Nigerian Naira (₦). This document is confidential and intended for authorised personnel only.`,
+    },
+  ];
+  await generatePdf({
+    title: "Transaction Report",
+    subtitle: "Financial Summary & Order Ledger",
+    dateRange: `${fromDate} – ${toDate}`,
+    sections,
+    filename: `transaction_report_${fromDate}_${toDate}`,
+  });
+}
+
 // ── Main Screen ───────────────────────────────────────────────────────────────
 export default function TransactionReport() {
+  const { allowed, loading: roleLoading } = useRequireRole(["admin"]);
+  if (roleLoading) return <LoadingState fullScreen message="Checking access..." />;
+  if (!allowed) return null;
+
   const now = new Date();
   const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
@@ -120,13 +184,22 @@ export default function TransactionReport() {
           <Text style={s.backIcon}>←</Text>
         </TouchableOpacity>
         <Text style={s.headerTitle}>Transaction Report</Text>
-        <TouchableOpacity
-          onPress={() => exportCSV(rows)}
-          style={s.exportBtn}
-          activeOpacity={0.75}
-        >
-          <Text style={s.exportBtnText}>⬇ CSV</Text>
-        </TouchableOpacity>
+        <View style={{ flexDirection: "row", gap: 6 }}>
+          <TouchableOpacity
+            onPress={() => exportCSV(rows)}
+            style={s.exportBtn}
+            activeOpacity={0.75}
+          >
+            <Text style={s.exportBtnText}>⬇ CSV</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => exportPDF(rows, summary, fromDate, toDate)}
+            style={[s.exportBtn, { backgroundColor: "#D02010" }]}
+            activeOpacity={0.75}
+          >
+            <Text style={s.exportBtnText}>⬇ PDF</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Date Filters */}

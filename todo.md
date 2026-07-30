@@ -168,3 +168,19 @@
 - [x] Enhance interactive rider map: live polling, route polyline, ETA display
 - [x] Add admin rider tracking screen (app/admin/rider-tracking.tsx) showing all online riders on map
 - [ ] Create reusable skill from this project workflow
+- [x] Create reusable skill from this project workflow
+- [x] Create reusable skill from this project workflow
+
+### Real-time, Role Guards & PDF Export (Jul 2026)
+- [x] SSE endpoint /api/riders/live for real-time rider location push
+- [x] useRiderLocations hook consuming SSE stream
+- [x] Update admin rider-tracking screen to use SSE instead of 15s polling
+- [x] Add role field to Auth.User type and getMe API response
+- [x] Create useRequireRole(roles) hook with redirect on unauthorised
+- [x] Wire role guard to all admin/* screens (admin role)
+- [x] Wire role guard to all kitchen/* screens (kitchen role)
+- [x] Wire role guard to rider/* screens (rider role)
+- [x] PDF export for Transaction Report screen (justified text, tables, branded header)
+- [x] PDF export for Kitchen Monthly Report screen (justified text, tables, branded header)
+- [x] Shared pdf-generator.ts utility with A4 layout, stat boxes, tables, footer
+- [x] expo-print installed for native PDF generation

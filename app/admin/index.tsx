@@ -7,6 +7,8 @@ import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ScreenContainer } from '@/components/screen-container';
 import { trpc } from '@/lib/trpc';
+import { useRequireRole } from "@/hooks/use-require-role";
+import { LoadingState } from "@/components/ui";
 import { useEffect } from 'react';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -91,6 +93,10 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 export default function AdminDashboard() {
+  const { allowed, loading: roleLoading } = useRequireRole(["admin"]);
+  if (roleLoading) return <LoadingState fullScreen message="Checking access..." />;
+  if (!allowed) return null;
+
   const [activeTab, setActiveTab] = useState<DashTab>('overview');
   const [refreshing, setRefreshing] = useState(false);
 
