@@ -265,3 +265,13 @@
 - [x] Order detail shows special instructions per item, delivery address, delivery instructions, discount and delivery fee breakdown
 - [x] Add Paystack webhook endpoint POST /api/paystack/webhook with HMAC-SHA512 signature verification
 - [x] Webhook auto-confirms payment, awards loyalty points, sends in-app notification and push on charge.success event
+
+### Production Fixes, Revenue Chart & Loyalty Display (Aug 2026)
+- [x] Fix bistro "Get Directions" button: was navigating to removed /(tabs)/contact, now navigates to /contact
+- [x] Add dailyRevenue endpoint to admin router: 7-day breakdown with per-day revenue and order count, fills missing days with 0
+- [x] Add 7-day revenue bar chart to admin Finance dashboard using react-native-svg (Rect, SvgText, Line)
+- [x] Chart shows today's bar in red, past days in navy, value labels above bars, day labels below
+- [x] Rebuild loyalty card on Profile screen: gradient background matching tier, large points display, progress bar to next tier
+- [x] Loyalty card shows tier ladder (Bronze → Silver → Gold → Platinum) with reached tiers highlighted
+- [x] Loyalty card shows exact points needed to reach next tier
+- [x] Platinum tier shows special congratulatory message instead of progress bar

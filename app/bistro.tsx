@@ -195,7 +195,7 @@ export default function BistroScreen() {
           </Text>
           <TouchableOpacity
             style={s.ctaBtn}
-            onPress={() => router.push('/(tabs)/contact' as never)}
+        onPress={() => router.push('/contact' as never)}
             activeOpacity={0.8}
           >
             <Text style={s.ctaBtnText}>📞 Get Directions & Contact</Text>

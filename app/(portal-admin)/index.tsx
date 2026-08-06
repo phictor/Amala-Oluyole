@@ -8,6 +8,8 @@ import { router } from 'expo-router';
 import { useAuth } from '@/hooks/use-auth';
 import * as Linking from 'expo-linking';
 import { useResponsive } from '@/hooks/use-responsive';
+import Svg, { Rect, Text as SvgText, Line } from 'react-native-svg';
+import { useWindowDimensions } from 'react-native';
 
 type Period = 'today' | 'week' | 'month' | 'all';
 
@@ -22,6 +24,7 @@ export default function AdminFinanceScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const { colWidth, rf, rp, isTablet } = useResponsive();
   const cardW = colWidth(isTablet ? 4 : 2, 12, 16);
+  const { width: screenW } = useWindowDimensions();
 
   const now = new Date();
   const fromDate = period === 'today'
@@ -35,6 +38,8 @@ export default function AdminFinanceScreen() {
   const statsQ = trpc.admin.stats.useQuery({ fromDate }, { refetchInterval: 60_000 });
   const reportQ = trpc.admin.transactionReport.useQuery({ fromDate, limit: 5 }, { staleTime: 30_000 });
   const overviewQ = trpc.admin.overview.useQuery(undefined, { staleTime: 30_000 });
+  const dailyQ = trpc.admin.dailyRevenue.useQuery({ days: 7 }, { staleTime: 60_000 });
+  const dailyData = dailyQ.data ?? [];
 
   const stats = statsQ.data;
   const overview = overviewQ.data;
@@ -43,7 +48,7 @@ export default function AdminFinanceScreen() {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await Promise.all([statsQ.refetch(), reportQ.refetch(), overviewQ.refetch()]);
+    await Promise.all([statsQ.refetch(), reportQ.refetch(), overviewQ.refetch(), dailyQ.refetch()]);
     setRefreshing(false);
   };
 
@@ -99,6 +104,61 @@ export default function AdminFinanceScreen() {
 
         {/* KPI Cards */}
         <View style={s.kpiGrid}>
+
+        {/* 7-Day Revenue Chart */}
+        <View style={s.section}>
+          <Text style={s.sectionTitle}>7-Day Revenue</Text>
+          {(() => {
+            const chartW = screenW - 32;
+            const chartH = 140;
+            const paddingLeft = 48;
+            const paddingBottom = 28;
+            const barAreaW = chartW - paddingLeft - 8;
+            const maxRevenue = Math.max(...dailyData.map(d => d.revenue), 1);
+            const barW = Math.floor(barAreaW / 7) - 6;
+            const days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+            return (
+              <Svg width={chartW} height={chartH + paddingBottom}>
+                {/* Gridlines */}
+                {[0, 0.25, 0.5, 0.75, 1].map((frac, i) => {
+                  const y = chartH - frac * chartH;
+                  return (
+                    <Line key={i} x1={paddingLeft} y1={y} x2={chartW - 4} y2={y} stroke="#E5E7EB" strokeWidth={1} />
+                  );
+                })}
+                {/* Y-axis labels */}
+                {[0, 0.5, 1].map((frac, i) => (
+                  <SvgText key={i} x={paddingLeft - 4} y={chartH - frac * chartH + 4} fontSize={9} fill="#9BA1A6" textAnchor="end">
+                    {frac === 0 ? '0' : frac === 0.5 ? `₦${Math.round(maxRevenue / 2 / 1000)}k` : `₦${Math.round(maxRevenue / 1000)}k`}
+                  </SvgText>
+                ))}
+                {/* Bars */}
+                {dailyData.map((d, i) => {
+                  const barH = Math.max(2, (d.revenue / maxRevenue) * chartH);
+                  const x = paddingLeft + i * (barAreaW / 7) + 3;
+                  const y = chartH - barH;
+                  const dayLabel = new Date(d.day + 'T12:00:00').toLocaleDateString('en-NG', { weekday: 'short' });
+                  const isToday = d.day === new Date().toISOString().split('T')[0];
+                  return (
+                    <React.Fragment key={d.day}>
+                      <Rect x={x} y={y} width={barW} height={barH} rx={4} fill={isToday ? '#D02010' : '#1A3C5E'} opacity={isToday ? 1 : 0.7} />
+                      <SvgText x={x + barW / 2} y={chartH + 16} fontSize={9} fill={isToday ? '#D02010' : '#6B7280'} textAnchor="middle" fontWeight={isToday ? 'bold' : 'normal'}>
+                        {dayLabel}
+                      </SvgText>
+                      {d.revenue > 0 && (
+                        <SvgText x={x + barW / 2} y={y - 4} fontSize={8} fill="#374151" textAnchor="middle">
+                          {d.revenue >= 1000 ? `${Math.round(d.revenue / 1000)}k` : String(Math.round(d.revenue))}
+                        </SvgText>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
+              </Svg>
+            );
+          })()}
+          <Text style={s.chartNote}>Red bar = today · Values in ₦</Text>
+        </View>
+
           {[
             { label: 'Completed', value: String(stats?.completedOrders ?? 0), sub: 'orders', color: '#22C55E' },
             { label: 'Cancelled', value: String(stats?.cancelledOrders ?? 0), sub: 'orders', color: '#EF4444' },
@@ -272,4 +332,5 @@ const s = StyleSheet.create({
   actionCard: { backgroundColor: '#F0F4FF', borderRadius: 14, padding: 16, alignItems: 'center', borderWidth: 1, borderColor: '#C7D2FE' },
   actionIcon: { fontSize: 28, marginBottom: 8 },
   actionLabel: { fontSize: 13, fontWeight: '700', color: '#1A3C5E', textAlign: 'center' },
+  chartNote: { fontSize: 11, color: '#9BA1A6', marginTop: 8, textAlign: 'right' },
 });

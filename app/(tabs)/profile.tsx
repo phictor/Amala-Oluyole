@@ -15,6 +15,14 @@ const TIER_CONFIG = {
   platinum: { label: 'Platinum', color: '#8E44AD', emoji: '💎' },
 };
 
+const TIER_ORDER = ['bronze', 'silver', 'gold', 'platinum'] as const;
+const TIER_THRESHOLDS: Record<string, number> = {
+  bronze: 0,
+  silver: 1000,
+  gold: 5000,
+  platinum: 15000,
+};
+
 function MenuRow({ icon, label, onPress, danger }: {
   icon: string; label: string; onPress: () => void; danger?: boolean;
 }) {
@@ -104,26 +112,68 @@ export default function ProfileScreen() {
 
         {/* Loyalty Card */}
         {la && (
-          <TouchableOpacity
-            style={styles.loyaltyCard}
-            onPress={() => router.push('/loyalty' as never)}
-          >
-            <View style={styles.loyaltyTop}>
-              <View>
-                <Text style={styles.loyaltyTierLabel}>{tier.emoji} {tier.label} Member</Text>
-                <Text style={styles.loyaltyPoints}>{(la.points ?? 0).toLocaleString()} points</Text>
+          <TouchableOpacity style={styles.loyaltyCard} onPress={() => router.push('/loyalty' as never)} activeOpacity={0.9}>
+            <LinearGradient
+              colors={la.tier === 'platinum' ? ['#4A235A', '#7D3C98'] : la.tier === 'gold' ? ['#7D4A00', '#B7950B'] : la.tier === 'silver' ? ['#2C3E50', '#4A5568'] : ['#1A1640', '#201060']}
+              style={styles.loyaltyGrad}
+              start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+            >
+              {/* Top row: tier badge + points */}
+              <View style={styles.loyaltyTop}>
+                <View style={styles.loyaltyTierBadge}>
+                  <Text style={styles.loyaltyTierEmoji}>{tier.emoji}</Text>
+                  <View>
+                    <Text style={styles.loyaltyTierName}>{tier.label} Member</Text>
+                    <Text style={styles.loyaltyTierSub}>Amala Oluyole Rewards</Text>
+                  </View>
+                </View>
+                <View style={styles.loyaltyPointsBox}>
+                  <Text style={[styles.loyaltyPointsNum, { color: tier.color }]}>{(la.points ?? 0).toLocaleString()}</Text>
+                  <Text style={styles.loyaltyPointsLabel}>points</Text>
+                </View>
               </View>
-              <Text style={styles.loyaltyArrow}>›</Text>
-            </View>
-            <View style={styles.loyaltyBar}>
-              <View style={[
-                styles.loyaltyBarFill,
-                { width: `${Math.min(100, ((la.points ?? 0) / Math.max(1, (la.points ?? 0) + (la.pointsToNextTier ?? 1000))) * 100)}%` as any }
-              ]} />
-            </View>
-            <Text style={styles.loyaltyBarLabel}>
-              {(la.pointsToNextTier ?? 0).toLocaleString()} pts to next tier
-            </Text>
+
+              {/* Progress bar to next tier */}
+              {la.tier !== 'platinum' && (() => {
+                const currentTierIdx = TIER_ORDER.indexOf((la.tier ?? 'bronze') as typeof TIER_ORDER[number]);
+                const nextTier = TIER_ORDER[currentTierIdx + 1];
+                const currentMin = TIER_THRESHOLDS[la.tier ?? 'bronze'] ?? 0;
+                const nextMin = TIER_THRESHOLDS[nextTier] ?? 1000;
+                const progress = Math.min(1, ((la.points ?? 0) - currentMin) / (nextMin - currentMin));
+                const ptsLeft = Math.max(0, nextMin - (la.points ?? 0));
+                return (
+                  <View style={styles.loyaltyProgressSection}>
+                    <View style={styles.loyaltyProgressLabels}>
+                      <Text style={styles.loyaltyProgressLeft}>{tier.label}</Text>
+                      <Text style={styles.loyaltyProgressRight}>{TIER_CONFIG[nextTier]?.emoji} {TIER_CONFIG[nextTier]?.label}</Text>
+                    </View>
+                    <View style={styles.loyaltyProgressTrack}>
+                      <View style={[styles.loyaltyProgressFill, { width: `${Math.round(progress * 100)}%` as any, backgroundColor: tier.color }]} />
+                    </View>
+                    <Text style={styles.loyaltyProgressHint}>{ptsLeft.toLocaleString()} more points to reach {TIER_CONFIG[nextTier]?.label}</Text>
+                  </View>
+                );
+              })()}
+              {la.tier === 'platinum' && (
+                <Text style={styles.loyaltyPlatinumMsg}>💎 You've reached the highest tier! Thank you for your loyalty.</Text>
+              )}
+
+              {/* Tier ladder */}
+              <View style={styles.loyaltyTierRow}>
+                {TIER_ORDER.map(t => {
+                  const cfg = TIER_CONFIG[t];
+                  const reached = TIER_ORDER.indexOf(t) <= TIER_ORDER.indexOf((la.tier ?? 'bronze') as typeof TIER_ORDER[number]);
+                  return (
+                    <View key={t} style={styles.loyaltyTierStep}>
+                      <Text style={[styles.loyaltyTierStepEmoji, !reached && { opacity: 0.35 }]}>{cfg.emoji}</Text>
+                      <Text style={[styles.loyaltyTierStepLabel, { color: reached ? cfg.color : 'rgba(255,255,255,0.4)' }]}>{cfg.label}</Text>
+                    </View>
+                  );
+                })}
+              </View>
+
+              <Text style={styles.loyaltyViewAll}>View full history →</Text>
+            </LinearGradient>
           </TouchableOpacity>
         )}
 
@@ -217,6 +267,27 @@ const styles = StyleSheet.create({
   loyaltyBar: { height: 6, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 3, marginBottom: 6 },
   loyaltyBarFill: { height: 6, backgroundColor: '#F39C12', borderRadius: 3 },
   loyaltyBarLabel: { fontSize: 12, color: 'rgba(255,255,255,0.7)' },
+  loyaltyGrad: { borderRadius: 16, padding: 18 },
+  loyaltyTierBadge: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  loyaltyTierEmoji: { fontSize: 32 },
+  loyaltyTierName: { fontSize: 16, fontWeight: '800', color: '#FFF' },
+  loyaltyTierSub: { fontSize: 11, color: 'rgba(255,255,255,0.6)', marginTop: 2 },
+  loyaltyPointsBox: { alignItems: 'flex-end' },
+  loyaltyPointsNum: { fontSize: 28, fontWeight: '900' },
+  loyaltyPointsLabel: { fontSize: 11, color: 'rgba(255,255,255,0.6)', marginTop: 2 },
+  loyaltyProgressSection: { marginTop: 16 },
+  loyaltyProgressLabels: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
+  loyaltyProgressLeft: { fontSize: 11, color: 'rgba(255,255,255,0.6)', fontWeight: '600' },
+  loyaltyProgressRight: { fontSize: 11, color: 'rgba(255,255,255,0.6)', fontWeight: '600' },
+  loyaltyProgressTrack: { height: 8, backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 4, overflow: 'hidden' },
+  loyaltyProgressFill: { height: 8, borderRadius: 4 },
+  loyaltyProgressHint: { fontSize: 11, color: 'rgba(255,255,255,0.5)', marginTop: 6, textAlign: 'center' },
+  loyaltyPlatinumMsg: { fontSize: 13, color: 'rgba(255,255,255,0.8)', textAlign: 'center', marginTop: 12, fontStyle: 'italic' },
+  loyaltyTierRow: { flexDirection: 'row', justifyContent: 'space-around', marginTop: 18, paddingTop: 14, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.1)' },
+  loyaltyTierStep: { alignItems: 'center', gap: 4 },
+  loyaltyTierStepEmoji: { fontSize: 22 },
+  loyaltyTierStepLabel: { fontSize: 10, fontWeight: '700' },
+  loyaltyViewAll: { fontSize: 12, color: 'rgba(255,255,255,0.5)', textAlign: 'right', marginTop: 12 },
   section: { paddingHorizontal: 20, marginTop: 16 },
   sectionTitle: { fontSize: 14, fontWeight: '700', color: '#6B6490', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 },
   menuCard: {

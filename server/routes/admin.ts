@@ -377,5 +377,37 @@ export const adminRouter = router({
       await db.update(users).set({ role: input.role, updatedAt: new Date() }).where(eq(users.id, input.userId));
       return { success: true };
     }),
+
+  // 7-day daily revenue breakdown for the Finance dashboard chart
+  dailyRevenue: adminProcedure
+    .input(z.object({ days: z.number().default(7) }).optional())
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return [];
+      const days = input?.days ?? 7;
+      const from = new Date();
+      from.setDate(from.getDate() - (days - 1));
+      from.setHours(0, 0, 0, 0);
+      const rows = await db
+        .select({
+          day: sql<string>`DATE(${orders.createdAt})`,
+          revenue: sql<number>`COALESCE(SUM(CASE WHEN ${orders.paymentStatus}='paid' THEN CAST(${orders.total} AS DECIMAL(12,2)) ELSE 0 END),0)`,
+          orderCount: sql<number>`COUNT(*)`,
+        })
+        .from(orders)
+        .where(gte(orders.createdAt, from))
+        .groupBy(sql`DATE(${orders.createdAt})`)
+        .orderBy(sql`DATE(${orders.createdAt})`);
+      // Fill in missing days with 0
+      const result: { day: string; revenue: number; orderCount: number }[] = [];
+      for (let i = 0; i < days; i++) {
+        const d = new Date();
+        d.setDate(d.getDate() - (days - 1 - i));
+        const dayStr = d.toISOString().split('T')[0];
+        const found = rows.find(r => r.day === dayStr);
+        result.push({ day: dayStr, revenue: found ? Number(found.revenue) : 0, orderCount: found ? Number(found.orderCount) : 0 });
+      }
+      return result;
+    }),
 });
 import { ne } from "drizzle-orm";
