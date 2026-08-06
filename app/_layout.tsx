@@ -12,7 +12,6 @@ import { ThemeProvider } from "@/lib/theme-provider";
 import * as Auth from "@/lib/_core/auth";
 import { useAppStore } from "@/lib/store/app-store";
 import * as Notifications from "expo-notifications";
-import { trpc as trpcClient } from "@/lib/trpc";
 import {
   SafeAreaFrameContext,
   SafeAreaInsetsContext,
@@ -32,46 +31,6 @@ const DEFAULT_WEB_FRAME: Rect = { x: 0, y: 0, width: 0, height: 0 };
 function AuthSyncBridge() {
   const { state, dispatch } = useAppStore();
   const synced = useRef(false);
-  const registerPushToken = trpcClient.profile.registerPushToken.useMutation();
-
-  // Set foreground notification handler once
-  useEffect(() => {
-    Notifications.setNotificationHandler({
-      handleNotification: async () => ({
-        shouldShowAlert: true,
-        shouldPlaySound: true,
-        shouldSetBadge: true,
-        shouldShowBanner: true,
-        shouldShowList: true,
-      }),
-    });
-    if (Platform.OS === 'android') {
-      Notifications.setNotificationChannelAsync('default', {
-        name: 'Amala Oluyole',
-        importance: Notifications.AndroidImportance.MAX,
-        vibrationPattern: [0, 250, 250, 250],
-        lightColor: '#D02010',
-      }).catch(() => {});
-    }
-  }, []);
-
-  const registerForPush = useCallback(async () => {
-    if (Platform.OS === 'web') return;
-    try {
-      const { status: existing } = await Notifications.getPermissionsAsync();
-      let finalStatus = existing;
-      if (existing !== 'granted') {
-        const { status } = await Notifications.requestPermissionsAsync();
-        finalStatus = status;
-      }
-      if (finalStatus !== 'granted') return;
-      const tokenData = await Notifications.getExpoPushTokenAsync();
-      const platform = Platform.OS === 'ios' ? 'ios' : 'android';
-      registerPushToken.mutate({ token: tokenData.data, platform });
-    } catch {
-      // Non-critical — push notifications are optional
-    }
-  }, [registerPushToken]);
 
   useEffect(() => {
     if (synced.current) return;
@@ -97,8 +56,6 @@ function AuthSyncBridge() {
             role: cachedUser.role ?? 'customer',
           },
         });
-        // Register push token after successful auth
-        registerForPush();
         // Redirect staff roles away from customer tabs immediately
         const role = cachedUser.role ?? 'customer';
         if (role === 'admin' || role === 'manager') {
@@ -125,6 +82,41 @@ function AuthSyncBridge() {
   return null;
 }
 
+/**
+ * Registers the Expo push token after the user logs in.
+ * Must be rendered inside the tRPC provider so useMutation works.
+ */
+function PushTokenRegistrar() {
+  const { state } = useAppStore();
+  const registerPushToken = trpc.profile.registerPushToken.useMutation();
+  const registered = useRef(false);
+
+  useEffect(() => {
+    if (!state.isAuthenticated || state.isGuest || registered.current) return;
+    if (Platform.OS === 'web') return;
+    registered.current = true;
+    const register = async () => {
+      try {
+        const { status: existing } = await Notifications.getPermissionsAsync();
+        let finalStatus = existing;
+        if (existing !== 'granted') {
+          const { status } = await Notifications.requestPermissionsAsync();
+          finalStatus = status;
+        }
+        if (finalStatus !== 'granted') return;
+        const tokenData = await Notifications.getExpoPushTokenAsync();
+        const platform = Platform.OS === 'ios' ? 'ios' : 'android';
+        registerPushToken.mutate({ token: tokenData.data, platform });
+      } catch {
+        // Non-critical — push notifications are optional
+      }
+    };
+    register();
+  }, [state.isAuthenticated, state.isGuest]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return null;
+}
+
 export const unstable_settings = {
   anchor: "(tabs)",
 };
@@ -139,6 +131,27 @@ export default function RootLayout() {
   // Initialize Manus runtime for cookie injection from parent container
   useEffect(() => {
     initManusRuntime();
+  }, []);
+
+  // Set foreground notification handler once at the root level
+  useEffect(() => {
+    Notifications.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowAlert: true,
+        shouldPlaySound: true,
+        shouldSetBadge: true,
+        shouldShowBanner: true,
+        shouldShowList: true,
+      }),
+    });
+    if (Platform.OS === 'android') {
+      Notifications.setNotificationChannelAsync('default', {
+        name: 'Amala Oluyole',
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#D02010',
+      }).catch(() => {});
+    }
   }, []);
 
   const handleSafeAreaUpdate = useCallback((metrics: Metrics) => {
@@ -158,9 +171,7 @@ export default function RootLayout() {
       new QueryClient({
         defaultOptions: {
           queries: {
-            // Disable automatic refetching on window focus for mobile
             refetchOnWindowFocus: false,
-            // Retry failed requests once
             retry: 1,
           },
         },
@@ -168,7 +179,6 @@ export default function RootLayout() {
   );
   const [trpcClient] = useState(() => createTRPCClient());
 
-  // Ensure minimum 8px padding for top and bottom on mobile
   const providerInitialMetrics = useMemo(() => {
     const metrics = initialWindowMetrics ?? { insets: initialInsets, frame: initialFrame };
     return {
@@ -185,9 +195,8 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <trpc.Provider client={trpcClient} queryClient={queryClient}>
         <QueryClientProvider client={queryClient}>
-          {/* Default to hiding native headers so raw route segments don't appear (e.g. "(tabs)", "products/[id]"). */}
-          {/* If a screen needs the native header, explicitly enable it and set a human title via Stack.Screen options. */}
-          {/* in order for ios apps tab switching to work properly, use presentation: "fullScreenModal" for login page, whenever you decide to use presentation: "modal*/}
+          {/* PushTokenRegistrar must be inside tRPC provider */}
+          <PushTokenRegistrar />
           <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="(tabs)" />
             <Stack.Screen name="(portal-admin)" />
