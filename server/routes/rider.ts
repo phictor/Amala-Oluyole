@@ -3,6 +3,9 @@ import {
   getOrdersByRider, getRiderByUserId, getRiderCurrentLocation,
   updateOrderStatus, updateRiderLocation, updateRiderStatus,
 } from "../db";
+import { getDb, sendPushToUser, createNotification } from "../db";
+import { orders } from "../../drizzle/schema";
+import { eq } from "drizzle-orm";
 import { protectedProcedure, router } from "../_core/trpc";
 
 export const riderRouter = router({
@@ -51,6 +54,23 @@ export const riderRouter = router({
       const rider = await getRiderByUserId(ctx.user.id);
       if (!rider) throw new Error("Rider profile not found");
       await updateOrderStatus(input.orderId, input.status, input.note, ctx.user.id);
+      // Push notification to customer on rider status update
+      const db = await getDb();
+      if (db) {
+        const orderRow = await db.select({ userId: orders.userId, orderNumber: orders.orderNumber })
+          .from(orders).where(eq(orders.id, input.orderId)).limit(1);
+        if (orderRow.length > 0 && orderRow[0].userId) {
+          const msgs: Record<string, { title: string; body: string }> = {
+            out_for_delivery: { title: '🚴 On the Way!', body: `Your order #${orderRow[0].orderNumber} is out for delivery!` },
+            delivered: { title: '✅ Order Delivered!', body: `Your order #${orderRow[0].orderNumber} has been delivered. Enjoy your meal! 🍽️` },
+          };
+          const msg = msgs[input.status];
+          if (msg) {
+            createNotification({ userId: orderRow[0].userId, type: 'order_update', title: msg.title, body: msg.body, orderId: input.orderId }).catch(() => {});
+            sendPushToUser(orderRow[0].userId, msg.title, msg.body, { orderId: input.orderId }).catch(() => {});
+          }
+        }
+      }
       return { success: true };
     }),
 });

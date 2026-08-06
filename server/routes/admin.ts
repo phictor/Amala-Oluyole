@@ -4,6 +4,7 @@ import {
   updateOrderStatus, assignRiderToOrder, getAvailableRiders,
 } from "../db";
 import { createNotification } from "../db";
+import { sendPushToUser } from "../db";
 import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
 import { TRPCError } from "@trpc/server";
 import { getDb } from "../db";
@@ -140,6 +141,7 @@ export const adminRouter = router({
               body: msg.message,
               orderId: input.orderId,
             }).catch(() => {});
+            sendPushToUser(orderRow[0].userId, msg.title, msg.message, { orderId: input.orderId, orderNumber: orderRow[0].orderNumber }).catch(() => {});
           }
         }
       }

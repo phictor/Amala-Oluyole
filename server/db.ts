@@ -1,5 +1,58 @@
 import { and, desc, eq, gte, inArray, isNull, like, lte, or, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
+import { Expo } from "expo-server-sdk";
+
+// Singleton Expo SDK client
+const expo = new Expo();
+
+/**
+ * Send real Expo push notifications to all active push tokens for a user.
+ * Silently swaps out invalid tokens so the DB stays clean.
+ */
+export async function sendPushToUser(userId: number, title: string, body: string, data?: Record<string, unknown>) {
+  const db = await getDb();
+  if (!db) return;
+  // Fetch all active push tokens for this user
+  const tokenRows = await db.select({ id: pushTokens.id, token: pushTokens.token })
+    .from(pushTokens)
+    .where(and(eq(pushTokens.userId, userId), eq(pushTokens.isActive, true)));
+  if (!tokenRows.length) return;
+  const messages = tokenRows
+    .filter(r => Expo.isExpoPushToken(r.token))
+    .map(r => ({ to: r.token, title, body, data: data ?? {}, sound: 'default' as const }));
+  if (!messages.length) return;
+  try {
+    const chunks = expo.chunkPushNotifications(messages);
+    for (const chunk of chunks) {
+      const receipts = await expo.sendPushNotificationsAsync(chunk);
+      // Mark invalid tokens as inactive
+      receipts.forEach((receipt, i) => {
+        if (receipt.status === 'error' && receipt.details?.error === 'DeviceNotRegistered') {
+          const token = messages[i]?.to;
+          if (token) {
+            db.update(pushTokens).set({ isActive: false }).where(eq(pushTokens.token, token)).catch(() => {});
+          }
+        }
+      });
+    }
+  } catch (err) {
+    console.warn('[Push] Failed to send push notifications:', err);
+  }
+}
+
+/**
+ * Register or update a push token for a user (upsert by token value).
+ */
+export async function upsertPushToken(userId: number, token: string, platform: 'ios' | 'android' | 'web') {
+  const db = await getDb();
+  if (!db) return;
+  const existing = await db.select({ id: pushTokens.id }).from(pushTokens).where(eq(pushTokens.token, token)).limit(1);
+  if (existing.length > 0) {
+    await db.update(pushTokens).set({ userId, isActive: true, updatedAt: new Date() }).where(eq(pushTokens.token, token));
+  } else {
+    await db.insert(pushTokens).values({ userId, token, platform, isActive: true });
+  }
+}
 import {
   Branch,
   CateringRequest,

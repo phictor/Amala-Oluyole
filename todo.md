@@ -237,3 +237,17 @@
 - [x] Admin portal now has 7 tabs: Finance, Orders, Kitchen, Riders, Menu, Staff, More
 - [x] Add "Preview Customer App" button in admin More/Settings tab to switch to customer view
 - [x] Admin kitchen view also fires sound/haptic alert on new orders
+
+### Backend Completion & Push Notifications (Aug 2026)
+- [x] Audit all 50+ tRPC endpoints — confirmed all frontend calls have matching backend implementations
+- [x] Install expo-server-sdk on server for real Expo push notification delivery
+- [x] Add sendPushToUser() helper in db.ts: fetches active push tokens, sends via Expo API, auto-deactivates invalid tokens
+- [x] Add upsertPushToken() helper: stores tokens in push_tokens table (multi-device support)
+- [x] Wire sendPushToUser into admin.updateOrderStatus: push fires on Accepted/Preparing/Ready/Rejected/Refunded
+- [x] Wire sendPushToUser into rider.updateOrderStatus: push fires on Out for Delivery/Delivered
+- [x] Wire sendPushToUser into orders.place: push fires on order placement
+- [x] Wire sendPushToUser into orders.verifyPayment and orders.confirmPayment: push fires on payment confirmation
+- [x] Update profile.registerPushToken to also upsert into push_tokens table (dual-write)
+- [x] Add rider alert parity: useNewOrderAlert hook on Rider portal detects new rider_assigned orders
+- [x] Add AdminPortalSwitcher component: floating ⚙️ Admin pill + modal with Finance/Kitchen/Rider/Customer options
+- [x] Wire AdminPortalSwitcher into customer tabs layout (shows only when admin is in preview mode)

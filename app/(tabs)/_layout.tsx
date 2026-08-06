@@ -7,6 +7,9 @@ import { Platform } from "react-native";
 import { useColors } from "@/hooks/use-colors";
 import { useAppStore } from "@/lib/store/app-store";
 import { View, Text, StyleSheet } from "react-native";
+import { useEffect, useState } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { AdminPortalSwitcher } from "@/components/admin-portal-switcher";
 
 export default function TabLayout() {
   const colors = useColors();
@@ -15,8 +18,15 @@ export default function TabLayout() {
   const bottomPadding = Platform.OS === "web" ? 12 : Math.max(insets.bottom, 8);
   const tabBarHeight = 56 + bottomPadding;
   const cartCount = state.cartItems.reduce((sum, i) => sum + i.quantity, 0);
+  const isAdmin = state.user?.role === 'admin' || state.user?.role === 'manager';
+  const [isPreviewMode, setIsPreviewMode] = useState(false);
+
+  useEffect(() => {
+    AsyncStorage.getItem('admin_preview_customer').then(v => setIsPreviewMode(v === 'true'));
+  }, []);
 
   return (
+    <View style={{ flex: 1 }}>
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: '#D02010',
@@ -82,6 +92,8 @@ export default function TabLayout() {
         }}
       />
     </Tabs>
+    {(isAdmin && isPreviewMode) && <AdminPortalSwitcher />}
+    </View>
   );
 }
 

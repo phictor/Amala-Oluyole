@@ -4,6 +4,7 @@ import { ScreenContainer } from '@/components/screen-container';
 import { trpc } from '@/lib/trpc';
 import { StatusBar } from 'expo-status-bar';
 import { useAuth } from '@/hooks/use-auth';
+import { useNewOrderAlert } from '@/hooks/use-new-order-alert';
 
 const STATUS_COLOR: Record<string, string> = {
   rider_assigned: '#F59E0B', out_for_delivery: '#0EA5E9', delivered: '#22C55E', cancelled: '#EF4444',
@@ -20,6 +21,11 @@ export default function RiderDeliveriesScreen() {
   const updateOrder = trpc.rider.updateOrderStatus.useMutation({ onSuccess: () => utils.rider.myOrders.invalidate() });
 
   const orders = ordersQ.data ?? [];
+
+  // Alert when a new order is assigned (rider_assigned status)
+  const assignedOrders = orders.map((o: any) => ({ id: o.id, status: o.status === 'rider_assigned' ? 'pending' : o.status }));
+  useNewOrderAlert(assignedOrders, false);
+
   const active = orders.filter((o: any) => !['delivered', 'cancelled'].includes(o.status));
   const completed = orders.filter((o: any) => o.status === 'delivered');
 
