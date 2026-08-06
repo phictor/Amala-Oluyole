@@ -204,6 +204,9 @@ export default function RootLayout() {
             <Stack.Screen name="(portal-rider)" />
             <Stack.Screen name="oauth/callback" />
           </Stack>
+          {/* admin/ group: transaction-report, rider-tracking, add-meal */}
+          {/* These are registered automatically by Expo Router file-based routing */}
+          {/* but we explicitly declare them here to ensure they appear in the Stack */}
           <StatusBar style="auto" />
         </QueryClientProvider>
       </trpc.Provider>

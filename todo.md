@@ -275,3 +275,16 @@
 - [x] Loyalty card shows tier ladder (Bronze → Silver → Gold → Platinum) with reached tiers highlighted
 - [x] Loyalty card shows exact points needed to reach next tier
 - [x] Platinum tier shows special congratulatory message instead of progress bar
+
+### Menu Seed, Admin Fixes, Paystack & Order Cancellation (Aug 2026)
+- [x] Seed database with 46 real Amala Oluyole meals across 8 categories (swallows, soups, proteins, rice, sides, drinks, desserts, chef specials)
+- [x] Seed 3 real branches (Oluyole Estate, Ring Road, Bodija) with coordinates, hours, and delivery settings
+- [x] Link all 46 meals to all 3 branches in meal_branch_availability table
+- [x] Fix admin Transaction Report: useRequireRole was re-fetching auth and redirecting before role confirmed — now reads from app-store
+- [x] Fix admin Rider Tracking Map: RiderMap was a text placeholder — rebuilt with real OpenStreetMap WebView (Leaflet.js)
+- [x] RiderMap shows interactive map with 🛵 rider pin, optional 📍 destination pin, and dashed route line
+- [x] Install react-native-webview for map rendering on iOS, Android, and Web
+- [x] Set PAYSTACK_SECRET_KEY in project secrets (sk_test format confirmed)
+- [x] Add 5-minute order cancellation window to order detail screen
+- [x] Cancel button only visible within 5 minutes of placing and before order is accepted
+- [x] Cancel button triggers confirmation alert before calling orders.cancel mutation

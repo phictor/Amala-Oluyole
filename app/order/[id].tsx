@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, useWindowDimensions } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, useWindowDimensions, Alert } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -94,6 +94,16 @@ export default function OrderDetailScreen() {
     { id: Number(id) },
     { enabled: !!id, refetchInterval: 15_000 }
   );
+  const cancelMutation = trpc.orders.cancel.useMutation({
+    onSuccess: () => {
+      Alert.alert('Order Cancelled', 'Your order has been cancelled successfully.');
+      router.replace('/(tabs)/orders' as never);
+    },
+    onError: (err) => {
+      Alert.alert('Cannot Cancel', err.message || 'This order can no longer be cancelled.');
+    },
+  });
+
   const order = data?.order;
   const items = data?.items ?? [];
   const steps = order?.orderType === 'pickup' ? PICKUP_STEPS : DELIVERY_STEPS;
@@ -101,6 +111,30 @@ export default function OrderDetailScreen() {
   const currentStep = steps[stepIdx];
   const statusColor = STATUS_COLORS[order?.status ?? ''] ?? '#9BA1A6';
   const isTerminal = ['delivered', 'completed', 'cancelled', 'rejected', 'refunded'].includes(order?.status ?? '');
+  // 5-minute cancellation window: only show if order is awaiting_payment or pending and placed < 5 min ago
+  const canCancel = (() => {
+    if (!order) return false;
+    if (!['awaiting_payment', 'pending', 'payment_confirmed'].includes(order.status)) return false;
+    const placed = new Date(order.createdAt).getTime();
+    const fiveMinutes = 5 * 60 * 1000;
+    return Date.now() - placed < fiveMinutes;
+  })();
+
+  const handleCancel = () => {
+    Alert.alert(
+      'Cancel Order',
+      'Are you sure you want to cancel this order? This cannot be undone.',
+      [
+        { text: 'Keep Order', style: 'cancel' },
+        {
+          text: 'Cancel Order',
+          style: 'destructive',
+          onPress: () => cancelMutation.mutate({ orderId: Number(id), reason: 'Customer cancelled within 5-minute window' }),
+        },
+      ]
+    );
+  };
+
   const showRiderMap = order?.orderType === 'delivery' &&
     ['rider_assigned', 'out_for_delivery'].includes(order?.status ?? '') &&
     order?.riderId;
@@ -151,6 +185,21 @@ export default function OrderDetailScreen() {
               ⏱️ Est. {order.orderType === 'delivery' ? 'delivery' : 'ready'} time: {order.estimatedDeliveryTime} min
             </Text>
           </View>
+        )}
+
+        {/* 5-minute cancellation window */}
+        {canCancel && (
+          <TouchableOpacity
+            style={s.cancelBtn}
+            onPress={handleCancel}
+            activeOpacity={0.8}
+            disabled={cancelMutation.isPending}
+          >
+            <Text style={s.cancelBtnText}>
+              {cancelMutation.isPending ? 'Cancelling...' : '✕ Cancel Order'}
+            </Text>
+            <Text style={s.cancelBtnHint}>Available for 5 minutes after placing</Text>
+          </TouchableOpacity>
         )}
 
         {/* Timeline */}
@@ -363,4 +412,17 @@ const s = StyleSheet.create({
   mapOverlayTime: { color: '#A8A9D8', fontSize: 11 },
   mapLoading: { height: 120, alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#F4F3FB', borderRadius: 12 },
   mapLoadingText: { color: '#6B6490', fontSize: 14 },
+  cancelBtn: {
+    marginHorizontal: 16,
+    marginBottom: 12,
+    backgroundColor: '#FFF5F5',
+    borderWidth: 1.5,
+    borderColor: '#EF4444',
+    borderRadius: 14,
+    padding: 16,
+    alignItems: 'center' as const,
+    gap: 4,
+  },
+  cancelBtnText: { fontSize: 15, fontWeight: '700' as const, color: '#EF4444' },
+  cancelBtnHint: { fontSize: 11, color: '#9BA1A6' },
 });
