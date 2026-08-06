@@ -215,3 +215,11 @@
 - [x] Rider Deliveries screen: online/offline toggle, active deliveries, status updates
 - [x] Root layout redirects admin/manager → portal-admin, kitchen → portal-kitchen, rider → portal-rider on auth sync
 - [x] OAuth callback redirects by role after login (admin/manager/kitchen/rider get their portal)
+
+### Kitchen Sound & Vibration Alerts (Aug 2026)
+- [x] Generate "New order!" voice chime (assets/sounds/order-alert.mp3)
+- [x] Build useNewOrderAlert hook: detects new pending order IDs between polls, fires haptic + audio
+- [x] Enable playsInSilentMode so chime works even when iOS silent switch is on
+- [x] Wire hook into Kitchen portal orders screen (portal-kitchen/index.tsx)
+- [x] Add 🔔/🔇 mute toggle in kitchen header with AsyncStorage persistence
+- [x] Add animated "New order received!" flash banner on new order arrival

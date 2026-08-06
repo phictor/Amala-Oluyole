@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, RefreshControl, Alert } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, RefreshControl, Alert, Animated } from 'react-native';
 import { ScreenContainer } from '@/components/screen-container';
 import { trpc } from '@/lib/trpc';
 import { StatusBar } from 'expo-status-bar';
 import { useAuth } from '@/hooks/use-auth';
+import { useNewOrderAlert } from '@/hooks/use-new-order-alert';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const STATUS_COLOR: Record<string, string> = {
   pending: '#F59E0B', accepted: '#0EA5E9', preparing: '#8B5CF6',
@@ -13,11 +15,44 @@ const STATUS_COLOR: Record<string, string> = {
 export default function KitchenOrdersScreen() {
   const { user, logout } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
+  const [muted, setMuted] = useState(false);
+  const [showNewBanner, setShowNewBanner] = useState(false);
+  const bannerAnim = useRef(new Animated.Value(0)).current;
+
   const ordersQ = trpc.admin.activeOrders.useQuery(undefined, { refetchInterval: 20_000 });
   const utils = trpc.useUtils();
   const updateStatus = trpc.admin.updateOrderStatus.useMutation({ onSuccess: () => utils.admin.activeOrders.invalidate() });
 
   const orders = ordersQ.data ?? [];
+
+  // Persist mute preference
+  useEffect(() => {
+    AsyncStorage.getItem('kitchen_muted').then(v => { if (v === 'true') setMuted(true); });
+  }, []);
+  const toggleMute = () => {
+    const next = !muted;
+    setMuted(next);
+    AsyncStorage.setItem('kitchen_muted', String(next));
+  };
+
+  // Alert hook — fires haptic + audio on new pending orders
+  useNewOrderAlert(orders, muted);
+
+  // Flash banner when new pending orders arrive (track count changes)
+  const prevPendingCount = useRef(0);
+  const pendingCount = orders.filter((o: any) => o.status === 'pending').length;
+  useEffect(() => {
+    if (pendingCount > prevPendingCount.current && prevPendingCount.current >= 0) {
+      setShowNewBanner(true);
+      Animated.sequence([
+        Animated.timing(bannerAnim, { toValue: 1, duration: 200, useNativeDriver: true }),
+        Animated.delay(3000),
+        Animated.timing(bannerAnim, { toValue: 0, duration: 300, useNativeDriver: true }),
+      ]).start(() => setShowNewBanner(false));
+    }
+    prevPendingCount.current = pendingCount;
+  }, [pendingCount]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const pending = orders.filter((o: any) => o.status === 'pending');
   const inProgress = orders.filter((o: any) => ['accepted', 'preparing'].includes(o.status));
   const ready = orders.filter((o: any) => o.status === 'ready');
@@ -66,10 +101,23 @@ export default function KitchenOrdersScreen() {
           <Text style={s.title}>Kitchen Portal</Text>
           <Text style={s.sub}>{user?.name ?? 'Kitchen Staff'} · {orders.length} active orders</Text>
         </View>
-        <TouchableOpacity style={s.logoutBtn} onPress={logout} activeOpacity={0.8}>
-          <Text style={s.logoutText}>Sign Out</Text>
-        </TouchableOpacity>
+        <View style={s.headerRight}>
+          <TouchableOpacity style={[s.muteBtn, muted && s.muteBtnActive]} onPress={toggleMute} activeOpacity={0.8}>
+            <Text style={s.muteBtnText}>{muted ? '🔇 Muted' : '🔔 Sound'}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={s.logoutBtn} onPress={logout} activeOpacity={0.8}>
+            <Text style={s.logoutText}>Sign Out</Text>
+          </TouchableOpacity>
+        </View>
       </View>
+
+      {/* New order flash banner */}
+      {showNewBanner && (
+        <Animated.View style={[s.newOrderBanner, { opacity: bannerAnim, transform: [{ translateY: bannerAnim.interpolate({ inputRange: [0, 1], outputRange: [-20, 0] }) }] }]}>
+          <Text style={s.newOrderBannerText}>🔔 New order received!</Text>
+        </Animated.View>
+      )}
+
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100 }}
@@ -109,8 +157,14 @@ const s = StyleSheet.create({
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
   title: { fontSize: 22, fontWeight: '900', color: '#111827' },
   sub: { fontSize: 13, color: '#6B7280', marginTop: 2 },
+  headerRight: { gap: 8, alignItems: 'flex-end' },
+  muteBtn: { backgroundColor: '#DCFCE7', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 7 },
+  muteBtnActive: { backgroundColor: '#FEE2E2' },
+  muteBtnText: { fontSize: 12, fontWeight: '700', color: '#374151' },
   logoutBtn: { backgroundColor: '#FEF3C7', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 8 },
   logoutText: { fontSize: 13, fontWeight: '700', color: '#92400E' },
+  newOrderBanner: { backgroundColor: '#D97706', marginHorizontal: 16, marginTop: 8, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 16, alignItems: 'center' },
+  newOrderBannerText: { fontSize: 15, fontWeight: '800', color: '#FFF' },
   group: { marginTop: 16 },
   groupTitle: { fontSize: 15, fontWeight: '800', color: '#374151', marginBottom: 10 },
   card: { backgroundColor: '#FFF', borderRadius: 14, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: '#E5E7EB' },
