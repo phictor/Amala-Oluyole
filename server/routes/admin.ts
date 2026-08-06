@@ -8,7 +8,7 @@ import { sendPushToUser } from "../db";
 import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
 import { TRPCError } from "@trpc/server";
 import { getDb } from "../db";
-import { meals, mealCategories, orders, users, riders, branches, promoCodes } from "../../drizzle/schema";
+import { meals, mealCategories, orders, users, riders, branches, promoCodes, customerAddresses } from "../../drizzle/schema";
 import { eq, desc, count, and, gte, lte, sql } from "drizzle-orm";
 
 // Admin-only middleware
@@ -142,6 +142,12 @@ export const adminRouter = router({
               orderId: input.orderId,
             }).catch(() => {});
             sendPushToUser(orderRow[0].userId, msg.title, msg.message, { orderId: input.orderId, orderNumber: orderRow[0].orderNumber }).catch(() => {});
+            // ── WhatsApp notification ──────────────────────────────────────
+            db.select({ phone: users.phone }).from(users).where(eq(users.id, orderRow[0].userId)).limit(1).then(userRow => {
+              if (userRow.length > 0 && userRow[0].phone) {
+                sendOrderStatusWhatsApp(userRow[0].phone, orderRow[0].orderNumber ?? String(input.orderId), input.status, input.note).catch(() => {});
+              }
+            }).catch(() => {});
           }
         }
       }
@@ -434,35 +440,54 @@ export const adminRouter = router({
   // Create a new rider account (links an existing user to the riders table)
   createRider: adminProcedure
     .input(z.object({
-      userId: z.number(),
+      // Full registration — no pre-existing account needed
+      name: z.string().min(2),
+      phone: z.string().min(7),
+      email: z.string().email().optional(),
+      homeAddress: z.string().min(5),
       branchId: z.number(),
       vehicleType: z.enum(['motorcycle', 'bicycle', 'car']).default('motorcycle'),
       vehiclePlate: z.string().optional(),
     }))
     .mutation(async ({ input }) => {
       const db = await getDb();
-      if (!db) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'DB unavailable' });
-      // Check if rider record already exists
-      const existing = await db.select({ id: riders.id }).from(riders).where(eq(riders.userId, input.userId)).limit(1);
-      if (existing.length > 0) throw new TRPCError({ code: 'CONFLICT', message: 'This user is already registered as a rider' });
-      // Set user role to rider
-      await db.update(users).set({ role: 'rider', updatedAt: new Date() }).where(eq(users.id, input.userId));
-      // Create rider record
-      await db.insert(riders).values({
-        userId: input.userId,
-        branchId: input.branchId,
-        vehicleType: input.vehicleType,
-        vehiclePlate: input.vehiclePlate ?? null,
-        isOnline: false,
-        isAvailable: true,
-        isActive: true,
-        totalDeliveries: 0,
-        rating: 5.0,
-        ratingCount: 0,
-      });
-      return { success: true };
+      if (!db) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Database unavailable' });
+      // Check if phone already registered
+      const existingUser = await db.select({ id: users.id }).from(users).where(eq(users.phone, input.phone)).limit(1);
+      if (existingUser.length > 0) {
+        // User exists — check if already a rider
+        const existingRider = await db.select({ id: riders.id }).from(riders).where(eq(riders.userId, existingUser[0].id)).limit(1);
+        if (existingRider.length > 0) throw new TRPCError({ code: 'CONFLICT', message: 'This phone number is already registered as a rider' });
+        // Promote existing user to rider
+        await db.update(users).set({ role: 'rider', name: input.name, updatedAt: new Date() }).where(eq(users.id, existingUser[0].id));
+        await db.insert(riders).values({ userId: existingUser[0].id, branchId: input.branchId, vehicleType: input.vehicleType, vehiclePlate: input.vehiclePlate ?? null, isOnline: false, isAvailable: true, isActive: true, totalDeliveries: 0, rating: 5.0, ratingCount: 0 });
+        // Save home address
+        if (input.homeAddress) {
+          await db.insert(customerAddresses).values({ userId: existingUser[0].id, label: 'Home', fullAddress: input.homeAddress, isDefault: true });
+        }
+        return { success: true, userId: existingUser[0].id };
+      }
+      // Create brand new user account for the rider
+      const openId = `rider_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      const [newUser] = await db.insert(users).values({
+        openId,
+        name: input.name,
+        phone: input.phone,
+        email: input.email ?? null,
+        loginMethod: 'admin_created',
+        role: 'rider',
+        isGuest: false,
+        preferredBranchId: input.branchId,
+      }).$returningId();
+      await db.insert(riders).values({ userId: newUser.id, branchId: input.branchId, vehicleType: input.vehicleType, vehiclePlate: input.vehiclePlate ?? null, isOnline: false, isAvailable: true, isActive: true, totalDeliveries: 0, rating: 5.0, ratingCount: 0 });
+      // Save home address
+      if (input.homeAddress) {
+        await db.insert(customerAddresses).values({ userId: newUser.id, label: 'Home', fullAddress: input.homeAddress, isDefault: true });
+      }
+      return { success: true, userId: newUser.id };
     }),
 });
 
 import { ne } from "drizzle-orm";
 import { storagePut } from "../storage";
+import { sendOrderStatusWhatsApp } from "../notifications";

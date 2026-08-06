@@ -4,7 +4,8 @@ import {
   updateOrderStatus, updateRiderLocation, updateRiderStatus,
 } from "../db";
 import { getDb, sendPushToUser, createNotification } from "../db";
-import { orders } from "../../drizzle/schema";
+import { sendOrderStatusWhatsApp } from "../notifications";
+import { orders, users } from "../../drizzle/schema";
 import { eq } from "drizzle-orm";
 import { protectedProcedure, router } from "../_core/trpc";
 
@@ -68,6 +69,12 @@ export const riderRouter = router({
           if (msg) {
             createNotification({ userId: orderRow[0].userId, type: 'order_update', title: msg.title, body: msg.body, orderId: input.orderId }).catch(() => {});
             sendPushToUser(orderRow[0].userId, msg.title, msg.body, { orderId: input.orderId }).catch(() => {});
+            // ── WhatsApp notification ──────────────────────────────────────
+            db.select({ phone: users.phone }).from(users).where(eq(users.id, orderRow[0].userId)).limit(1).then(userRow => {
+              if (userRow.length > 0 && userRow[0].phone) {
+                sendOrderStatusWhatsApp(userRow[0].phone, orderRow[0].orderNumber ?? String(input.orderId), input.status, input.note).catch(() => {});
+              }
+            }).catch(() => {});
           }
         }
       }

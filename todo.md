@@ -137,6 +137,17 @@
 - [x] FR-065-066: Pickup collection code generation and display on order confirmation
 
 ### Next Sprint
+
+### Rider Registration, Dine-in, Admin Menu & Cleanup (Aug 2026)
+- [x] Full rider registration form: name, phone, email, home address, branch, vehicle type, plate
+- [x] Backend createRider endpoint creates user account + rider record in one step (no pre-existing account needed)
+- [x] Add dine_in to orderType enum (DB migration applied via SQL)
+- [x] AdminMenu reusable hamburger component: ☰ trigger, slide-up overlay, ✕ close, active indicator, order badges
+- [x] Admin portal layout replaced from 7-tab Tabs to Stack + AdminMenu floating button
+- [x] WhatsApp order notifications via Twilio (admin + rider updateOrderStatus endpoints)
+- [x] Reservation confirmation email with .ics calendar attachment via Resend
+- [x] Fix "Checking access..." infinite spinner: hydrated flag in AppState, SET_HYDRATED action
+- [x] Clean AI-sounding loading messages across all admin screens
 - [x] FR-102: CSV export button on Reports tab (download transactions for date range)
 - [x] FR-006: Role-based access control on admin dashboard (restrict to admin/kitchen roles)
 - [x] Kitchen Portal: dedicated screen for kitchen staff with order queue, stock management, monthly report

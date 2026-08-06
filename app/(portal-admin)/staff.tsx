@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, RefreshControl, Alert, Modal, TextInput } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, RefreshControl, Alert, Modal, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { ScreenContainer } from '@/components/screen-container';
 import { trpc } from '@/lib/trpc';
 import { StatusBar } from 'expo-status-bar';
@@ -8,36 +8,43 @@ const ROLE_COLOR: Record<string, string> = {
   admin: '#7C3AED', manager: '#1A3C5E', kitchen: '#D97706', rider: '#059669', customer: '#6B7280',
 };
 const ROLES = ['customer', 'admin', 'manager', 'kitchen', 'rider'] as const;
+const VEHICLE_TYPES: Array<'motorcycle' | 'bicycle' | 'car'> = ['motorcycle', 'bicycle', 'car'];
 
 export default function AdminStaffScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [showAddRider, setShowAddRider] = useState(false);
-  const [riderUserId, setRiderUserId] = useState('');
+  // Full rider registration form fields
+  const [riderName, setRiderName] = useState('');
+  const [riderPhone, setRiderPhone] = useState('');
+  const [riderEmail, setRiderEmail] = useState('');
+  const [riderAddress, setRiderAddress] = useState('');
   const [riderBranchId, setRiderBranchId] = useState('1');
   const [riderVehicle, setRiderVehicle] = useState<'motorcycle' | 'bicycle' | 'car'>('motorcycle');
   const [riderPlate, setRiderPlate] = useState('');
+
   const staffQ = trpc.admin.allStaff.useQuery(undefined, { staleTime: 30_000 });
   const customersQ = trpc.admin.allCustomers.useQuery(undefined, { staleTime: 30_000 });
   const branchesQ = trpc.admin.allBranches.useQuery(undefined, { staleTime: 60_000 });
   const utils = trpc.useUtils();
+
   const setRole = trpc.admin.setUserRole.useMutation({
     onSuccess: () => { utils.admin.allStaff.invalidate(); utils.admin.allCustomers.invalidate(); },
   });
+
   const createRider = trpc.admin.createRider.useMutation({
-    onSuccess: () => {
-      Alert.alert('Rider Created', 'The user has been set up as a rider and can now log in to the Rider portal.');
+    onSuccess: (data) => {
+      Alert.alert('Rider Added', `${riderName} has been registered as a rider. They can now log in to the Rider portal.`);
       setShowAddRider(false);
-      setRiderUserId(''); setRiderPlate('');
+      setRiderName(''); setRiderPhone(''); setRiderEmail(''); setRiderAddress(''); setRiderPlate('');
       utils.admin.allStaff.invalidate();
     },
-    onError: (err) => Alert.alert('Error', err.message || 'Could not create rider.'),
+    onError: (err) => Alert.alert('Error', err.message || 'Could not register rider. Please check the details and try again.'),
   });
 
   const staff = staffQ.data ?? [];
   const customers = customersQ.data?.rows ?? [];
   const totalCustomers = customersQ.data?.total ?? 0;
   const branches = branchesQ.data ?? [];
-
   const [tab, setTab] = useState<'staff' | 'customers'>('staff');
 
   const onRefresh = async () => {
@@ -56,6 +63,21 @@ export default function AdminStaffScreen() {
     ]);
   };
 
+  const handleSubmitRider = () => {
+    if (!riderName.trim()) { Alert.alert('Missing', 'Please enter the rider\'s full name.'); return; }
+    if (!riderPhone.trim()) { Alert.alert('Missing', 'Please enter the rider\'s phone number.'); return; }
+    if (!riderAddress.trim()) { Alert.alert('Missing', 'Please enter the rider\'s home address.'); return; }
+    createRider.mutate({
+      name: riderName.trim(),
+      phone: riderPhone.trim(),
+      email: riderEmail.trim() || undefined,
+      homeAddress: riderAddress.trim(),
+      branchId: Number(riderBranchId),
+      vehicleType: riderVehicle,
+      vehiclePlate: riderPlate.trim() || undefined,
+    });
+  };
+
   return (
     <>
     <ScreenContainer edges={['top', 'left', 'right']}>
@@ -69,7 +91,6 @@ export default function AdminStaffScreen() {
           <Text style={s.addRiderBtnText}>+ Add Rider</Text>
         </TouchableOpacity>
       </View>
-      {/* Tab Toggle */}
       <View style={s.tabRow}>
         <TouchableOpacity style={[s.tabBtn, tab === 'staff' && s.tabBtnActive]} onPress={() => setTab('staff')} activeOpacity={0.8}>
           <Text style={[s.tabBtnText, tab === 'staff' && s.tabBtnTextActive]}>Staff ({staff.length})</Text>
@@ -136,95 +157,93 @@ export default function AdminStaffScreen() {
         )}
       </ScrollView>
     </ScreenContainer>
+
     {/* Add Rider Modal */}
     <Modal visible={showAddRider} transparent animationType="slide" onRequestClose={() => setShowAddRider(false)}>
-      <View style={s.modalOverlay}>
-        <View style={s.modalSheet}>
-          <Text style={s.modalTitle}>Add New Rider</Text>
-          <Text style={s.modalSub}>The user must already have an account in the app.</Text>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        <View style={s.modalOverlay}>
+          <View style={s.modalSheet}>
+            <View style={s.modalHeader}>
+              <Text style={s.modalTitle}>Register New Rider</Text>
+              <TouchableOpacity onPress={() => setShowAddRider(false)} activeOpacity={0.7}>
+                <Text style={s.modalClose}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={s.modalSub}>Fill in the rider's details below. A new account will be created for them.</Text>
 
-          <View>
-            <Text style={s.modalLabel}>User ID (from Staff list)</Text>
-            <TextInput
-              style={s.modalInput}
-              placeholder="e.g. 12345"
-              keyboardType="number-pad"
-              value={riderUserId}
-              onChangeText={setRiderUserId}
-            />
-          </View>
-
-          <View>
-            <Text style={s.modalLabel}>Branch</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 4 }}>
-              <View style={{ flexDirection: 'row', gap: 8 }}>
-                {branches.length === 0 ? (
-                  <TextInput style={[s.modalInput, { width: 120 }]} placeholder="Branch ID" keyboardType="number-pad" value={riderBranchId} onChangeText={setRiderBranchId} />
-                ) : (
-                  branches.map((b: any) => (
-                    <TouchableOpacity
-                      key={b.id}
-                      style={[s.vehicleBtn, String(b.id) === riderBranchId && s.vehicleBtnActive]}
-                      onPress={() => setRiderBranchId(String(b.id))}
-                      activeOpacity={0.8}
-                    >
-                      <Text style={[s.vehicleBtnText, String(b.id) === riderBranchId && s.vehicleBtnTextActive]}>{b.name.replace('Amala Oluyole — ', '')}</Text>
+            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 420 }}>
+              <View style={s.fieldGroup}>
+                <Text style={s.modalLabel}>Full Name *</Text>
+                <TextInput style={s.modalInput} placeholder="e.g. Emeka Okafor" value={riderName} onChangeText={setRiderName} />
+              </View>
+              <View style={s.fieldGroup}>
+                <Text style={s.modalLabel}>Phone Number *</Text>
+                <TextInput style={s.modalInput} placeholder="e.g. 08012345678" keyboardType="phone-pad" value={riderPhone} onChangeText={setRiderPhone} />
+              </View>
+              <View style={s.fieldGroup}>
+                <Text style={s.modalLabel}>Email Address (optional)</Text>
+                <TextInput style={s.modalInput} placeholder="emeka@example.com" keyboardType="email-address" autoCapitalize="none" value={riderEmail} onChangeText={setRiderEmail} />
+              </View>
+              <View style={s.fieldGroup}>
+                <Text style={s.modalLabel}>Home Address *</Text>
+                <TextInput style={[s.modalInput, { height: 72, textAlignVertical: 'top' }]} placeholder="e.g. 12 Oluyole Estate, Ibadan" multiline value={riderAddress} onChangeText={setRiderAddress} />
+              </View>
+              <View style={s.fieldGroup}>
+                <Text style={s.modalLabel}>Branch</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    {branches.length === 0 ? (
+                      <TextInput style={[s.modalInput, { width: 120 }]} placeholder="Branch ID" keyboardType="number-pad" value={riderBranchId} onChangeText={setRiderBranchId} />
+                    ) : (
+                      branches.map((b: any) => (
+                        <TouchableOpacity key={b.id} style={[s.vehicleBtn, String(b.id) === riderBranchId && s.vehicleBtnActive]} onPress={() => setRiderBranchId(String(b.id))} activeOpacity={0.8}>
+                          <Text style={[s.vehicleBtnText, String(b.id) === riderBranchId && s.vehicleBtnTextActive]}>{(b.name ?? '').replace('Amala Oluyole — ', '').replace('Amala Oluyole - ', '')}</Text>
+                        </TouchableOpacity>
+                      ))
+                    )}
+                  </View>
+                </ScrollView>
+              </View>
+              <View style={s.fieldGroup}>
+                <Text style={s.modalLabel}>Vehicle Type</Text>
+                <View style={s.vehicleRow}>
+                  {VEHICLE_TYPES.map(v => (
+                    <TouchableOpacity key={v} style={[s.vehicleBtn, riderVehicle === v && s.vehicleBtnActive]} onPress={() => setRiderVehicle(v)} activeOpacity={0.8}>
+                      <Text style={[s.vehicleBtnText, riderVehicle === v && s.vehicleBtnTextActive]}>
+                        {v === 'motorcycle' ? '🛵' : v === 'bicycle' ? '🚲' : '🚗'} {v}
+                      </Text>
                     </TouchableOpacity>
-                  ))
-                )}
+                  ))}
+                </View>
+              </View>
+              <View style={s.fieldGroup}>
+                <Text style={s.modalLabel}>Plate Number (optional)</Text>
+                <TextInput style={s.modalInput} placeholder="e.g. LAG-123-AB" autoCapitalize="characters" value={riderPlate} onChangeText={setRiderPlate} />
               </View>
             </ScrollView>
-          </View>
 
-          <View>
-            <Text style={s.modalLabel}>Vehicle Type</Text>
-            <View style={s.vehicleRow}>
-              {VEHICLE_TYPES.map(v => (
-                <TouchableOpacity key={v} style={[s.vehicleBtn, riderVehicle === v && s.vehicleBtnActive]} onPress={() => setRiderVehicle(v)} activeOpacity={0.8}>
-                  <Text style={[s.vehicleBtnText, riderVehicle === v && s.vehicleBtnTextActive]}>
-                    {v === 'motorcycle' ? '🛵' : v === 'bicycle' ? '🚲' : '🚗'} {v}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+            <TouchableOpacity
+              style={[s.modalSubmitBtn, (!riderName || !riderPhone || !riderAddress || createRider.isPending) && { opacity: 0.5 }]}
+              onPress={handleSubmitRider}
+              disabled={!riderName || !riderPhone || !riderAddress || createRider.isPending}
+              activeOpacity={0.8}
+            >
+              <Text style={s.modalSubmitText}>{createRider.isPending ? 'Registering…' : 'Register Rider'}</Text>
+            </TouchableOpacity>
           </View>
-
-          <View>
-            <Text style={s.modalLabel}>Plate Number (optional)</Text>
-            <TextInput
-              style={s.modalInput}
-              placeholder="e.g. LAG-123-AB"
-              autoCapitalize="characters"
-              value={riderPlate}
-              onChangeText={setRiderPlate}
-            />
-          </View>
-
-          <TouchableOpacity
-            style={[s.modalSubmitBtn, (!riderUserId || createRider.isPending) && { opacity: 0.5 }]}
-            onPress={() => {
-              if (!riderUserId) { Alert.alert('Missing', 'Please enter the User ID.'); return; }
-              createRider.mutate({ userId: Number(riderUserId), branchId: Number(riderBranchId), vehicleType: riderVehicle, vehiclePlate: riderPlate || undefined });
-            }}
-            disabled={!riderUserId || createRider.isPending}
-            activeOpacity={0.8}
-          >
-            <Text style={s.modalSubmitText}>{createRider.isPending ? 'Creating…' : 'Create Rider Account'}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={s.modalCancelBtn} onPress={() => setShowAddRider(false)} activeOpacity={0.8}>
-            <Text style={s.modalCancelText}>Cancel</Text>
-          </TouchableOpacity>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
     </>
   );
 }
 
 const s = StyleSheet.create({
-  header: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
+  header: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: '#F3F4F6', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   title: { fontSize: 22, fontWeight: '900', color: '#111827' },
   sub: { fontSize: 13, color: '#6B7280', marginTop: 2 },
+  addRiderBtn: { backgroundColor: '#059669', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 9 },
+  addRiderBtnText: { fontSize: 12, fontWeight: '700', color: '#FFF' },
   tabRow: { flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 12, gap: 8 },
   tabBtn: { flex: 1, paddingVertical: 10, borderRadius: 12, backgroundColor: '#F3F4F6', alignItems: 'center' },
   tabBtnActive: { backgroundColor: '#1A3C5E' },
@@ -242,13 +261,14 @@ const s = StyleSheet.create({
   roleEdit: { fontSize: 12 },
   empty: { alignItems: 'center', paddingTop: 60 },
   emptyText: { fontSize: 15, color: '#9CA3AF', fontWeight: '600' },
-  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  addRiderBtn: { backgroundColor: '#059669', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 9 },
-  addRiderBtnText: { fontSize: 12, fontWeight: '700', color: '#FFF' },
+  // Modal
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  modalSheet: { backgroundColor: '#FFF', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, gap: 14 },
+  modalSheet: { backgroundColor: '#FFF', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, gap: 12 },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   modalTitle: { fontSize: 20, fontWeight: '900', color: '#111827' },
-  modalSub: { fontSize: 13, color: '#6B7280', marginTop: -6 },
+  modalClose: { fontSize: 18, color: '#6B7280', padding: 4 },
+  modalSub: { fontSize: 13, color: '#6B7280', marginTop: -4 },
+  fieldGroup: { marginBottom: 14 },
   modalLabel: { fontSize: 12, fontWeight: '700', color: '#374151', marginBottom: 6 },
   modalInput: { borderWidth: 1.5, borderColor: '#D1D5DB', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, fontSize: 15, color: '#111827' },
   vehicleRow: { flexDirection: 'row', gap: 8 },
@@ -256,9 +276,6 @@ const s = StyleSheet.create({
   vehicleBtnActive: { backgroundColor: '#059669' },
   vehicleBtnText: { fontSize: 11, fontWeight: '700', color: '#6B7280' },
   vehicleBtnTextActive: { color: '#FFF' },
-  modalSubmitBtn: { backgroundColor: '#059669', borderRadius: 14, paddingVertical: 14, alignItems: 'center' },
+  modalSubmitBtn: { backgroundColor: '#059669', borderRadius: 14, paddingVertical: 14, alignItems: 'center', marginTop: 8 },
   modalSubmitText: { fontSize: 15, fontWeight: '800', color: '#FFF' },
-  modalCancelBtn: { alignItems: 'center', paddingVertical: 8 },
-  modalCancelText: { fontSize: 14, color: '#6B7280' },
 });
-const VEHICLE_TYPES: Array<'motorcycle' | 'bicycle' | 'car'> = ['motorcycle', 'bicycle', 'car'];

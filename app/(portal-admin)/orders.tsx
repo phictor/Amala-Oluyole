@@ -40,7 +40,7 @@ export default function AdminOrdersScreen() {
     ]);
   };
 
-  if (ordersQ.isLoading) return <LoadingState fullScreen message="Loading orders..." />;
+  if (ordersQ.isLoading) return <LoadingState fullScreen message="Fetching orders..." />;
 
   return (
     <ScreenContainer edges={['top', 'left', 'right']}>

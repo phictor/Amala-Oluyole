@@ -117,7 +117,7 @@ async function exportMonthlyPDF(
 
 export default function KitchenMonthlyReport() {
   const { allowed, loading: roleLoading } = useRequireRole(["kitchen", "admin"]);
-  if (roleLoading) return <LoadingState fullScreen message="Checking access..." />;
+  if (roleLoading) return <LoadingState fullScreen message="Opening portal..." />;
   if (!allowed) return null;
 
   const now = new Date();

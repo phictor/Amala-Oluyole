@@ -94,7 +94,7 @@ const STATUS_LABEL: Record<string, string> = {
 
 export default function AdminDashboard() {
   const { allowed, loading: roleLoading } = useRequireRole(["admin"]);
-  if (roleLoading) return <LoadingState fullScreen message="Checking access..." />;
+  if (roleLoading) return <LoadingState fullScreen message="Opening portal..." />;
   if (!allowed) return null;
 
   const [activeTab, setActiveTab] = useState<DashTab>('overview');
