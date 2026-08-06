@@ -2,13 +2,12 @@ import React, { useState } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet, FlatList, Dimensions, Alert, Linking,
 } from 'react-native';
+import { useWindowDimensions } from 'react-native';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ScreenContainer } from '@/components/screen-container';
 import { Image } from 'expo-image';
-
-const { width: W } = Dimensions.get('window');
 
 type EventCategory = 'all' | 'cultural' | 'music' | 'private' | 'food';
 
@@ -229,6 +228,7 @@ function EventDetailSheet({ event, onClose }: { event: EventItem; onClose: () =>
 export default function EventsScreen() {
   const [activeCategory, setActiveCategory] = useState<EventCategory>('all');
   const [selectedEvent, setSelectedEvent] = useState<EventItem | null>(null);
+  const { width: W } = useWindowDimensions();
 
   const filtered = activeCategory === 'all'
     ? EVENTS

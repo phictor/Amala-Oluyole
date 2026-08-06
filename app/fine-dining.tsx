@@ -2,13 +2,12 @@ import React, { useState } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet, FlatList, Dimensions, Alert, Linking,
 } from 'react-native';
+import { useWindowDimensions } from 'react-native';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ScreenContainer } from '@/components/screen-container';
 import { Image } from 'expo-image';
-
-const { width: W } = Dimensions.get('window');
 
 const MENU_CATEGORIES = [
   { id: 'all', label: 'Full Menu', emoji: '🍽️' },
@@ -71,6 +70,7 @@ const AMBIANCE = [
 
 export default function FineDiningScreen() {
   const [activeCategory, setActiveCategory] = useState('all');
+  const { width: W } = useWindowDimensions();
 
   const filtered = activeCategory === 'all'
     ? FINE_DINING_MENU
@@ -337,7 +337,7 @@ const s = StyleSheet.create({
 
   ambianceGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 8 },
   ambianceCard: {
-    width: (W - 44) / 2,
+    width: '47%',
     backgroundColor: '#FDF9F0', borderRadius: 16, padding: 14,
     borderWidth: 1, borderColor: '#F0E6C8',
   },

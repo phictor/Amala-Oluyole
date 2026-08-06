@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity, StyleSheet, FlatList, Dimensions,
+  View, Text, ScrollView, TouchableOpacity, StyleSheet, FlatList, useWindowDimensions,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
@@ -10,8 +10,6 @@ import { ScreenContainer } from '@/components/screen-container';
 import { Alert, Platform } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { useAppStore } from '@/lib/store/app-store';
-
-const { width: W } = Dimensions.get('window');
 
 const BISTRO_CATEGORIES = [
   { id: 'all', label: 'All', emoji: '🍽️' },
@@ -56,6 +54,7 @@ export default function BistroScreen() {
   const [activeCategory, setActiveCategory] = useState('all');
 
   const { dispatch, state } = useAppStore();
+  const { width: W } = useWindowDimensions();
 
   const handleAddToCart = (item: { id: string; name: string; price: number }) => {
     if (Platform.OS !== 'web') {
@@ -239,7 +238,7 @@ const s = StyleSheet.create({
     paddingHorizontal: 12, gap: 12, marginTop: 12,
   },
   itemCard: {
-    width: (W - 36) / 2,
+    width: '47%',
     borderRadius: 16, overflow: 'hidden',
     shadowColor: '#1A1640', shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.07, shadowRadius: 8, elevation: 3,

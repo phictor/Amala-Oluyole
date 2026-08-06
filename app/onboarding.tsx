@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { View, Text, FlatList, Dimensions, TouchableOpacity, Image, StyleSheet } from 'react-native';
+import { View, Text, FlatList, useWindowDimensions, TouchableOpacity, Image, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAppStore } from '@/lib/store/app-store';
@@ -7,8 +7,6 @@ import { Image as ExpoImage } from 'expo-image';
 
 const LOGO_CHEF = require('@/assets/images/logo-chef.png');
 const LOGO_FULL = require('@/assets/images/logo-full.png');
-
-const { width } = Dimensions.get('window');
 
 const SLIDES = [
   {
@@ -38,6 +36,7 @@ export default function OnboardingScreen() {
   const { dispatch } = useAppStore();
   const [currentIndex, setCurrentIndex] = useState(0);
   const flatListRef = useRef<FlatList>(null);
+  const { width } = useWindowDimensions();
 
   const handleNext = () => {
     if (currentIndex < SLIDES.length - 1) {

@@ -11,6 +11,8 @@ import "@/lib/_core/nativewind-pressable";
 import { ThemeProvider } from "@/lib/theme-provider";
 import * as Auth from "@/lib/_core/auth";
 import { useAppStore } from "@/lib/store/app-store";
+import * as Notifications from "expo-notifications";
+import { trpc as trpcClient } from "@/lib/trpc";
 import {
   SafeAreaFrameContext,
   SafeAreaInsetsContext,
@@ -30,6 +32,47 @@ const DEFAULT_WEB_FRAME: Rect = { x: 0, y: 0, width: 0, height: 0 };
 function AuthSyncBridge() {
   const { state, dispatch } = useAppStore();
   const synced = useRef(false);
+  const registerPushToken = trpcClient.profile.registerPushToken.useMutation();
+
+  // Set foreground notification handler once
+  useEffect(() => {
+    Notifications.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowAlert: true,
+        shouldPlaySound: true,
+        shouldSetBadge: true,
+        shouldShowBanner: true,
+        shouldShowList: true,
+      }),
+    });
+    if (Platform.OS === 'android') {
+      Notifications.setNotificationChannelAsync('default', {
+        name: 'Amala Oluyole',
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#D02010',
+      }).catch(() => {});
+    }
+  }, []);
+
+  const registerForPush = useCallback(async () => {
+    if (Platform.OS === 'web') return;
+    try {
+      const { status: existing } = await Notifications.getPermissionsAsync();
+      let finalStatus = existing;
+      if (existing !== 'granted') {
+        const { status } = await Notifications.requestPermissionsAsync();
+        finalStatus = status;
+      }
+      if (finalStatus !== 'granted') return;
+      const tokenData = await Notifications.getExpoPushTokenAsync();
+      const platform = Platform.OS === 'ios' ? 'ios' : 'android';
+      registerPushToken.mutate({ token: tokenData.data, platform });
+    } catch {
+      // Non-critical — push notifications are optional
+    }
+  }, [registerPushToken]);
+
   useEffect(() => {
     if (synced.current) return;
     synced.current = true;
@@ -54,6 +97,8 @@ function AuthSyncBridge() {
             role: cachedUser.role ?? 'customer',
           },
         });
+        // Register push token after successful auth
+        registerForPush();
         // Redirect staff roles away from customer tabs immediately
         const role = cachedUser.role ?? 'customer';
         if (role === 'admin' || role === 'manager') {

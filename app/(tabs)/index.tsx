@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
-  TextInput, FlatList, Dimensions, Animated,
+  TextInput, FlatList, useWindowDimensions, Animated,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
@@ -12,9 +12,6 @@ import { MEALS, PROMOTIONS, CATEGORIES } from '@/lib/data/mock-data';
 import { trpc } from '@/lib/trpc';
 import { toMealCard, type MealCard } from '@/lib/utils';
 const LOGO_CHEF = require('@/assets/images/logo-chef.png');
-
-const { width: W } = Dimensions.get('window');
-const CARD_W = W * 0.62;
 
 const EXPERIENCE_CARDS = [
   {
@@ -54,6 +51,8 @@ export default function HomeScreen() {
   const { state } = useAppStore();
   const [search, setSearch] = useState('');
   const scrollY = useRef(new Animated.Value(0)).current;
+  const { width: W } = useWindowDimensions();
+  const CARD_W = W * 0.62;
 
   const cartCount = state.cartItems.reduce((s, i) => s + i.quantity, 0);
 
@@ -386,7 +385,7 @@ const styles = StyleSheet.create({
   seeAll: { fontSize: 14, fontWeight: '600', color: '#D02010' },
 
   promoCard: {
-    width: W * 0.72, borderRadius: 18, padding: 18, gap: 4,
+    width: '72%', borderRadius: 18, padding: 18, gap: 4,
   },
   promoEmoji: { fontSize: 28, marginBottom: 4 },
   promoTitle: { fontSize: 16, fontWeight: '800', color: '#FFF' },

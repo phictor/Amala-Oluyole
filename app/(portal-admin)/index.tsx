@@ -7,8 +7,7 @@ import { StatusBar } from 'expo-status-bar';
 import { router } from 'expo-router';
 import { useAuth } from '@/hooks/use-auth';
 import * as Linking from 'expo-linking';
-
-const { width: W } = Dimensions.get('window');
+import { useResponsive } from '@/hooks/use-responsive';
 
 type Period = 'today' | 'week' | 'month' | 'all';
 
@@ -21,6 +20,8 @@ export default function AdminFinanceScreen() {
   const { user, logout } = useAuth();
   const [period, setPeriod] = useState<Period>('today');
   const [refreshing, setRefreshing] = useState(false);
+  const { colWidth, rf, rp, isTablet } = useResponsive();
+  const cardW = colWidth(isTablet ? 4 : 2, 12, 16);
 
   const now = new Date();
   const fromDate = period === 'today'
@@ -235,7 +236,7 @@ const s = StyleSheet.create({
   periodBtnText: { fontSize: 13, fontWeight: '600', color: 'rgba(255,255,255,0.8)' },
   periodBtnTextActive: { color: '#1A3C5E' },
   kpiGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, padding: 16 },
-  kpiCard: { width: (W - 44) / 2, backgroundColor: '#FFF', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#E5E7EB', shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 8, shadowOffset: { width: 0, height: 2 } },
+  kpiCard: { backgroundColor: '#FFF', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#E5E7EB', shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 8, shadowOffset: { width: 0, height: 2 } },
   kpiDot: { width: 8, height: 8, borderRadius: 4, marginBottom: 8 },
   kpiValue: { fontSize: 22, fontWeight: '900', color: '#111827', marginBottom: 2 },
   kpiLabel: { fontSize: 13, fontWeight: '700', color: '#374151' },
@@ -254,7 +255,7 @@ const s = StyleSheet.create({
   paymentStatusNum: { fontSize: 20, fontWeight: '900' },
   paymentStatusLabel: { fontSize: 12, color: '#6B7280', marginTop: 2 },
   overviewGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-  overviewCard: { width: (W - 44) / 2, backgroundColor: '#F9FAFB', borderRadius: 14, padding: 14, alignItems: 'center', borderWidth: 1, borderColor: '#E5E7EB' },
+  overviewCard: { backgroundColor: '#F9FAFB', borderRadius: 14, padding: 14, alignItems: 'center', borderWidth: 1, borderColor: '#E5E7EB' },
   overviewIcon: { fontSize: 28, marginBottom: 6 },
   overviewValue: { fontSize: 22, fontWeight: '900', color: '#111827' },
   overviewLabel: { fontSize: 12, color: '#6B7280', marginTop: 2 },
@@ -268,7 +269,7 @@ const s = StyleSheet.create({
   txBadgeText: { fontSize: 11, fontWeight: '700' },
   emptyText: { fontSize: 14, color: '#9CA3AF', textAlign: 'center', paddingVertical: 20 },
   actionsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-  actionCard: { width: (W - 44) / 2, backgroundColor: '#F0F4FF', borderRadius: 14, padding: 16, alignItems: 'center', borderWidth: 1, borderColor: '#C7D2FE' },
+  actionCard: { backgroundColor: '#F0F4FF', borderRadius: 14, padding: 16, alignItems: 'center', borderWidth: 1, borderColor: '#C7D2FE' },
   actionIcon: { fontSize: 28, marginBottom: 8 },
   actionLabel: { fontSize: 13, fontWeight: '700', color: '#1A3C5E', textAlign: 'center' },
 });

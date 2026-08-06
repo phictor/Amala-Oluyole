@@ -251,3 +251,17 @@
 - [x] Add rider alert parity: useNewOrderAlert hook on Rider portal detects new rider_assigned orders
 - [x] Add AdminPortalSwitcher component: floating ⚙️ Admin pill + modal with Finance/Kitchen/Rider/Customer options
 - [x] Wire AdminPortalSwitcher into customer tabs layout (shows only when admin is in preview mode)
+
+### Responsive Layout, Push Tokens, Order Timeline & Paystack Webhook (Aug 2026)
+- [x] Create useResponsive hook: rs(), rf(), colWidth(), rp() utilities for fluid sizing across all screen sizes
+- [x] Replace static Dimensions.get with useWindowDimensions in home, bistro, events, fine-dining, onboarding screens
+- [x] Replace hardcoded grid card widths with percentage-based widths (47%) in bistro and fine-dining grids
+- [x] Replace hardcoded grid widths in admin finance screen with colWidth() from useResponsive
+- [x] Register push tokens on app launch: expo-notifications permission request + getExpoPushTokenAsync in AuthSyncBridge
+- [x] Set foreground notification handler (shouldShowAlert, shouldPlaySound, shouldSetBadge, shouldShowBanner, shouldShowList)
+- [x] Set Android notification channel (Amala Oluyole, MAX importance, red light)
+- [x] Rebuild order detail screen with full timeline: all 8 delivery steps / 6 pickup steps with icons, descriptions, timestamps
+- [x] Order timeline shows current step highlighted in status color, completed steps in red, pending steps greyed out
+- [x] Order detail shows special instructions per item, delivery address, delivery instructions, discount and delivery fee breakdown
+- [x] Add Paystack webhook endpoint POST /api/paystack/webhook with HMAC-SHA512 signature verification
+- [x] Webhook auto-confirms payment, awards loyalty points, sends in-app notification and push on charge.success event

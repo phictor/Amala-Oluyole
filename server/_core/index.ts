@@ -80,10 +80,67 @@ async function startServer() {
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
   registerStorageProxy(app);
-  registerOAuthRoutes(app);
+registerOAuthRoutes(app);
 
-  app.get("/api/health", (_req, res) => {
-    res.json({ ok: true, timestamp: Date.now() });
+app.get("/api/health", (_req, res) => {
+  res.json({ ok: true, timestamp: Date.now() });
+});
+
+  // ── Paystack Webhook ─────────────────────────────────────────────────────
+  // Must be registered BEFORE express.json() middleware so we can read the raw body for HMAC verification.
+  // We use express.raw() here specifically for this route.
+  app.post("/api/paystack/webhook", express.raw({ type: "application/json" }), async (req, res) => {
+    const secret = process.env.PAYSTACK_SECRET_KEY ?? "";
+    const signature = req.headers["x-paystack-signature"] as string | undefined;
+    const rawBody = req.body as Buffer;
+
+    // Always respond 200 quickly to prevent Paystack retries
+    res.sendStatus(200);
+
+    if (!secret || !signature || !rawBody) return;
+
+    // Verify HMAC-SHA512 signature
+    const expected = crypto.createHmac("sha512", secret).update(rawBody).digest("hex");
+    if (expected !== signature) {
+      console.warn("[Paystack Webhook] Invalid signature — ignoring event");
+      return;
+    }
+
+    let event: { event: string; data?: { reference?: string; amount?: number; metadata?: { orderId?: number; userId?: number } } };
+    try {
+      event = JSON.parse(rawBody.toString());
+    } catch {
+      return;
+    }
+
+    if (event.event === "charge.success") {
+      const { reference, amount, metadata } = event.data ?? {};
+      const orderId = metadata?.orderId;
+      const userId = metadata?.userId;
+      if (!orderId) return;
+
+      try {
+        const { getOrderById, updateOrderStatus, awardLoyaltyPoints, createNotification, sendPushToUser } = await import("../db");
+        const order = await getOrderById(orderId);
+        if (!order) return;
+        if (order.paymentStatus === "paid") return; // Already confirmed
+
+        await updateOrderStatus(orderId, "payment_confirmed", "Payment confirmed via Paystack webhook");
+        if (userId && order.total) {
+          await awardLoyaltyPoints(userId, orderId, Number(order.total));
+        }
+        const notifyUserId = userId ?? order.userId;
+        if (notifyUserId) {
+          const title = "Payment Confirmed ✅";
+          const body = `Payment received for order #${order.orderNumber}. Your food is being prepared!`;
+          createNotification({ userId: notifyUserId, orderId, type: "order_update", title, body }).catch(() => {});
+          sendPushToUser(notifyUserId, title, body, { orderId, orderNumber: order.orderNumber }).catch(() => {});
+        }
+        console.log(`[Paystack Webhook] Order #${order.orderNumber} confirmed via webhook`);
+      } catch (err) {
+        console.error("[Paystack Webhook] Error processing charge.success:", err);
+      }
+    }
   });
 
   // ── SSE: /api/riders/live ────────────────────────────────────────────────
@@ -125,3 +182,4 @@ async function startServer() {
 }
 
 startServer().catch(console.error);
+import crypto from "crypto";
