@@ -25,13 +25,14 @@ export function useRequireRole(allowedRoles: AppRole[]) {
   const redirectedRef = useRef(false);
 
   const role = state.user?.role as AppRole | undefined;
-  // Consider "loading" only when we have no auth state at all yet
-  const loading = !state.isAuthenticated && !state.isGuest && !state.user;
+  // Loading only while AsyncStorage hydration is still in progress
+  const loading = !state.hydrated;
   const allowed = state.isAuthenticated && !state.isGuest && !!role && allowedRoles.includes(role);
 
   useEffect(() => {
     // Don't redirect while the app is still hydrating
     if (loading) return;
+    // If not authenticated after hydration, let the root layout handle redirect
     if (!state.isAuthenticated || state.isGuest) return;
     if (!role || !allowedRoles.includes(role)) {
       if (!redirectedRef.current) {
@@ -48,7 +49,7 @@ export function useRequireRole(allowedRoles: AppRole[]) {
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.isAuthenticated, state.isGuest, role, loading]);
+  }, [state.hydrated, state.isAuthenticated, state.isGuest, role]);
 
   return { allowed, loading, role };
 }
