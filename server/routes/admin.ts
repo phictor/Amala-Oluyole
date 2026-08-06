@@ -4,11 +4,10 @@ import {
   updateOrderStatus, assignRiderToOrder, getAvailableRiders,
 } from "../db";
 import { createNotification } from "../db";
-import { sendPushToUser } from "../db";
 import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
 import { TRPCError } from "@trpc/server";
 import { getDb } from "../db";
-import { meals, mealCategories, orders, users, riders, branches, promoCodes, customerAddresses } from "../../drizzle/schema";
+import { meals, mealCategories, orders, users, riders, branches, promoCodes } from "../../drizzle/schema";
 import { eq, desc, count, and, gte, lte, sql } from "drizzle-orm";
 
 // Admin-only middleware
@@ -140,13 +139,6 @@ export const adminRouter = router({
               title: msg.title,
               body: msg.message,
               orderId: input.orderId,
-            }).catch(() => {});
-            sendPushToUser(orderRow[0].userId, msg.title, msg.message, { orderId: input.orderId, orderNumber: orderRow[0].orderNumber }).catch(() => {});
-            // ── WhatsApp notification ──────────────────────────────────────
-            db.select({ phone: users.phone }).from(users).where(eq(users.id, orderRow[0].userId)).limit(1).then(userRow => {
-              if (userRow.length > 0 && userRow[0].phone) {
-                sendOrderStatusWhatsApp(userRow[0].phone, orderRow[0].orderNumber ?? String(input.orderId), input.status, input.note).catch(() => {});
-              }
             }).catch(() => {});
           }
         }
@@ -347,147 +339,73 @@ export const adminRouter = router({
       return { success: true };
     }),
 
-  // ── Staff / User Management ───────────────────────────────────────────────
-  allStaff: adminProcedure.query(async () => {
-    const db = await getDb();
-    if (!db) return [];
-    return db
-      .select({ id: users.id, name: users.name, email: users.email, phone: users.phone, role: users.role, createdAt: users.createdAt, lastSignedIn: users.lastSignedIn })
-      .from(users)
-      .where(ne(users.role, 'customer'))
-      .orderBy(users.role, users.name);
-  }),
-
-  allCustomers: adminProcedure
-    .input(z.object({ limit: z.number().default(50), offset: z.number().default(0) }).optional())
-    .query(async ({ input }) => {
-      const db = await getDb();
-      if (!db) return { rows: [], total: 0 };
-      const [{ total }] = await db.select({ total: count() }).from(users).where(eq(users.role, 'customer'));
-      const rows = await db
-        .select({ id: users.id, name: users.name, email: users.email, phone: users.phone, createdAt: users.createdAt, lastSignedIn: users.lastSignedIn })
-        .from(users)
-        .where(eq(users.role, 'customer'))
-        .orderBy(desc(users.createdAt))
-        .limit(input?.limit ?? 50)
-        .offset(input?.offset ?? 0);
-      return { rows, total };
-    }),
-
-  setUserRole: adminProcedure
-    .input(z.object({ userId: z.number(), role: z.enum(['customer', 'admin', 'rider', 'kitchen', 'manager']) }))
-    .mutation(async ({ input, ctx }) => {
-      if (input.userId === ctx.user.id) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Cannot change your own role' });
-      const db = await getDb();
-      if (!db) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'DB unavailable' });
-      await db.update(users).set({ role: input.role, updatedAt: new Date() }).where(eq(users.id, input.userId));
-      return { success: true };
-    }),
-
-  // 7-day daily revenue breakdown for the Finance dashboard chart
-  dailyRevenue: adminProcedure
-    .input(z.object({ days: z.number().default(7) }).optional())
+  // 7-day revenue breakdown by order type (delivery / pickup / dine_in)
+  dailyRevenueByType: adminProcedure
+    .input(z.object({ branchId: z.number().optional() }).optional())
     .query(async ({ input }) => {
       const db = await getDb();
       if (!db) return [];
-      const days = input?.days ?? 7;
-      const from = new Date();
-      from.setDate(from.getDate() - (days - 1));
-      from.setHours(0, 0, 0, 0);
+      const baseConditions = [
+        gte(orders.createdAt, sql`DATE_SUB(CURDATE(), INTERVAL 6 DAY)`),
+        sql`${orders.paymentStatus} = 'paid'`,
+      ];
+      if (input?.branchId) baseConditions.push(eq(orders.branchId, input.branchId));
       const rows = await db
         .select({
           day: sql<string>`DATE(${orders.createdAt})`,
-          revenue: sql<number>`COALESCE(SUM(CASE WHEN ${orders.paymentStatus}='paid' THEN CAST(${orders.total} AS DECIMAL(12,2)) ELSE 0 END),0)`,
+          orderType: orders.orderType,
+          revenue: sql<number>`COALESCE(SUM(CAST(${orders.total} AS DECIMAL(12,2))), 0)`,
           orderCount: sql<number>`COUNT(*)`,
         })
         .from(orders)
-        .where(gte(orders.createdAt, from))
-        .groupBy(sql`DATE(${orders.createdAt})`)
+        .where(and(...baseConditions))
+        .groupBy(sql`DATE(${orders.createdAt})`, orders.orderType)
         .orderBy(sql`DATE(${orders.createdAt})`);
-      // Fill in missing days with 0
-      const result: { day: string; revenue: number; orderCount: number }[] = [];
-      for (let i = 0; i < days; i++) {
-        const d = new Date();
-        d.setDate(d.getDate() - (days - 1 - i));
-        const dayStr = d.toISOString().split('T')[0];
-        const found = rows.find(r => r.day === dayStr);
-        result.push({ day: dayStr, revenue: found ? Number(found.revenue) : 0, orderCount: found ? Number(found.orderCount) : 0 });
+      // Pivot into per-day objects with type breakdown
+      const dayMap: Record<string, { day: string; delivery: number; pickup: number; dine_in: number; total: number; deliveryCount: number; pickupCount: number; dineInCount: number }> = {};
+      for (const row of rows) {
+        const d = row.day;
+        if (!dayMap[d]) dayMap[d] = { day: d, delivery: 0, pickup: 0, dine_in: 0, total: 0, deliveryCount: 0, pickupCount: 0, dineInCount: 0 };
+        const rev = Number(row.revenue);
+        const cnt = Number(row.orderCount);
+        if (row.orderType === 'delivery') { dayMap[d].delivery = rev; dayMap[d].deliveryCount = cnt; }
+        else if (row.orderType === 'pickup') { dayMap[d].pickup = rev; dayMap[d].pickupCount = cnt; }
+        else if (row.orderType === 'dine_in') { dayMap[d].dine_in = rev; dayMap[d].dineInCount = cnt; }
+        dayMap[d].total += rev;
       }
-      return result;
+      return Object.values(dayMap);
     }),
 
-  // Upload a meal photo (base64 → S3) and return the public URL
-  uploadMealImage: adminProcedure
-    .input(z.object({
-      mealId: z.number(),
-      base64: z.string(), // data:image/jpeg;base64,...
-      fileName: z.string().default('meal.jpg'),
-    }))
-    .mutation(async ({ input }) => {
+  // Dine-in revenue summary: today / this week / this month
+  dineInRevenueSummary: adminProcedure
+    .input(z.object({ branchId: z.number().optional() }).optional())
+    .query(async ({ input }) => {
       const db = await getDb();
-      if (!db) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'DB unavailable' });
-      // Strip data URI prefix if present
-      const base64Data = input.base64.replace(/^data:image\/\w+;base64,/, '');
-      const buffer = Buffer.from(base64Data, 'base64');
-      const ext = input.fileName.split('.').pop()?.toLowerCase() ?? 'jpg';
-      const contentType = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
-      const { url } = await storagePut(`meals/${input.mealId}_${Date.now()}.${ext}`, buffer, contentType);
-      // Update the meal's imageUrl
-      await db.update(meals).set({ imageUrl: url, updatedAt: new Date() }).where(eq(meals.id, input.mealId));
-      return { url };
-    }),
-
-  // Create a new rider account (links an existing user to the riders table)
-  createRider: adminProcedure
-    .input(z.object({
-      // Full registration — no pre-existing account needed
-      name: z.string().min(2),
-      phone: z.string().min(7),
-      email: z.string().email().optional(),
-      homeAddress: z.string().min(5),
-      branchId: z.number(),
-      vehicleType: z.enum(['motorcycle', 'bicycle', 'car']).default('motorcycle'),
-      vehiclePlate: z.string().optional(),
-    }))
-    .mutation(async ({ input }) => {
-      const db = await getDb();
-      if (!db) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Database unavailable' });
-      // Check if phone already registered
-      const existingUser = await db.select({ id: users.id }).from(users).where(eq(users.phone, input.phone)).limit(1);
-      if (existingUser.length > 0) {
-        // User exists — check if already a rider
-        const existingRider = await db.select({ id: riders.id }).from(riders).where(eq(riders.userId, existingUser[0].id)).limit(1);
-        if (existingRider.length > 0) throw new TRPCError({ code: 'CONFLICT', message: 'This phone number is already registered as a rider' });
-        // Promote existing user to rider
-        await db.update(users).set({ role: 'rider', name: input.name, updatedAt: new Date() }).where(eq(users.id, existingUser[0].id));
-        await db.insert(riders).values({ userId: existingUser[0].id, branchId: input.branchId, vehicleType: input.vehicleType, vehiclePlate: input.vehiclePlate ?? null, isOnline: false, isAvailable: true, isActive: true, totalDeliveries: 0, rating: 5.0, ratingCount: 0 });
-        // Save home address
-        if (input.homeAddress) {
-          await db.insert(customerAddresses).values({ userId: existingUser[0].id, label: 'Home', fullAddress: input.homeAddress, isDefault: true });
-        }
-        return { success: true, userId: existingUser[0].id };
-      }
-      // Create brand new user account for the rider
-      const openId = `rider_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-      const [newUser] = await db.insert(users).values({
-        openId,
-        name: input.name,
-        phone: input.phone,
-        email: input.email ?? null,
-        loginMethod: 'admin_created',
-        role: 'rider',
-        isGuest: false,
-        preferredBranchId: input.branchId,
-      }).$returningId();
-      await db.insert(riders).values({ userId: newUser.id, branchId: input.branchId, vehicleType: input.vehicleType, vehiclePlate: input.vehiclePlate ?? null, isOnline: false, isAvailable: true, isActive: true, totalDeliveries: 0, rating: 5.0, ratingCount: 0 });
-      // Save home address
-      if (input.homeAddress) {
-        await db.insert(customerAddresses).values({ userId: newUser.id, label: 'Home', fullAddress: input.homeAddress, isDefault: true });
-      }
-      return { success: true, userId: newUser.id };
+      if (!db) return { today: 0, thisWeek: 0, thisMonth: 0, todayCount: 0, weekCount: 0, monthCount: 0 };
+      const base: Parameters<typeof and>[0][] = [
+        sql`${orders.orderType} = 'dine_in'`,
+        sql`${orders.paymentStatus} = 'paid'`,
+      ];
+      if (input?.branchId) base.push(eq(orders.branchId, input.branchId));
+      const [todayRow] = await db.select({
+        revenue: sql<number>`COALESCE(SUM(CAST(${orders.total} AS DECIMAL(12,2))), 0)`,
+        cnt: sql<number>`COUNT(*)`,
+      }).from(orders).where(and(...base, sql`DATE(${orders.createdAt}) = CURDATE()`));
+      const [weekRow] = await db.select({
+        revenue: sql<number>`COALESCE(SUM(CAST(${orders.total} AS DECIMAL(12,2))), 0)`,
+        cnt: sql<number>`COUNT(*)`,
+      }).from(orders).where(and(...base, gte(orders.createdAt, sql`DATE_SUB(CURDATE(), INTERVAL 6 DAY)`)));
+      const [monthRow] = await db.select({
+        revenue: sql<number>`COALESCE(SUM(CAST(${orders.total} AS DECIMAL(12,2))), 0)`,
+        cnt: sql<number>`COUNT(*)`,
+      }).from(orders).where(and(...base, sql`MONTH(${orders.createdAt}) = MONTH(CURDATE()) AND YEAR(${orders.createdAt}) = YEAR(CURDATE())`));
+      return {
+        today: Number(todayRow?.revenue ?? 0),
+        thisWeek: Number(weekRow?.revenue ?? 0),
+        thisMonth: Number(monthRow?.revenue ?? 0),
+        todayCount: Number(todayRow?.cnt ?? 0),
+        weekCount: Number(weekRow?.cnt ?? 0),
+        monthCount: Number(monthRow?.cnt ?? 0),
+      };
     }),
 });
-
-import { ne } from "drizzle-orm";
-import { storagePut } from "../storage";
-import { sendOrderStatusWhatsApp } from "../notifications";

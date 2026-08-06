@@ -31,7 +31,7 @@ const STATUS_COLOR: Record<string, string> = {
 
 export default function RiderPortal() {
   const { allowed, loading: roleLoading } = useRequireRole(["rider", "admin"]);
-  if (roleLoading) return <LoadingState fullScreen message="Opening portal..." />;
+  if (roleLoading) return <LoadingState fullScreen message="Checking access..." />;
   if (!allowed) return null;
 
   const [isOnline, setIsOnline] = useState(false);

@@ -149,7 +149,7 @@ async function exportPDF(
 // ── Main Screen ───────────────────────────────────────────────────────────────
 export default function TransactionReport() {
   const { allowed, loading: roleLoading } = useRequireRole(["admin"]);
-  if (roleLoading) return <LoadingState fullScreen message="Opening portal..." />;
+  if (roleLoading) return <LoadingState fullScreen message="Checking access..." />;
   if (!allowed) return null;
 
   const now = new Date();
@@ -229,7 +229,7 @@ export default function TransactionReport() {
       </View>
 
       {isLoading ? (
-        <LoadingState fullScreen message="Loading report..." />
+        <LoadingState fullScreen message="Loading transactions..." />
       ) : (
         <FlatList
           data={rows}

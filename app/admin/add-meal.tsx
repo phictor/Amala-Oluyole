@@ -12,7 +12,7 @@ const LABELS = ['Popular', 'New', 'Best Seller', "Chef's Special", 'Spicy', 'Glu
 
 export default function AddEditMealScreen() {
   const { allowed, loading: roleLoading } = useRequireRole(["admin"]);
-  if (roleLoading) return <LoadingState fullScreen message="Opening portal..." />;
+  if (roleLoading) return <LoadingState fullScreen message="Checking access..." />;
   if (!allowed) return null;
 
   const router = useRouter();

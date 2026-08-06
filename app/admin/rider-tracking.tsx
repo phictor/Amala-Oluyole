@@ -32,7 +32,7 @@ function fmtTime(d: Date | string | null | undefined): string {
 
 export default function RiderTracking() {
   const { allowed, loading: roleLoading } = useRequireRole(["admin"]);
-  if (roleLoading) return <LoadingState fullScreen message="Opening portal..." />;
+  if (roleLoading) return <LoadingState fullScreen message="Checking access..." />;
   if (!allowed) return null;
 
   const [selectedRiderId, setSelectedRiderId] = useState<number | null>(null);

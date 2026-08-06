@@ -18,7 +18,7 @@ const MONTH_NAMES = [
 
 export default function KitchenPortal() {
   const { allowed, loading: roleLoading } = useRequireRole(["kitchen", "admin"]);
-  if (roleLoading) return <LoadingState fullScreen message="Opening portal..." />;
+  if (roleLoading) return <LoadingState fullScreen message="Checking access..." />;
   if (!allowed) return null;
 
   const router = useRouter();

@@ -4,7 +4,6 @@ import {
   getOrderById, getOrderWithItems, getUserOrders, rateOrder,
   updateOrderStatus, validatePromoCode,
 } from "../db";
-import { sendPushToUser } from "../db";
 import { protectedProcedure, router } from "../_core/trpc";
 import https from "https";
 import { getDb } from "../db";
@@ -125,7 +124,6 @@ export const ordersRouter = router({
         body: `Your order #${order.orderNumber} has been placed. We'll confirm it shortly.`,
         data: { orderId: order.id, orderNumber: order.orderNumber },
       });
-      sendPushToUser(ctx.user.id, "Order Placed! 🎉", `Your order #${order.orderNumber} has been placed. We'll confirm it shortly.`, { orderId: order.id }).catch(() => {});
       return order;
     }),
 
@@ -163,7 +161,6 @@ export const ordersRouter = router({
         body: `Payment verified for order #${order.orderNumber}. Your food is being prepared!`,
         data: { orderId: order.id },
       });
-      sendPushToUser(ctx.user.id, "Payment Confirmed ✅", `Payment verified for order #${order.orderNumber}. Your food is being prepared!`, { orderId: order.id }).catch(() => {});
       return { success: true, alreadyConfirmed: false };
     }),
 
@@ -183,7 +180,6 @@ export const ordersRouter = router({
         body: `Payment received for order #${order.orderNumber}. Your food is being prepared!`,
         data: { orderId: order.id },
       });
-      sendPushToUser(ctx.user.id, "Payment Confirmed ✅", `Payment received for order #${order.orderNumber}. Your food is being prepared!`, { orderId: order.id }).catch(() => {});
       return { success: true };
     }),
 

@@ -10,7 +10,6 @@ interface AppState {
   user: User | null;
   isGuest: boolean;
   isAuthenticated: boolean;
-  hydrated: boolean; // true once AsyncStorage has been read
   // Branch
   selectedBranch: Branch | null;
   // Cart
@@ -45,14 +44,12 @@ type AppAction =
   | { type: 'ADD_NOTIFICATION'; payload: Notification }
   | { type: 'SET_ONBOARDING_SEEN' }
   | { type: 'HYDRATE'; payload: Partial<AppState> }
-  | { type: 'SET_HYDRATED' }
   | { type: 'LOGOUT' };
 
 const initialState: AppState = {
   user: null,
   isGuest: false,
   isAuthenticated: false,
-  hydrated: false,
   selectedBranch: null,
   cartItems: [],
   promoCode: '',
@@ -145,8 +142,6 @@ function appReducer(state: AppState, action: AppAction): AppState {
       return { ...initialState, hasSeenOnboarding: state.hasSeenOnboarding };
     case 'HYDRATE':
       return { ...state, ...action.payload };
-    case 'SET_HYDRATED':
-      return { ...state, hydrated: true };
     default:
       return state;
   }
@@ -181,7 +176,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
           dispatch({ type: 'HYDRATE', payload: saved });
         } catch {}
       }
-      dispatch({ type: 'SET_HYDRATED' });
     });
   }, []);
 

@@ -11,7 +11,6 @@ import "@/lib/_core/nativewind-pressable";
 import { ThemeProvider } from "@/lib/theme-provider";
 import * as Auth from "@/lib/_core/auth";
 import { useAppStore } from "@/lib/store/app-store";
-import * as Notifications from "expo-notifications";
 import {
   SafeAreaFrameContext,
   SafeAreaInsetsContext,
@@ -22,7 +21,6 @@ import type { EdgeInsets, Metrics, Rect } from "react-native-safe-area-context";
 
 import { trpc, createTRPCClient } from "@/lib/trpc";
 import { initManusRuntime, subscribeSafeAreaInsets } from "@/lib/_core/manus-runtime";
-import { router } from "expo-router";
 
 const DEFAULT_WEB_INSETS: EdgeInsets = { top: 0, right: 0, bottom: 0, left: 0 };
 const DEFAULT_WEB_FRAME: Rect = { x: 0, y: 0, width: 0, height: 0 };
@@ -31,7 +29,6 @@ const DEFAULT_WEB_FRAME: Rect = { x: 0, y: 0, width: 0, height: 0 };
 function AuthSyncBridge() {
   const { state, dispatch } = useAppStore();
   const synced = useRef(false);
-
   useEffect(() => {
     if (synced.current) return;
     synced.current = true;
@@ -56,15 +53,6 @@ function AuthSyncBridge() {
             role: cachedUser.role ?? 'customer',
           },
         });
-        // Redirect staff roles away from customer tabs immediately
-        const role = cachedUser.role ?? 'customer';
-        if (role === 'admin' || role === 'manager') {
-          router.replace('/(portal-admin)' as any);
-        } else if (role === 'kitchen') {
-          router.replace('/(portal-kitchen)' as any);
-        } else if (role === 'rider') {
-          router.replace('/(portal-rider)' as any);
-        }
       } else if (!state.isAuthenticated) {
         dispatch({
           type: 'SET_USER',
@@ -79,41 +67,6 @@ function AuthSyncBridge() {
     const t = setTimeout(syncAuth, 300);
     return () => clearTimeout(t);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
-  return null;
-}
-
-/**
- * Registers the Expo push token after the user logs in.
- * Must be rendered inside the tRPC provider so useMutation works.
- */
-function PushTokenRegistrar() {
-  const { state } = useAppStore();
-  const registerPushToken = trpc.profile.registerPushToken.useMutation();
-  const registered = useRef(false);
-
-  useEffect(() => {
-    if (!state.isAuthenticated || state.isGuest || registered.current) return;
-    if (Platform.OS === 'web') return;
-    registered.current = true;
-    const register = async () => {
-      try {
-        const { status: existing } = await Notifications.getPermissionsAsync();
-        let finalStatus = existing;
-        if (existing !== 'granted') {
-          const { status } = await Notifications.requestPermissionsAsync();
-          finalStatus = status;
-        }
-        if (finalStatus !== 'granted') return;
-        const tokenData = await Notifications.getExpoPushTokenAsync();
-        const platform = Platform.OS === 'ios' ? 'ios' : 'android';
-        registerPushToken.mutate({ token: tokenData.data, platform });
-      } catch {
-        // Non-critical — push notifications are optional
-      }
-    };
-    register();
-  }, [state.isAuthenticated, state.isGuest]); // eslint-disable-line react-hooks/exhaustive-deps
-
   return null;
 }
 
@@ -133,27 +86,6 @@ export default function RootLayout() {
     initManusRuntime();
   }, []);
 
-  // Set foreground notification handler once at the root level
-  useEffect(() => {
-    Notifications.setNotificationHandler({
-      handleNotification: async () => ({
-        shouldShowAlert: true,
-        shouldPlaySound: true,
-        shouldSetBadge: true,
-        shouldShowBanner: true,
-        shouldShowList: true,
-      }),
-    });
-    if (Platform.OS === 'android') {
-      Notifications.setNotificationChannelAsync('default', {
-        name: 'Amala Oluyole',
-        importance: Notifications.AndroidImportance.MAX,
-        vibrationPattern: [0, 250, 250, 250],
-        lightColor: '#D02010',
-      }).catch(() => {});
-    }
-  }, []);
-
   const handleSafeAreaUpdate = useCallback((metrics: Metrics) => {
     setInsets(metrics.insets);
     setFrame(metrics.frame);
@@ -171,7 +103,9 @@ export default function RootLayout() {
       new QueryClient({
         defaultOptions: {
           queries: {
+            // Disable automatic refetching on window focus for mobile
             refetchOnWindowFocus: false,
+            // Retry failed requests once
             retry: 1,
           },
         },
@@ -179,6 +113,7 @@ export default function RootLayout() {
   );
   const [trpcClient] = useState(() => createTRPCClient());
 
+  // Ensure minimum 8px padding for top and bottom on mobile
   const providerInitialMetrics = useMemo(() => {
     const metrics = initialWindowMetrics ?? { insets: initialInsets, frame: initialFrame };
     return {
@@ -195,18 +130,13 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <trpc.Provider client={trpcClient} queryClient={queryClient}>
         <QueryClientProvider client={queryClient}>
-          {/* PushTokenRegistrar must be inside tRPC provider */}
-          <PushTokenRegistrar />
+          {/* Default to hiding native headers so raw route segments don't appear (e.g. "(tabs)", "products/[id]"). */}
+          {/* If a screen needs the native header, explicitly enable it and set a human title via Stack.Screen options. */}
+          {/* in order for ios apps tab switching to work properly, use presentation: "fullScreenModal" for login page, whenever you decide to use presentation: "modal*/}
           <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="(tabs)" />
-            <Stack.Screen name="(portal-admin)" />
-            <Stack.Screen name="(portal-kitchen)" />
-            <Stack.Screen name="(portal-rider)" />
             <Stack.Screen name="oauth/callback" />
           </Stack>
-          {/* admin/ group: transaction-report, rider-tracking, add-meal */}
-          {/* These are registered automatically by Expo Router file-based routing */}
-          {/* but we explicitly declare them here to ensure they appear in the Stack */}
           <StatusBar style="auto" />
         </QueryClientProvider>
       </trpc.Provider>

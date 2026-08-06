@@ -94,7 +94,7 @@ const STATUS_LABEL: Record<string, string> = {
 
 export default function AdminDashboard() {
   const { allowed, loading: roleLoading } = useRequireRole(["admin"]);
-  if (roleLoading) return <LoadingState fullScreen message="Opening portal..." />;
+  if (roleLoading) return <LoadingState fullScreen message="Checking access..." />;
   if (!allowed) return null;
 
   const [activeTab, setActiveTab] = useState<DashTab>('overview');
@@ -139,6 +139,13 @@ export default function AdminDashboard() {
   const { data: allPromoCodes, refetch: refetchPromos } = trpc.admin.allPromoCodes.useQuery(
     undefined, { retry: 1, enabled: activeTab === 'promos' }
   );
+  // ── Dine-in revenue data ─────────────────────────────────────────────────
+  const { data: dineInSummary, refetch: refetchDineIn } = trpc.admin.dineInRevenueSummary.useQuery(
+    undefined, { retry: 1, refetchInterval: 60_000 }
+  );
+  const { data: dailyByType, refetch: refetchDailyByType } = trpc.admin.dailyRevenueByType.useQuery(
+    undefined, { retry: 1, refetchInterval: 60_000 }
+  );
   const createPromo = trpc.admin.createPromoCode.useMutation({ onSuccess: () => { refetchPromos(); setShowPromoForm(false); setPromoForm(EMPTY_PROMO); } });
   const updatePromo = trpc.admin.updatePromoCode.useMutation({ onSuccess: () => { refetchPromos(); setShowPromoForm(false); setEditingPromoId(null); setPromoForm(EMPTY_PROMO); } });
   const togglePromo = trpc.admin.togglePromoCode.useMutation({ onSuccess: () => refetchPromos() });
@@ -158,6 +165,7 @@ export default function AdminDashboard() {
     setRefreshing(true);
     await Promise.all([refetchOverview(), refetchOrders(), refetchMeals(), refetchRiders()]);
     if (activeTab === 'reports') await refetchReport();
+    await Promise.all([refetchDineIn(), refetchDailyByType()]);
     setRefreshing(false);
   };
 
@@ -268,6 +276,53 @@ export default function AdminDashboard() {
                 </View>
               ))}
             </View>
+
+            {/* ── Dine-In Revenue Section ─────────────────────────────── */}
+            <Text style={styles.sectionTitle}>🍽️ Dine-In Revenue</Text>
+            <View style={styles.dineInGrid}>
+              {[
+                { label: "Today", value: dineInSummary?.today ?? 0, count: dineInSummary?.todayCount ?? 0, color: '#7C3AED' },
+                { label: "This Week", value: dineInSummary?.thisWeek ?? 0, count: dineInSummary?.weekCount ?? 0, color: '#2563EB' },
+                { label: "This Month", value: dineInSummary?.thisMonth ?? 0, count: dineInSummary?.monthCount ?? 0, color: '#059669' },
+              ].map((item) => (
+                <View key={item.label} style={[styles.dineInCard, { borderTopColor: item.color }]}>
+                  <Text style={[styles.dineInAmount, { color: item.color }]}>₦{Number(item.value).toLocaleString()}</Text>
+                  <Text style={styles.dineInLabel}>{item.label}</Text>
+                  <Text style={styles.dineInCount}>{item.count} order{item.count !== 1 ? 's' : ''}</Text>
+                </View>
+              ))}
+            </View>
+
+            {/* 7-day stacked breakdown */}
+            {dailyByType && dailyByType.length > 0 && (
+              <View style={styles.chartContainer}>
+                <Text style={styles.chartTitle}>Revenue by Type — Last 7 Days</Text>
+                <View style={styles.chartLegend}>
+                  {[['#D02010', 'Delivery'], ['#F59E0B', 'Pickup'], ['#7C3AED', 'Dine-In']].map(([color, label]) => (
+                    <View key={label} style={styles.legendItem}>
+                      <View style={[styles.legendDot, { backgroundColor: color }]} />
+                      <Text style={styles.legendText}>{label}</Text>
+                    </View>
+                  ))}
+                </View>
+                {dailyByType.map((day) => {
+                  const maxVal = Math.max(...(dailyByType as any[]).map((d: any) => d.total), 1);
+                  const barW = (val: number) => `${Math.max((val / maxVal) * 100, val > 0 ? 2 : 0)}%`;
+                  const dayLabel = new Date(day.day + 'T00:00:00').toLocaleDateString('en-NG', { weekday: 'short', day: 'numeric' });
+                  return (
+                    <View key={day.day} style={styles.barRow}>
+                      <Text style={styles.barDayLabel}>{dayLabel}</Text>
+                      <View style={styles.barTrack}>
+                        {day.delivery > 0 && <View style={[styles.barSegment, { width: barW(day.delivery) as any, backgroundColor: '#D02010' }]} />}
+                        {day.pickup > 0 && <View style={[styles.barSegment, { width: barW(day.pickup) as any, backgroundColor: '#F59E0B' }]} />}
+                        {day.dine_in > 0 && <View style={[styles.barSegment, { width: barW(day.dine_in) as any, backgroundColor: '#7C3AED' }]} />}
+                      </View>
+                      <Text style={styles.barTotal}>₦{Number(day.total).toLocaleString()}</Text>
+                    </View>
+                  );
+                })}
+              </View>
+            )}
 
             <Text style={styles.sectionTitle}>Active Orders</Text>
             {(activeOrders ?? []).length === 0 ? (
@@ -829,4 +884,22 @@ const styles = StyleSheet.create({
   cancelBtnText: { fontSize: 15, fontWeight: '700', color: '#6B6490' },
   saveBtn: { flex: 1, backgroundColor: '#D02010', borderRadius: 12, paddingVertical: 13, alignItems: 'center' },
   saveBtnText: { fontSize: 15, fontWeight: '700', color: '#FFF' },
+  // Dine-in revenue
+  dineInGrid: { flexDirection: 'row', gap: 8, marginBottom: 16 },
+  dineInCard: { flex: 1, backgroundColor: '#FFF', borderRadius: 12, padding: 12, borderTopWidth: 3, borderWidth: 1, borderColor: '#E5E7EB', alignItems: 'center' },
+  dineInAmount: { fontSize: 14, fontWeight: '900', marginBottom: 2 },
+  dineInLabel: { fontSize: 11, color: '#6B7280', fontWeight: '700' },
+  dineInCount: { fontSize: 10, color: '#9CA3AF', marginTop: 2 },
+  // Revenue chart
+  chartContainer: { backgroundColor: '#FFF', borderRadius: 14, padding: 14, marginBottom: 16, borderWidth: 1, borderColor: '#E5E7EB' },
+  chartTitle: { fontSize: 13, fontWeight: '800', color: '#111827', marginBottom: 10 },
+  chartLegend: { flexDirection: 'row', gap: 12, marginBottom: 12 },
+  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  legendDot: { width: 10, height: 10, borderRadius: 5 },
+  legendText: { fontSize: 11, color: '#374151', fontWeight: '600' },
+  barRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 6 },
+  barDayLabel: { fontSize: 10, color: '#6B7280', width: 42, fontWeight: '600' },
+  barTrack: { flex: 1, height: 18, flexDirection: 'row', backgroundColor: '#F3F4F6', borderRadius: 4, overflow: 'hidden' },
+  barSegment: { height: 18 },
+  barTotal: { fontSize: 10, color: '#374151', fontWeight: '700', width: 60, textAlign: 'right' },
 });

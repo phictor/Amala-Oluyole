@@ -121,7 +121,7 @@ export const orders = mysqlTable("orders", {
   userId: int("userId").notNull(),
   branchId: int("branchId").notNull(),
   riderId: int("riderId"),
-  orderType: mysqlEnum("orderType", ["delivery", "pickup", "dine_in"]).notNull(),
+  orderType: mysqlEnum("orderType", ["delivery", "pickup"]).notNull(),
   status: mysqlEnum("status", [
     "created", "awaiting_payment", "payment_confirmed",
     "accepted", "preparing", "ready",

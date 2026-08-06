@@ -1,58 +1,5 @@
 import { and, desc, eq, gte, inArray, isNull, like, lte, or, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { Expo } from "expo-server-sdk";
-
-// Singleton Expo SDK client
-const expo = new Expo();
-
-/**
- * Send real Expo push notifications to all active push tokens for a user.
- * Silently swaps out invalid tokens so the DB stays clean.
- */
-export async function sendPushToUser(userId: number, title: string, body: string, data?: Record<string, unknown>) {
-  const db = await getDb();
-  if (!db) return;
-  // Fetch all active push tokens for this user
-  const tokenRows = await db.select({ id: pushTokens.id, token: pushTokens.token })
-    .from(pushTokens)
-    .where(and(eq(pushTokens.userId, userId), eq(pushTokens.isActive, true)));
-  if (!tokenRows.length) return;
-  const messages = tokenRows
-    .filter(r => Expo.isExpoPushToken(r.token))
-    .map(r => ({ to: r.token, title, body, data: data ?? {}, sound: 'default' as const }));
-  if (!messages.length) return;
-  try {
-    const chunks = expo.chunkPushNotifications(messages);
-    for (const chunk of chunks) {
-      const receipts = await expo.sendPushNotificationsAsync(chunk);
-      // Mark invalid tokens as inactive
-      receipts.forEach((receipt, i) => {
-        if (receipt.status === 'error' && receipt.details?.error === 'DeviceNotRegistered') {
-          const token = messages[i]?.to;
-          if (token) {
-            db.update(pushTokens).set({ isActive: false }).where(eq(pushTokens.token, token)).catch(() => {});
-          }
-        }
-      });
-    }
-  } catch (err) {
-    console.warn('[Push] Failed to send push notifications:', err);
-  }
-}
-
-/**
- * Register or update a push token for a user (upsert by token value).
- */
-export async function upsertPushToken(userId: number, token: string, platform: 'ios' | 'android' | 'web') {
-  const db = await getDb();
-  if (!db) return;
-  const existing = await db.select({ id: pushTokens.id }).from(pushTokens).where(eq(pushTokens.token, token)).limit(1);
-  if (existing.length > 0) {
-    await db.update(pushTokens).set({ userId, isActive: true, updatedAt: new Date() }).where(eq(pushTokens.token, token));
-  } else {
-    await db.insert(pushTokens).values({ userId, token, platform, isActive: true });
-  }
-}
 import {
   Branch,
   CateringRequest,
@@ -473,21 +420,7 @@ export async function getActiveOrders(branchId?: number) {
   const activeStatuses = ["payment_confirmed", "accepted", "preparing", "ready", "rider_assigned", "out_for_delivery"];
   const conditions = [inArray(orders.status, activeStatuses as Order["status"][])];
   if (branchId) conditions.push(eq(orders.branchId, branchId));
-  const activeOrders = await db.select().from(orders).where(and(...conditions)).orderBy(desc(orders.createdAt));
-  if (!activeOrders.length) return [];
-  // Fetch items for all active orders in a single query
-  const orderIds = activeOrders.map(o => o.id);
-  const items = await db
-    .select({ orderId: orderItems.orderId, name: orderItems.name, quantity: orderItems.quantity, specialInstructions: orderItems.specialInstructions })
-    .from(orderItems)
-    .where(inArray(orderItems.orderId, orderIds));
-  // Group items by orderId
-  const itemsByOrder = items.reduce<Record<number, typeof items>>((acc, item) => {
-    if (!acc[item.orderId]) acc[item.orderId] = [];
-    acc[item.orderId].push(item);
-    return acc;
-  }, {});
-  return activeOrders.map(order => ({ ...order, items: itemsByOrder[order.id] ?? [] }));
+  return db.select().from(orders).where(and(...conditions)).orderBy(desc(orders.createdAt));
 }
 
 export async function getOrderStats(branchId?: number, fromDate?: Date, toDate?: Date) {
