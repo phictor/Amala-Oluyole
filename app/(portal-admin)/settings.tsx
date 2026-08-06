@@ -5,9 +5,29 @@ import { trpc } from '@/lib/trpc';
 import { StatusBar } from 'expo-status-bar';
 import { router } from 'expo-router';
 import { useAuth } from '@/hooks/use-auth';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function AdminSettingsScreen() {
   const { logout } = useAuth();
+
+  const handleViewAsCustomer = () => {
+    Alert.alert(
+      'Preview Customer App',
+      'You will be taken to the customer view. To return to the admin portal, sign out and sign back in.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Open Customer View',
+          onPress: async () => {
+            // Temporarily store a flag so the root layout knows to show customer tabs
+            await AsyncStorage.setItem('admin_preview_customer', 'true');
+            router.replace('/(tabs)' as any);
+          },
+        },
+      ],
+    );
+  };
+
   const promoQ = trpc.admin.allPromoCodes.useQuery(undefined, { staleTime: 30_000 });
   const utils = trpc.useUtils();
   const togglePromo = trpc.admin.togglePromoCode.useMutation({ onSuccess: () => utils.admin.allPromoCodes.invalidate() });
@@ -29,6 +49,26 @@ export default function AdminSettingsScreen() {
         <Text style={s.title}>Settings</Text>
       </View>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100 }}>
+
+        {/* Quick Links */}
+        <View style={s.section}>
+          <Text style={s.sectionTitle}>Reports & Tools</Text>
+        </View>
+
+        {/* Super Admin Tools */}
+        <View style={s.section}>
+          <Text style={s.sectionTitle}>Super Admin</Text>
+          <TouchableOpacity style={s.superCard} onPress={handleViewAsCustomer} activeOpacity={0.85}>
+            <View style={s.superCardLeft}>
+              <Text style={s.superCardIcon}>👁️</Text>
+              <View>
+                <Text style={s.superCardTitle}>Preview Customer App</Text>
+                <Text style={s.superCardSub}>See exactly what customers see</Text>
+              </View>
+            </View>
+            <Text style={s.superCardArrow}>›</Text>
+          </TouchableOpacity>
+        </View>
 
         {/* Quick Links */}
         <View style={s.section}>
@@ -91,6 +131,12 @@ const s = StyleSheet.create({
   section: { marginTop: 20, marginBottom: 4 },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   sectionTitle: { fontSize: 17, fontWeight: '800', color: '#111827', marginBottom: 12 },
+  superCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#EFF6FF', borderRadius: 14, padding: 16, borderWidth: 1, borderColor: '#BFDBFE' },
+  superCardLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  superCardIcon: { fontSize: 28 },
+  superCardTitle: { fontSize: 15, fontWeight: '700', color: '#1A3C5E' },
+  superCardSub: { fontSize: 12, color: '#6B7280', marginTop: 2 },
+  superCardArrow: { fontSize: 22, color: '#1A3C5E', fontWeight: '700' },
   linkRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#F9FAFB', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14, marginBottom: 8, borderWidth: 1, borderColor: '#E5E7EB' },
   linkText: { fontSize: 14, fontWeight: '600', color: '#374151' },
   linkArrow: { fontSize: 18, color: '#9CA3AF' },
@@ -105,4 +151,3 @@ const s = StyleSheet.create({
   signOutBtn: { marginTop: 24, backgroundColor: '#FEE2E2', borderRadius: 14, paddingVertical: 16, alignItems: 'center' },
   signOutText: { fontSize: 15, fontWeight: '800', color: '#991B1B' },
 });
-

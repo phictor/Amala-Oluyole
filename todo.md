@@ -230,3 +230,10 @@
 - [x] Admin orders screen also shows compact dish list on each order card
 - [x] Reduce kitchen portal poll interval from 20s → 10s for faster alert response
 - [x] Reduce admin orders screen poll interval from 30s → 10s
+
+### Admin Super-Access (Aug 2026)
+- [x] Add Kitchen tab to admin portal: full kitchen order view with dish list and status actions
+- [x] Add Riders tab to admin portal: rider online/offline status, assign rider to ready orders, active deliveries
+- [x] Admin portal now has 7 tabs: Finance, Orders, Kitchen, Riders, Menu, Staff, More
+- [x] Add "Preview Customer App" button in admin More/Settings tab to switch to customer view
+- [x] Admin kitchen view also fires sound/haptic alert on new orders
