@@ -9,6 +9,10 @@ import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { sdk } from "./sdk";
 import { getAllRiders } from "../db";
+import crypto from "crypto";
+import { getDb, createNotification } from "../db";
+import { orders } from "../../drizzle/schema";
+import { eq } from "drizzle-orm";
 
 // ── SSE: Real-time rider location broadcast ────────────────────────────────
 // Clients subscribe to GET /api/riders/live and receive a stream of
@@ -85,6 +89,43 @@ async function startServer() {
   app.get("/api/health", (_req, res) => {
     res.json({ ok: true, timestamp: Date.now() });
   });
+
+  // ── Paystack webhook ─────────────────────────────────────────────────────
+  // Must be registered BEFORE express.json() parses the body, so we use
+  // express.raw() here to get the raw buffer for HMAC verification.
+  app.post("/api/paystack/webhook",
+    express.raw({ type: "*/*" }),
+    async (req, res) => {
+      const secret = process.env.PAYSTACK_SECRET_KEY ?? "";
+      const sig = (req.headers["x-paystack-signature"] as string) ?? "";
+      const rawBody = Buffer.isBuffer(req.body) ? req.body : Buffer.from(String(req.body));
+      // Verify signature when secret is configured
+      if (secret && sig) {
+        const expected = crypto.createHmac("sha512", secret).update(rawBody).digest("hex");
+        if (sig !== expected) { res.status(401).json({ error: "Invalid signature" }); return; }
+      }
+      let event: { event?: string; data?: Record<string, unknown> };
+      try { event = JSON.parse(rawBody.toString()); } catch { res.sendStatus(400); return; }
+      res.sendStatus(200); // Acknowledge immediately — Paystack retries on non-200
+      if (event.event === "charge.success") {
+        const ref = (event.data?.reference as string) ?? "";
+        if (!ref) return;
+        try {
+          const db = await getDb();
+          if (!db) return;
+          const [order] = await db
+            .select({ id: orders.id, userId: orders.userId, orderNumber: orders.orderNumber, paymentStatus: orders.paymentStatus })
+            .from(orders).where(eq(orders.paymentReference, ref)).limit(1);
+          if (!order || order.paymentStatus === "paid") return;
+          await db.update(orders).set({ paymentStatus: "paid", status: "payment_confirmed" }).where(eq(orders.id, order.id));
+          if (order.userId) {
+            createNotification({ userId: order.userId, type: "order_update", title: "💳 Payment Confirmed", body: `Payment received for order #${order.orderNumber}. We'll start preparing it now.`, orderId: order.id }).catch(() => {});
+          }
+        } catch (err) { console.error("[Paystack webhook]", err); }
+      }
+    }
+  );
+
 
   // ── SSE: /api/riders/live ────────────────────────────────────────────────
   app.get("/api/riders/live", async (req, res) => {
