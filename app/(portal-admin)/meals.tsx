@@ -1,16 +1,22 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, RefreshControl, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, RefreshControl, Alert, Image, Platform } from 'react-native';
 import { ScreenContainer } from '@/components/screen-container';
 import { trpc } from '@/lib/trpc';
 import { StatusBar } from 'expo-status-bar';
 import { router } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
 
 export default function AdminMealsScreen() {
   const [refreshing, setRefreshing] = useState(false);
+  const [uploadingId, setUploadingId] = useState<number | null>(null);
   const mealsQ = trpc.admin.allMeals.useQuery(undefined, { staleTime: 30_000 });
   const utils = trpc.useUtils();
   const toggleMeal = trpc.kitchen.toggleMealAvailability.useMutation({ onSuccess: () => utils.admin.allMeals.invalidate() });
   const deleteMeal = trpc.admin.deleteMeal.useMutation({ onSuccess: () => utils.admin.allMeals.invalidate() });
+  const uploadImage = trpc.admin.uploadMealImage.useMutation({
+    onSuccess: () => { utils.admin.allMeals.invalidate(); setUploadingId(null); },
+    onError: (err) => { Alert.alert('Upload Failed', err.message || 'Could not upload photo.'); setUploadingId(null); },
+  });
 
   const meals = mealsQ.data ?? [];
 
@@ -21,6 +27,29 @@ export default function AdminMealsScreen() {
       { text: 'Cancel', style: 'cancel' },
       { text: 'Remove', style: 'destructive', onPress: () => deleteMeal.mutate({ id }) },
     ]);
+  };
+
+  const handleUploadPhoto = async (mealId: number, mealName: string) => {
+    if (Platform.OS !== 'web') {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Required', 'Allow access to your photo library to upload meal photos.');
+        return;
+      }
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.8,
+      base64: true,
+    });
+    if (result.canceled || !result.assets[0]) return;
+    const asset = result.assets[0];
+    if (!asset.base64) { Alert.alert('Error', 'Could not read image data.'); return; }
+    setUploadingId(mealId);
+    const ext = asset.uri.split('.').pop()?.toLowerCase() ?? 'jpg';
+    uploadImage.mutate({ mealId, base64: asset.base64, fileName: `${mealName.replace(/\s+/g, '-').toLowerCase()}.${ext}` });
   };
 
   return (
@@ -42,6 +71,17 @@ export default function AdminMealsScreen() {
       >
         {meals.map((meal: any) => (
           <View key={meal.id} style={s.card}>
+            {/* Photo thumbnail — tap to upload */}
+            <TouchableOpacity style={s.photoThumb} onPress={() => handleUploadPhoto(meal.id, meal.name)} activeOpacity={0.8}>
+              {meal.imageUrl ? (
+                <Image source={{ uri: meal.imageUrl }} style={s.thumbImg} />
+              ) : (
+                <View style={s.thumbPlaceholder}><Text style={s.thumbIcon}>📷</Text></View>
+              )}
+              {uploadingId === meal.id && (
+                <View style={s.thumbOverlay}><Text style={s.thumbOverlayText}>Uploading…</Text></View>
+              )}
+            </TouchableOpacity>
             <View style={s.cardLeft}>
               <Text style={s.mealName}>{meal.name}</Text>
               <Text style={s.mealPrice}>₦{Number(meal.price).toLocaleString()}</Text>
@@ -52,6 +92,13 @@ export default function AdminMealsScreen() {
               </View>
             </View>
             <View style={s.cardActions}>
+              <TouchableOpacity
+                style={[s.actionBtn, { backgroundColor: '#EFF6FF' }]}
+                onPress={() => handleUploadPhoto(meal.id, meal.name)}
+                activeOpacity={0.8}
+              >
+                <Text style={[s.actionBtnText, { color: '#1D4ED8' }]}>📷 Photo</Text>
+              </TouchableOpacity>
               <TouchableOpacity
                 style={[s.actionBtn, { backgroundColor: meal.isAvailable ? '#FEF3C7' : '#DCFCE7' }]}
                 onPress={() => toggleMeal.mutate({ mealId: meal.id, branchId: meal.branchId ?? 1, isAvailable: !meal.isAvailable })}
@@ -91,4 +138,10 @@ const s = StyleSheet.create({
   cardActions: { gap: 8 },
   actionBtn: { borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, alignItems: 'center' },
   actionBtnText: { fontSize: 12, fontWeight: '700' },
+  photoThumb: { width: 56, height: 56, borderRadius: 10, overflow: 'hidden', position: 'relative' },
+  thumbImg: { width: 56, height: 56 },
+  thumbPlaceholder: { width: 56, height: 56, backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center' },
+  thumbIcon: { fontSize: 22 },
+  thumbOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.55)', alignItems: 'center', justifyContent: 'center' },
+  thumbOverlayText: { color: '#FFF', fontSize: 9, fontWeight: '700' },
 });

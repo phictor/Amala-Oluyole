@@ -409,5 +409,60 @@ export const adminRouter = router({
       }
       return result;
     }),
+
+  // Upload a meal photo (base64 → S3) and return the public URL
+  uploadMealImage: adminProcedure
+    .input(z.object({
+      mealId: z.number(),
+      base64: z.string(), // data:image/jpeg;base64,...
+      fileName: z.string().default('meal.jpg'),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'DB unavailable' });
+      // Strip data URI prefix if present
+      const base64Data = input.base64.replace(/^data:image\/\w+;base64,/, '');
+      const buffer = Buffer.from(base64Data, 'base64');
+      const ext = input.fileName.split('.').pop()?.toLowerCase() ?? 'jpg';
+      const contentType = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
+      const { url } = await storagePut(`meals/${input.mealId}_${Date.now()}.${ext}`, buffer, contentType);
+      // Update the meal's imageUrl
+      await db.update(meals).set({ imageUrl: url, updatedAt: new Date() }).where(eq(meals.id, input.mealId));
+      return { url };
+    }),
+
+  // Create a new rider account (links an existing user to the riders table)
+  createRider: adminProcedure
+    .input(z.object({
+      userId: z.number(),
+      branchId: z.number(),
+      vehicleType: z.enum(['motorcycle', 'bicycle', 'car']).default('motorcycle'),
+      vehiclePlate: z.string().optional(),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'DB unavailable' });
+      // Check if rider record already exists
+      const existing = await db.select({ id: riders.id }).from(riders).where(eq(riders.userId, input.userId)).limit(1);
+      if (existing.length > 0) throw new TRPCError({ code: 'CONFLICT', message: 'This user is already registered as a rider' });
+      // Set user role to rider
+      await db.update(users).set({ role: 'rider', updatedAt: new Date() }).where(eq(users.id, input.userId));
+      // Create rider record
+      await db.insert(riders).values({
+        userId: input.userId,
+        branchId: input.branchId,
+        vehicleType: input.vehicleType,
+        vehiclePlate: input.vehiclePlate ?? null,
+        isOnline: false,
+        isAvailable: true,
+        isActive: true,
+        totalDeliveries: 0,
+        rating: 5.0,
+        ratingCount: 0,
+      });
+      return { success: true };
+    }),
 });
+
 import { ne } from "drizzle-orm";
+import { storagePut } from "../storage";
