@@ -13,7 +13,7 @@ const STATUS_COLOR: Record<string, string> = {
 
 export default function AdminOrdersScreen() {
   const [refreshing, setRefreshing] = useState(false);
-  const ordersQ = trpc.admin.activeOrders.useQuery(undefined, { refetchInterval: 30_000 });
+  const ordersQ = trpc.admin.activeOrders.useQuery(undefined, { refetchInterval: 10_000 });
   const utils = trpc.useUtils();
   const updateStatus = trpc.admin.updateOrderStatus.useMutation({ onSuccess: () => utils.admin.activeOrders.invalidate() });
 
@@ -75,6 +75,13 @@ export default function AdminOrdersScreen() {
                 <Text style={s.orderType}>{order.orderType === 'delivery' ? '🚴 Delivery' : '🏪 Pickup'}</Text>
                 <Text style={s.orderTotal}>₦{Number(order.total).toLocaleString()}</Text>
               </View>
+              {Array.isArray(order.items) && order.items.length > 0 && (
+                <View style={s.itemList}>
+                  {order.items.map((item: any, idx: number) => (
+                    <Text key={idx} style={s.itemText}>{item.quantity}× {item.name}</Text>
+                  ))}
+                </View>
+              )}
               <TouchableOpacity style={s.updateBtn} onPress={() => handleUpdate(order.id, order.status)} activeOpacity={0.8}>
                 <Text style={s.updateBtnText}>Update Status →</Text>
               </TouchableOpacity>
@@ -102,6 +109,8 @@ const s = StyleSheet.create({
   cardMid: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   orderType: { fontSize: 13, color: '#374151', fontWeight: '600' },
   orderTotal: { fontSize: 16, fontWeight: '800', color: '#1A3C5E' },
+  itemList: { backgroundColor: '#F9FAFB', borderRadius: 8, padding: 10, marginBottom: 10, gap: 4 },
+  itemText: { fontSize: 13, color: '#374151', fontWeight: '600' },
   updateBtn: { backgroundColor: '#F0F4FF', borderRadius: 10, paddingVertical: 10, alignItems: 'center' },
   updateBtnText: { fontSize: 13, fontWeight: '700', color: '#1A3C5E' },
 });

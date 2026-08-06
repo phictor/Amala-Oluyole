@@ -19,7 +19,7 @@ export default function KitchenOrdersScreen() {
   const [showNewBanner, setShowNewBanner] = useState(false);
   const bannerAnim = useRef(new Animated.Value(0)).current;
 
-  const ordersQ = trpc.admin.activeOrders.useQuery(undefined, { refetchInterval: 20_000 });
+  const ordersQ = trpc.admin.activeOrders.useQuery(undefined, { refetchInterval: 10_000 });
   const utils = trpc.useUtils();
   const updateStatus = trpc.admin.updateOrderStatus.useMutation({ onSuccess: () => utils.admin.activeOrders.invalidate() });
 
@@ -83,6 +83,24 @@ export default function KitchenOrdersScreen() {
       </View>
       <Text style={s.orderTime}>{order.createdAt ? new Date(order.createdAt).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' }) : ''}</Text>
       <Text style={s.orderTotal}>₦{Number(order.total).toLocaleString()} · {order.orderType === 'delivery' ? '🚴 Delivery' : '🏪 Pickup'}</Text>
+      {/* Dish list */}
+      {Array.isArray(order.items) && order.items.length > 0 && (
+        <View style={s.itemList}>
+          {order.items.map((item: any, idx: number) => (
+            <View key={idx} style={s.itemRow}>
+              <View style={s.itemQtyBadge}>
+                <Text style={s.itemQtyText}>{item.quantity}×</Text>
+              </View>
+              <View style={s.itemInfo}>
+                <Text style={s.itemName}>{item.name}</Text>
+                {item.specialInstructions ? (
+                  <Text style={s.itemNote}>📝 {item.specialInstructions}</Text>
+                ) : null}
+              </View>
+            </View>
+          ))}
+        </View>
+      )}
       {['pending', 'accepted', 'preparing'].includes(order.status) && (
         <TouchableOpacity style={s.actionBtn} onPress={() => handleAction(order.id, order.status)} activeOpacity={0.8}>
           <Text style={s.actionBtnText}>
@@ -174,6 +192,13 @@ const s = StyleSheet.create({
   statusText: { fontSize: 12, fontWeight: '700', textTransform: 'capitalize' },
   orderTime: { fontSize: 12, color: '#9CA3AF', marginBottom: 4 },
   orderTotal: { fontSize: 14, fontWeight: '600', color: '#374151', marginBottom: 10 },
+  itemList: { backgroundColor: '#FFFBEB', borderRadius: 10, padding: 10, marginBottom: 10, gap: 6, borderWidth: 1, borderColor: '#FDE68A' },
+  itemRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+  itemQtyBadge: { backgroundColor: '#D97706', borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3, minWidth: 28, alignItems: 'center' },
+  itemQtyText: { fontSize: 12, fontWeight: '900', color: '#FFF' },
+  itemInfo: { flex: 1 },
+  itemName: { fontSize: 13, fontWeight: '700', color: '#111827' },
+  itemNote: { fontSize: 11, color: '#92400E', marginTop: 2, fontStyle: 'italic' },
   actionBtn: { backgroundColor: '#FEF3C7', borderRadius: 10, paddingVertical: 10, alignItems: 'center' },
   actionBtnText: { fontSize: 14, fontWeight: '700', color: '#92400E' },
   empty: { alignItems: 'center', paddingTop: 80 },

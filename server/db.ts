@@ -420,7 +420,21 @@ export async function getActiveOrders(branchId?: number) {
   const activeStatuses = ["payment_confirmed", "accepted", "preparing", "ready", "rider_assigned", "out_for_delivery"];
   const conditions = [inArray(orders.status, activeStatuses as Order["status"][])];
   if (branchId) conditions.push(eq(orders.branchId, branchId));
-  return db.select().from(orders).where(and(...conditions)).orderBy(desc(orders.createdAt));
+  const activeOrders = await db.select().from(orders).where(and(...conditions)).orderBy(desc(orders.createdAt));
+  if (!activeOrders.length) return [];
+  // Fetch items for all active orders in a single query
+  const orderIds = activeOrders.map(o => o.id);
+  const items = await db
+    .select({ orderId: orderItems.orderId, name: orderItems.name, quantity: orderItems.quantity, specialInstructions: orderItems.specialInstructions })
+    .from(orderItems)
+    .where(inArray(orderItems.orderId, orderIds));
+  // Group items by orderId
+  const itemsByOrder = items.reduce<Record<number, typeof items>>((acc, item) => {
+    if (!acc[item.orderId]) acc[item.orderId] = [];
+    acc[item.orderId].push(item);
+    return acc;
+  }, {});
+  return activeOrders.map(order => ({ ...order, items: itemsByOrder[order.id] ?? [] }));
 }
 
 export async function getOrderStats(branchId?: number, fromDate?: Date, toDate?: Date) {

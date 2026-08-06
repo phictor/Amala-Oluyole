@@ -223,3 +223,10 @@
 - [x] Wire hook into Kitchen portal orders screen (portal-kitchen/index.tsx)
 - [x] Add 🔔/🔇 mute toggle in kitchen header with AsyncStorage persistence
 - [x] Add animated "New order received!" flash banner on new order arrival
+
+### Kitchen UX Improvements (Aug 2026)
+- [x] Update getActiveOrders in db.ts to include order items (name, quantity, special instructions) via single batch query
+- [x] Kitchen order cards show dish list with quantity badges and special instruction notes
+- [x] Admin orders screen also shows compact dish list on each order card
+- [x] Reduce kitchen portal poll interval from 20s → 10s for faster alert response
+- [x] Reduce admin orders screen poll interval from 30s → 10s
