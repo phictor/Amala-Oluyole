@@ -81,13 +81,6 @@ export default function TabLayout() {
           ),
         }}
       />
-      <Tabs.Screen
-        name="contact"
-        options={{
-          title: "Contact",
-          tabBarIcon: ({ color }) => <IconSymbol size={26} name="phone.fill" color={color} />,
-        }}
-      />
     </Tabs>
   );
 }

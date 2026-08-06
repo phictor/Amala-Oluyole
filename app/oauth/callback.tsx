@@ -7,6 +7,13 @@ import { useEffect, useState } from "react";
 import { ActivityIndicator, Text } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+function getRoleRoute(role?: string | null): string {
+  if (role === 'admin' || role === 'manager') return '/(portal-admin)';
+  if (role === 'kitchen') return '/(portal-kitchen)';
+  if (role === 'rider') return '/(portal-rider)';
+  return '/(tabs)';
+}
+
 export default function OAuthCallback() {
   const router = useRouter();
   const params = useLocalSearchParams<{
@@ -62,8 +69,9 @@ export default function OAuthCallback() {
 
           setStatus("success");
           console.log("[OAuth] Web authentication successful, redirecting to home...");
+          const webRole = params.user ? (() => { try { const d = JSON.parse(typeof atob !== 'undefined' ? atob(params.user!) : Buffer.from(params.user!, 'base64').toString('utf-8')); return d.role ?? 'customer'; } catch { return 'customer'; } })() : 'customer';
           setTimeout(() => {
-            router.replace("/(tabs)");
+            router.replace(getRoleRoute(webRole) as any);
           }, 1000);
           return;
         }
@@ -160,7 +168,7 @@ export default function OAuthCallback() {
           setStatus("success");
           console.log("[OAuth] Redirecting to home...");
           setTimeout(() => {
-            router.replace("/(tabs)");
+            router.replace('/(tabs)' as any);
           }, 1000);
           return;
         }
@@ -217,7 +225,8 @@ export default function OAuthCallback() {
           // Redirect to home after a short delay
           setTimeout(() => {
             console.log("[OAuth] Executing redirect...");
-            router.replace("/(tabs)");
+            const role = result.user?.role ?? 'customer';
+            router.replace(getRoleRoute(role) as any);
           }, 1000);
         } else {
           console.error("[OAuth] No session token in result:", result);

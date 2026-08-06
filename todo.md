@@ -197,3 +197,21 @@
 - [x] Wire Bistro "Add" buttons to cart store (haptics, ADD_TO_CART dispatch, qty badge)
 - [x] Add Fine Dining Tasting Menu section (5-course ₦25,000 set menu with real photo)
 - [x] Update performance test thresholds to 2000ms for sandbox load variability
+
+### Role-Based Navigation & Finance Dashboard (Aug 2026)
+- [x] Remove Contact tab from customer tab bar (5 tabs → 4: Home, Menu, Cart, Orders, Profile)
+- [x] Add staff management endpoints to admin routes (allStaff, allCustomers, setUserRole)
+- [x] Create (portal-admin) tab group: Finance, Orders, Menu, Staff, Settings tabs
+- [x] Admin Finance screen: revenue KPIs, payment breakdown, recent transactions, quick actions
+- [x] Admin Orders screen: live order queue with status update actions
+- [x] Admin Meals screen: meal CRUD (enable/disable/remove) with add-meal link
+- [x] Admin Staff screen: staff list with role assignment + customer list
+- [x] Admin Settings screen: promo code management + report quick links
+- [x] Create (portal-kitchen) tab group: Orders, Inventory, Report tabs
+- [x] Kitchen Orders screen: grouped by status (New/In Progress/Ready) with action buttons
+- [x] Kitchen Inventory screen: stock levels with low-stock alerts and usage recording
+- [x] Kitchen Report screen: monthly summary with month picker and top meals
+- [x] Create (portal-rider) tab group: Deliveries, Map, Profile tabs
+- [x] Rider Deliveries screen: online/offline toggle, active deliveries, status updates
+- [x] Root layout redirects admin/manager → portal-admin, kitchen → portal-kitchen, rider → portal-rider on auth sync
+- [x] OAuth callback redirects by role after login (admin/manager/kitchen/rider get their portal)

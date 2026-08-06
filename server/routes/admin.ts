@@ -338,4 +338,42 @@ export const adminRouter = router({
       await db.delete(promoCodes).where(eq(promoCodes.id, input.id));
       return { success: true };
     }),
+
+  // ── Staff / User Management ───────────────────────────────────────────────
+  allStaff: adminProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) return [];
+    return db
+      .select({ id: users.id, name: users.name, email: users.email, phone: users.phone, role: users.role, createdAt: users.createdAt, lastSignedIn: users.lastSignedIn })
+      .from(users)
+      .where(ne(users.role, 'customer'))
+      .orderBy(users.role, users.name);
+  }),
+
+  allCustomers: adminProcedure
+    .input(z.object({ limit: z.number().default(50), offset: z.number().default(0) }).optional())
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return { rows: [], total: 0 };
+      const [{ total }] = await db.select({ total: count() }).from(users).where(eq(users.role, 'customer'));
+      const rows = await db
+        .select({ id: users.id, name: users.name, email: users.email, phone: users.phone, createdAt: users.createdAt, lastSignedIn: users.lastSignedIn })
+        .from(users)
+        .where(eq(users.role, 'customer'))
+        .orderBy(desc(users.createdAt))
+        .limit(input?.limit ?? 50)
+        .offset(input?.offset ?? 0);
+      return { rows, total };
+    }),
+
+  setUserRole: adminProcedure
+    .input(z.object({ userId: z.number(), role: z.enum(['customer', 'admin', 'rider', 'kitchen', 'manager']) }))
+    .mutation(async ({ input, ctx }) => {
+      if (input.userId === ctx.user.id) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Cannot change your own role' });
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'DB unavailable' });
+      await db.update(users).set({ role: input.role, updatedAt: new Date() }).where(eq(users.id, input.userId));
+      return { success: true };
+    }),
 });
+import { ne } from "drizzle-orm";
