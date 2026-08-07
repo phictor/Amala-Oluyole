@@ -3,6 +3,8 @@ import type { ConfigContext, ExpoConfig } from "expo/config";
 
 type AppVariant = "production" | "preview" | "development";
 
+const DEFAULT_EAS_PROJECT_ID = "b5118588-8592-414a-a716-e991acd4183a";
+
 const VARIANTS: Record<AppVariant, {
   name: string;
   bundleSuffix: string;
@@ -43,7 +45,9 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   const variantName = selectedVariant();
   const variant = VARIANTS[variantName];
   const baseIdentifier = "com.app.amala.oluyole.app";
-  const projectId = process.env.EAS_PROJECT_ID?.trim() || process.env.EXPO_PUBLIC_EAS_PROJECT_ID?.trim();
+  const projectId = process.env.EAS_PROJECT_ID?.trim()
+    || process.env.EXPO_PUBLIC_EAS_PROJECT_ID?.trim()
+    || DEFAULT_EAS_PROJECT_ID;
   const sentryConfigured = Boolean(process.env.SENTRY_ORG && process.env.SENTRY_PROJECT);
   const publicSiteHost = variantName === "production" ? "amalaoluyole.com" : "staging.amalaoluyole.com";
 
@@ -89,6 +93,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   return {
     ...config,
     name: variant.name,
+    owner: "emmapastor",
     slug: "amala-oluyole",
     version: "1.0.0",
     description: "Order authentic Yoruba cuisine from Amala Oluyole Restaurant.",
