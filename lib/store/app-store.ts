@@ -10,6 +10,7 @@ interface AppState {
   user: User | null;
   isGuest: boolean;
   isAuthenticated: boolean;
+  hydrated: boolean; // true once AsyncStorage has been read
   // Branch
   selectedBranch: Branch | null;
   // Cart
@@ -44,12 +45,14 @@ type AppAction =
   | { type: 'ADD_NOTIFICATION'; payload: Notification }
   | { type: 'SET_ONBOARDING_SEEN' }
   | { type: 'HYDRATE'; payload: Partial<AppState> }
+  | { type: 'SET_HYDRATED' }
   | { type: 'LOGOUT' };
 
 const initialState: AppState = {
   user: null,
   isGuest: false,
   isAuthenticated: false,
+  hydrated: false,
   selectedBranch: null,
   cartItems: [],
   promoCode: '',
@@ -142,6 +145,8 @@ function appReducer(state: AppState, action: AppAction): AppState {
       return { ...initialState, hasSeenOnboarding: state.hasSeenOnboarding };
     case 'HYDRATE':
       return { ...state, ...action.payload };
+    case 'SET_HYDRATED':
+      return { ...state, hydrated: true };
     default:
       return state;
   }
@@ -159,10 +164,13 @@ const AppContext = createContext<AppContextValue | null>(null);
 
 const STORAGE_KEY = '@amala_oluyole_state';
 const PERSIST_KEYS: (keyof AppState)[] = [
-  'user', 'isGuest', 'isAuthenticated', 'selectedBranch',
-  'cartItems', 'orders', 'notifications', 'unreadNotificationCount',
+  'selectedBranch', 'cartItems',
   'favouriteMealIds', 'hasSeenOnboarding',
 ];
+
+export async function clearPersistedSensitiveState() {
+  await AsyncStorage.multiRemove([STORAGE_KEY, 'admin_preview_customer']);
+}
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(appReducer, initialState);
@@ -172,10 +180,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     AsyncStorage.getItem(STORAGE_KEY).then(raw => {
       if (raw) {
         try {
-          const saved = JSON.parse(raw);
-          dispatch({ type: 'HYDRATE', payload: saved });
+          const saved = JSON.parse(raw) as Partial<AppState>;
+          const safe: Partial<AppState> = {};
+          for (const key of PERSIST_KEYS) (safe as Record<string, unknown>)[key] = saved[key];
+          dispatch({ type: 'HYDRATE', payload: safe });
         } catch {}
       }
+      dispatch({ type: 'SET_HYDRATED' });
     });
   }, []);
 

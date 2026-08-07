@@ -2,172 +2,79 @@ import { Platform } from "react-native";
 import { getApiBaseUrl } from "@/constants/oauth";
 import * as Auth from "./auth";
 
-type ApiResponse<T> = {
-  data?: T;
-  error?: string;
-};
-
-export async function apiCall<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    ...((options.headers as Record<string, string>) || {}),
-  };
-
-  // Determine the auth method:
-  // - Native platform: use stored session token as Bearer auth
-  // - Web (including iframe): use cookie-based auth (browser handles automatically)
-  //   Cookie is set on backend domain via POST /api/auth/session after receiving token via postMessage
-  if (Platform.OS !== "web") {
-    const sessionToken = await Auth.getSessionToken();
-    console.log("[API] apiCall:", {
-      endpoint,
-      hasToken: !!sessionToken,
-      method: options.method || "GET",
-    });
-    if (sessionToken) {
-      headers["Authorization"] = `Bearer ${sessionToken}`;
-      console.log("[API] Authorization header added");
-    }
-  } else {
-    console.log("[API] apiCall:", { endpoint, platform: "web", method: options.method || "GET" });
-  }
-
-  const baseUrl = getApiBaseUrl();
-  // Ensure no double slashes between baseUrl and endpoint
-  const cleanBaseUrl = baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
-  const cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
-  const url = baseUrl ? `${cleanBaseUrl}${cleanEndpoint}` : endpoint;
-  console.log("[API] Full URL:", url);
-
-  try {
-    console.log("[API] Making request...");
-    const response = await fetch(url, {
-      ...options,
-      headers,
-      credentials: "include",
-    });
-
-    console.log("[API] Response status:", response.status, response.statusText);
-    const responseHeaders = Object.fromEntries(response.headers.entries());
-    console.log("[API] Response headers:", responseHeaders);
-
-    // Check if Set-Cookie header is present (cookies are automatically handled in React Native)
-    const setCookie = response.headers.get("Set-Cookie");
-    if (setCookie) {
-      console.log("[API] Set-Cookie header received:", setCookie);
-    }
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("[API] Error response:", errorText);
-      let errorMessage = errorText;
-      try {
-        const errorJson = JSON.parse(errorText);
-        errorMessage = errorJson.error || errorJson.message || errorText;
-      } catch {
-        // Not JSON, use text as is
-      }
-      throw new Error(errorMessage || `API call failed: ${response.statusText}`);
-    }
-
-    const contentType = response.headers.get("content-type");
-    if (contentType && contentType.includes("application/json")) {
-      const data = await response.json();
-      console.log("[API] JSON response received");
-      return data as T;
-    }
-
-    const text = await response.text();
-    console.log("[API] Text response received");
-    return (text ? JSON.parse(text) : {}) as T;
-  } catch (error) {
-    console.error("[API] Request failed:", error);
-    if (error instanceof Error) {
-      throw error;
-    }
-    throw new Error("Unknown error occurred");
-  }
+function csrfToken(): string | undefined {
+  if (Platform.OS !== "web" || typeof document === "undefined") return undefined;
+  return document.cookie.split("; ").find((entry) => entry.startsWith("app_csrf_token="))?.split("=")[1];
 }
 
-// OAuth callback handler - exchange code for session token
-// Calls /api/oauth/mobile endpoint which returns JSON with app_session_id and user
-export async function exchangeOAuthCode(
-  code: string,
-  state: string,
-): Promise<{ sessionToken: string; user: any }> {
-  console.log("[API] exchangeOAuthCode called");
-  // Use GET with query params
-  const params = new URLSearchParams({ code, state });
-  const endpoint = `/api/oauth/mobile?${params.toString()}`;
-  console.log("[API] Calling OAuth mobile endpoint:", endpoint);
-  const result = await apiCall<{ app_session_id: string; user: any }>(endpoint);
-
-  // Convert app_session_id to sessionToken for compatibility
-  const sessionToken = result.app_session_id;
-  console.log("[API] OAuth exchange result:", {
-    hasSessionToken: !!sessionToken,
-    hasUser: !!result.user,
-    sessionToken: sessionToken ? `${sessionToken.substring(0, 50)}...` : null,
+async function refreshSession(): Promise<boolean> {
+  const refreshToken = Platform.OS === "web" ? null : await Auth.getRefreshToken();
+  if (Platform.OS !== "web" && !refreshToken) return false;
+  const csrf = csrfToken();
+  const response = await fetch(`${getApiBaseUrl()}/api/auth/refresh`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json", ...(csrf ? { "x-csrf-token": decodeURIComponent(csrf) } : {}) },
+    body: refreshToken ? JSON.stringify({ refreshToken }) : "{}",
   });
-
-  return {
-    sessionToken,
-    user: result.user,
-  };
+  if (!response.ok) return false;
+  if (Platform.OS !== "web") {
+    const pair = await response.json() as { accessToken: string; refreshToken: string };
+    await Promise.all([Auth.setSessionToken(pair.accessToken), Auth.setRefreshToken(pair.refreshToken)]);
+  }
+  return true;
 }
 
-// Logout
+export async function apiCall<T>(endpoint: string, options: RequestInit = {}, retry = true): Promise<T> {
+  const headers: Record<string, string> = { "Content-Type": "application/json", ...((options.headers as Record<string, string>) || {}) };
+  if (Platform.OS !== "web") {
+    const token = await Auth.getSessionToken();
+    if (token) headers.Authorization = `Bearer ${token}`;
+  } else {
+    const csrf = csrfToken();
+    if (csrf) headers["x-csrf-token"] = decodeURIComponent(csrf);
+  }
+  const cleanBase = getApiBaseUrl().replace(/\/$/, "");
+  const cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
+  const response = await fetch(cleanBase ? `${cleanBase}${cleanEndpoint}` : cleanEndpoint, { ...options, headers, credentials: "include" });
+  if (response.status === 401 && retry && !endpoint.endsWith("/api/auth/refresh") && await refreshSession()) return apiCall<T>(endpoint, options, false);
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({})) as { error?: string; message?: string };
+    throw new Error(body.error || body.message || "Request failed");
+  }
+  if (response.status === 204) return undefined as T;
+  return await response.json() as T;
+}
+
+export async function exchangeOAuthCode(code: string, state: string): Promise<{ sessionToken: string; user: Auth.User }> {
+  const binding = await Auth.getOAuthBinding();
+  if (!binding) throw new Error("Sign-in state is missing");
+  const result = await apiCall<{ accessToken: string; refreshToken: string; user: Auth.User }>("/api/oauth/mobile", {
+    method: "POST",
+    body: JSON.stringify({ code, state, binding }),
+  });
+  await Auth.setRefreshToken(result.refreshToken);
+  return { sessionToken: result.accessToken, user: result.user };
+}
+
 export async function logout(): Promise<void> {
+  const refreshToken = Platform.OS === "web" ? null : await Auth.getRefreshToken();
   await apiCall<void>("/api/auth/logout", {
     method: "POST",
+    body: refreshToken ? JSON.stringify({ refreshToken }) : undefined,
   });
 }
 
-// Get current authenticated user (web uses cookie-based auth)
-export async function getMe(): Promise<{
-  id: number;
-  openId: string;
-  name: string | null;
-  email: string | null;
-  loginMethod: string | null;
-  lastSignedIn: string;
-  role: string | null;
-} | null> {
+export async function getMe(): Promise<(Auth.User & { lastSignedIn: string }) | null> {
   try {
-    const result = await apiCall<{ user: any }>("/api/auth/me");
+    const result = await apiCall<{ user: Auth.User & { lastSignedIn: string } }>("/api/auth/me");
     return result.user || null;
-  } catch (error) {
-    console.error("[API] getMe failed:", error);
-    return null;
-  }
+  } catch { return null; }
 }
 
-// Establish session cookie on the backend (3000-xxx domain)
-// Called after receiving token via postMessage to get a proper Set-Cookie from the backend
 export async function establishSession(token: string): Promise<boolean> {
   try {
-    console.log("[API] establishSession: setting cookie on backend...");
-    const baseUrl = getApiBaseUrl();
-    const url = `${baseUrl}/api/auth/session`;
-
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      credentials: "include", // Important: allows Set-Cookie to be stored
-    });
-
-    if (!response.ok) {
-      console.error("[API] establishSession failed:", response.status);
-      return false;
-    }
-
-    console.log("[API] establishSession: cookie set successfully");
+    await apiCall("/api/auth/session", { method: "POST", headers: { Authorization: `Bearer ${token}` } });
     return true;
-  } catch (error) {
-    console.error("[API] establishSession error:", error);
-    return false;
-  }
+  } catch { return false; }
 }

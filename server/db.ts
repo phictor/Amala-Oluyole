@@ -1,5 +1,60 @@
 import { and, desc, eq, gte, inArray, isNull, like, lte, or, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
+import { Expo } from "expo-server-sdk";
+import crypto from "crypto";
+import { assertOrderTransition, type OrderActor } from "./security/order-state";
+
+// Singleton Expo SDK client
+const expo = new Expo();
+
+/**
+ * Send real Expo push notifications to all active push tokens for a user.
+ * Silently swaps out invalid tokens so the DB stays clean.
+ */
+export async function sendPushToUser(userId: number, title: string, body: string, data?: Record<string, unknown>) {
+  const db = await getDb();
+  if (!db) return;
+  // Fetch all active push tokens for this user
+  const tokenRows = await db.select({ id: pushTokens.id, token: pushTokens.token })
+    .from(pushTokens)
+    .where(and(eq(pushTokens.userId, userId), eq(pushTokens.isActive, true)));
+  if (!tokenRows.length) return;
+  const messages = tokenRows
+    .filter(r => Expo.isExpoPushToken(r.token))
+    .map(r => ({ to: r.token, title, body, data: data ?? {}, sound: 'default' as const }));
+  if (!messages.length) return;
+  try {
+    const chunks = expo.chunkPushNotifications(messages);
+    for (const chunk of chunks) {
+      const receipts = await expo.sendPushNotificationsAsync(chunk);
+      // Mark invalid tokens as inactive
+      receipts.forEach((receipt, i) => {
+        if (receipt.status === 'error' && receipt.details?.error === 'DeviceNotRegistered') {
+          const token = messages[i]?.to;
+          if (token) {
+            db.update(pushTokens).set({ isActive: false }).where(eq(pushTokens.token, token)).catch(() => {});
+          }
+        }
+      });
+    }
+  } catch (err) {
+    console.warn('[Push] Failed to send push notifications:', err);
+  }
+}
+
+/**
+ * Register or update a push token for a user (upsert by token value).
+ */
+export async function upsertPushToken(userId: number, token: string, platform: 'ios' | 'android' | 'web') {
+  const db = await getDb();
+  if (!db) return;
+  const existing = await db.select({ id: pushTokens.id }).from(pushTokens).where(eq(pushTokens.token, token)).limit(1);
+  if (existing.length > 0) {
+    await db.update(pushTokens).set({ userId, isActive: true, updatedAt: new Date() }).where(eq(pushTokens.token, token));
+  } else {
+    await db.insert(pushTokens).values({ userId, token, platform, isActive: true });
+  }
+}
 import {
   Branch,
   CateringRequest,
@@ -288,19 +343,23 @@ export async function getUserOrders(userId: number, limit = 20, offset = 0): Pro
     .limit(limit).offset(offset);
 }
 
-export async function updateOrderStatus(orderId: number, status: Order["status"], note?: string, changedBy?: number) {
+export async function updateOrderStatus(orderId: number, status: Order["status"], actor: OrderActor, note?: string, changedBy?: number) {
   const db = await getDb();
-  if (!db) return;
-  // FR-065/066: auto-generate 4-digit pickup code when a pickup order becomes ready
-  const updateFields: Record<string, unknown> = { status, updatedAt: new Date() };
-  if (status === 'ready') {
-    const [orderRow] = await db.select({ orderType: orders.orderType, pickupCode: orders.pickupCode }).from(orders).where(eq(orders.id, orderId)).limit(1);
-    if (orderRow?.orderType === 'pickup' && !orderRow.pickupCode) {
-      updateFields.pickupCode = String(Math.floor(1000 + Math.random() * 9000));
+  if (!db) throw new Error("Database not available");
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`SELECT id FROM orders WHERE id = ${orderId} FOR UPDATE`);
+    const [order] = await tx.select().from(orders).where(eq(orders.id, orderId)).limit(1);
+    if (!order) throw new Error("Order not found");
+    assertOrderTransition(order.status, status, actor);
+    const updateFields: Record<string, unknown> = { status, updatedAt: new Date() };
+    if (status === "ready" && order.orderType === "pickup" && !order.pickupCode) {
+      updateFields.pickupCode = String(crypto.randomInt(1_000, 10_000));
     }
-  }
-  await db.update(orders).set(updateFields).where(eq(orders.id, orderId));
-  await db.insert(orderStatusHistory).values({ orderId, status, note: note || null, changedBy: changedBy || null });
+    if (status === "cancelled") updateFields.cancellationReason = note?.trim() || null;
+    await tx.update(orders).set(updateFields).where(eq(orders.id, orderId));
+    await tx.insert(orderStatusHistory).values({ orderId, status, note: note || null, changedBy: changedBy || null });
+    return order;
+  });
 }
 
 export async function cancelOrder(orderId: number, userId: number, reason: string) {
@@ -389,12 +448,19 @@ export async function updateRiderStatus(riderId: number, isOnline: boolean, isAv
   await db.update(riders).set({ isOnline, isAvailable, updatedAt: new Date() }).where(eq(riders.id, riderId));
 }
 
-export async function assignRiderToOrder(orderId: number, riderId: number) {
+export async function assignRiderToOrder(orderId: number, riderId: number, changedBy?: number) {
   const db = await getDb();
-  if (!db) return;
-  await db.update(orders).set({ riderId, status: "rider_assigned", updatedAt: new Date() }).where(eq(orders.id, orderId));
-  await db.update(riders).set({ isAvailable: false, updatedAt: new Date() }).where(eq(riders.id, riderId));
-  await db.insert(orderStatusHistory).values({ orderId, status: "rider_assigned", note: `Rider #${riderId} assigned`, changedBy: null });
+  if (!db) throw new Error("Database not available");
+  await db.transaction(async (tx) => {
+    await tx.execute(sql`SELECT id FROM orders WHERE id = ${orderId} FOR UPDATE`);
+    const [order] = await tx.select().from(orders).where(eq(orders.id, orderId)).limit(1);
+    const [rider] = await tx.select().from(riders).where(eq(riders.id, riderId)).limit(1);
+    if (!order || order.status !== "ready" || order.orderType !== "delivery") throw new Error("Order is not ready for rider assignment");
+    if (!rider?.isActive || !rider.isOnline || !rider.isAvailable || rider.branchId !== order.branchId) throw new Error("Rider is not available for this order");
+    await tx.update(orders).set({ riderId, status: "rider_assigned", updatedAt: new Date() }).where(eq(orders.id, orderId));
+    await tx.update(riders).set({ isAvailable: false, updatedAt: new Date() }).where(eq(riders.id, riderId));
+    await tx.insert(orderStatusHistory).values({ orderId, status: "rider_assigned", note: `Rider #${riderId} assigned`, changedBy: changedBy ?? null });
+  });
 }
 
 export async function getRiderCurrentLocation(riderId: number) {
@@ -420,7 +486,21 @@ export async function getActiveOrders(branchId?: number) {
   const activeStatuses = ["payment_confirmed", "accepted", "preparing", "ready", "rider_assigned", "out_for_delivery"];
   const conditions = [inArray(orders.status, activeStatuses as Order["status"][])];
   if (branchId) conditions.push(eq(orders.branchId, branchId));
-  return db.select().from(orders).where(and(...conditions)).orderBy(desc(orders.createdAt));
+  const activeOrders = await db.select().from(orders).where(and(...conditions)).orderBy(desc(orders.createdAt));
+  if (!activeOrders.length) return [];
+  // Fetch items for all active orders in a single query
+  const orderIds = activeOrders.map(o => o.id);
+  const items = await db
+    .select({ orderId: orderItems.orderId, name: orderItems.name, quantity: orderItems.quantity, specialInstructions: orderItems.specialInstructions })
+    .from(orderItems)
+    .where(inArray(orderItems.orderId, orderIds));
+  // Group items by orderId
+  const itemsByOrder = items.reduce<Record<number, typeof items>>((acc, item) => {
+    if (!acc[item.orderId]) acc[item.orderId] = [];
+    acc[item.orderId].push(item);
+    return acc;
+  }, {});
+  return activeOrders.map(order => ({ ...order, items: itemsByOrder[order.id] ?? [] }));
 }
 
 export async function getOrderStats(branchId?: number, fromDate?: Date, toDate?: Date) {

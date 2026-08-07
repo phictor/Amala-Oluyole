@@ -11,10 +11,13 @@ import { LoadingState } from "@/components/ui";
 const LABELS = ['Popular', 'New', 'Best Seller', "Chef's Special", 'Spicy', 'Gluten-Free', 'Vegetarian'];
 
 export default function AddEditMealScreen() {
-  const { allowed, loading: roleLoading } = useRequireRole(["admin"]);
+  const { allowed, loading: roleLoading } = useRequireRole(["admin", "manager"]);
   if (roleLoading) return <LoadingState fullScreen message="Checking access..." />;
   if (!allowed) return null;
+  return <AddEditMealScreenContent />;
+}
 
+function AddEditMealScreenContent() {
   const router = useRouter();
   const params = useLocalSearchParams<{ id?: string }>();
   const isEdit = !!params.id;

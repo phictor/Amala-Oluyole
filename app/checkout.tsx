@@ -4,28 +4,23 @@ import {
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { PaystackProvider, usePaystack } from 'react-native-paystack-webview';
+import * as Location from 'expo-location';
+import * as WebBrowser from 'expo-web-browser';
 import { useCart, useAppStore } from '@/lib/store/app-store';
 import { trpc } from '@/lib/trpc';
 
 // ── Paystack public key — replace with live key before publishing
-const PAYSTACK_PUBLIC_KEY = 'pk_test_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx';
-
 const PAYMENT_METHODS = [
   { id: 'card', label: 'Debit/Credit Card (Paystack)', icon: '💳', requiresPaystack: true },
-  { id: 'transfer', label: 'Bank Transfer', icon: '🏦', requiresPaystack: false },
-  { id: 'wallet', label: 'Amala Wallet', icon: '👛', requiresPaystack: false },
   { id: 'cash_on_delivery', label: 'Pay on Delivery', icon: '💵', requiresPaystack: false },
-  { id: 'loyalty_points', label: 'Redeem Loyalty Points', icon: '⭐', requiresPaystack: false },
 ];
 
 // ── Inner component that uses the Paystack hook (must be inside PaystackProvider)
 function CheckoutInner() {
   const params = useLocalSearchParams<{ orderType?: string }>();
   const orderType = (params.orderType || 'delivery') as 'delivery' | 'pickup';
-  const { items, subtotal, deliveryFee, serviceFee, discount, total, dispatch: cartDispatch } = useCart();
+  const { items, subtotal, deliveryFee, serviceFee, discount, total, promoCode, dispatch: cartDispatch } = useCart();
   const { state } = useAppStore();
-  const { popup } = usePaystack();
 
   const [paymentMethod, setPaymentMethod] = useState('card');
   const [address, setAddress] = useState('');
@@ -34,58 +29,34 @@ function CheckoutInner() {
   const [loading, setLoading] = useState(false);
 
   const grandTotal = orderType === 'pickup' ? total - deliveryFee : total;
-  const amountInKobo = Math.round(grandTotal * 100);
-  const userEmail = state.user?.email || 'guest@amalaoluyole.com';
-  const userName = state.user?.name || 'Guest';
-
-  const placeOrderMutation = trpc.orders.place.useMutation({
-    onSuccess: (data: unknown) => {
-      const d = data as { id?: number; orderNumber?: string };
-      cartDispatch({ type: 'CLEAR_CART' });
-      setLoading(false);
-      router.replace({ pathname: '/order/[id]' as never, params: { id: String(d?.id ?? 0), isNew: 'true' } });
-    },
-    onError: (err: { message?: string }) => {
-      setLoading(false);
-      Alert.alert('Order Failed', err.message || 'Could not place your order. Please try again.');
-    },
-  });
-
-  const verifyPaymentMutation = trpc.orders.verifyPayment.useMutation({
-    onError: (err: { message?: string }) => {
-      setLoading(false);
-      Alert.alert('Payment Verification Failed', err.message || 'We could not verify your payment. Please contact support with your reference.');
-    },
-  });
-
+  const placeOrderMutation = trpc.orders.place.useMutation();
+  const initializePaymentMutation = trpc.orders.initializePayment.useMutation();
+  const verifyPaymentMutation = trpc.orders.verifyPayment.useMutation();
   const validateZoneMutation = trpc.orders.validateDeliveryZone.useMutation();
 
-  const generateRef = () => `AO-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
-
-  const buildOrderPayload = (paymentRef?: string) => ({
+  const buildOrderPayload = (coords?: { latitude: number; longitude: number }) => ({
     branchId: state.selectedBranch ? Number(state.selectedBranch.id) : 1,
     orderType,
-    paymentMethod: paymentMethod as 'card' | 'transfer' | 'wallet' | 'cash_on_delivery' | 'loyalty_points',
-    paymentReference: paymentRef,
+    paymentMethod: paymentMethod as 'card' | 'cash_on_delivery',
+    promoCode: promoCode || undefined,
+    loyaltyPointsUsed: 0,
     deliveryAddress: orderType === 'delivery' ? `${address}${landmark ? `, ${landmark}` : ''}` : undefined,
-    items: items.map(item => ({
-      mealId: item.meal?.id ? Number(item.meal.id) : 1,
-      name: item.meal?.name || (item.customMeal ? `${item.customMeal.swallow?.name ?? ''} & ${item.customMeal.soup?.name ?? ''}` : 'Custom Meal'),
+    deliveryLatitude: coords?.latitude,
+    deliveryLongitude: coords?.longitude,
+    items: items.map(item => item.customMeal ? ({
+      kind: 'custom' as const,
       quantity: item.quantity,
-      unitPrice: item.unitPrice,
-      totalPrice: item.totalPrice,
-      subtotal: item.totalPrice,
-      specialInstructions: item.specialInstructions,
-    })),
-    subtotal,
-    deliveryFee: orderType === 'delivery' ? deliveryFee : 0,
-    serviceFee,
-    discount,
-    total: grandTotal,
-    scheduledFor: scheduledTime === 'later' ? new Date(Date.now() + 3600_000).toISOString() : undefined,
+      options: {
+        swallowId: item.customMeal.swallow.id,
+        soupId: item.customMeal.soup.id,
+        proteins: item.customMeal.protein.map(option => ({ id: option.id, quantity: 1 })),
+        extras: item.customMeal.extras.map(option => ({ id: option.id, quantity: 1 })),
+      },
+      specialInstructions: item.specialInstructions ?? item.customMeal.specialInstructions,
+    }) : ({ kind: 'meal' as const, mealId: Number(item.meal!.id), quantity: item.quantity, specialInstructions: item.specialInstructions })),
   });
 
-  const handlePlaceOrder = () => {
+  const handlePlaceOrder = async () => {
     if (orderType === 'delivery' && !address.trim()) {
       Alert.alert('Address Required', 'Please enter your delivery address.');
       return;
@@ -97,67 +68,31 @@ function CheckoutInner() {
 
     // FR-060: Validate delivery zone if we have GPS coordinates for the branch
     const branchId = state.selectedBranch ? Number(state.selectedBranch.id) : 1;
-    const branchLat = (state.selectedBranch as { latitude?: number } | null)?.latitude;
-    const branchLng = (state.selectedBranch as { longitude?: number } | null)?.longitude;
-
-    const proceedToPayment = () => {
-      const selectedMethod = PAYMENT_METHODS.find(m => m.id === paymentMethod);
-      if (selectedMethod?.requiresPaystack) {
-        popup.checkout({
-          email: userEmail,
-          amount: amountInKobo,
-          reference: generateRef(),
-          metadata: { name: userName, orderType },
-          onSuccess: (res) => {
-            setLoading(true);
-            placeOrderMutation.mutate(buildOrderPayload(res.reference), {
-              onSuccess: (orderData: unknown) => {
-                const order = orderData as { id?: number; orderNumber?: string };
-                verifyPaymentMutation.mutate(
-                  { orderId: order.id ?? 0, paymentReference: res.reference, expectedAmount: grandTotal },
-                  {
-                    onSuccess: () => {
-                      cartDispatch({ type: 'CLEAR_CART' });
-                      setLoading(false);
-                      router.replace({ pathname: '/order/[id]' as never, params: { id: String(order.id ?? 0), isNew: 'true' } });
-                    },
-                  }
-                );
-              },
-            });
-          },
-          onCancel: () => {
-            Alert.alert('Payment Cancelled', 'Your payment was cancelled. You can try again.');
-          },
-        });
-      } else {
-        setLoading(true);
-        placeOrderMutation.mutate(buildOrderPayload());
-      }
-    };
-
-    if (orderType === 'delivery' && branchLat != null && branchLng != null) {
-      // We have branch coordinates — validate zone server-side
-      // For now use a fixed test coordinate; in production this comes from the user's GPS or geocoded address
-      validateZoneMutation.mutate(
-        { branchId, latitude: branchLat, longitude: branchLng },
-        {
-          onSuccess: (result) => {
-            if (!result.withinZone) {
-              Alert.alert(
-                'Outside Delivery Zone',
-                `Your address is ${result.distanceKm} km from the branch. Our delivery radius is ${result.radiusKm} km. Please choose a closer branch or select pickup.`,
-                [{ text: 'OK' }],
-              );
-            } else {
-              proceedToPayment();
-            }
-          },
-          onError: () => proceedToPayment(), // Fail open — don't block if validation fails
+    setLoading(true);
+    try {
+      let coords: { latitude: number; longitude: number } | undefined;
+      if (orderType === 'delivery') {
+        const permission = await Location.requestForegroundPermissionsAsync();
+        if (permission.status !== 'granted') throw new Error('Location permission is required to validate delivery eligibility.');
+        const location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+        coords = { latitude: location.coords.latitude, longitude: location.coords.longitude };
+        const zone = await validateZoneMutation.mutateAsync({ branchId, ...coords });
+        if (!zone.withinZone) {
+          throw new Error("reason" in zone ? zone.reason : `This location is ${zone.distanceKm} km away and outside the ${zone.radiusKm} km delivery zone.`);
         }
-      );
-    } else {
-      proceedToPayment();
+      }
+      const order = await placeOrderMutation.mutateAsync(buildOrderPayload(coords));
+      if (paymentMethod === 'card') {
+        const initialized = await initializePaymentMutation.mutateAsync({ orderId: order.id });
+        await WebBrowser.openBrowserAsync(initialized.authorizationUrl);
+        await verifyPaymentMutation.mutateAsync({ orderId: order.id, paymentReference: initialized.reference });
+      }
+      cartDispatch({ type: 'CLEAR_CART' });
+      router.replace({ pathname: '/order/[id]' as never, params: { id: String(order.id), isNew: 'true' } });
+    } catch (error) {
+      Alert.alert('Order Failed', error instanceof Error ? error.message : 'Could not place your order.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -314,10 +249,6 @@ function CheckoutInner() {
             <Text style={styles.placeOrderBtnText}>
               {paymentMethod === 'card'
                 ? `Pay ₦${grandTotal.toLocaleString()} with Paystack`
-                : paymentMethod === 'opay'
-                ? `Pay ₦${grandTotal.toLocaleString()} with OPay`
-                : paymentMethod === 'transfer'
-                ? `Transfer ₦${grandTotal.toLocaleString()} (Bank)`
                 : `Place Order — ₦${grandTotal.toLocaleString()}`}
             </Text>
           )}
@@ -329,11 +260,7 @@ function CheckoutInner() {
 
 // ── Outer wrapper that provides the Paystack context
 export default function CheckoutScreen() {
-  return (
-    <PaystackProvider publicKey={PAYSTACK_PUBLIC_KEY} currency="NGN">
-      <CheckoutInner />
-    </PaystackProvider>
-  );
+  return <CheckoutInner />;
 }
 
 const styles = StyleSheet.create({

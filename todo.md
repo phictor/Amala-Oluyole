@@ -137,6 +137,17 @@
 - [x] FR-065-066: Pickup collection code generation and display on order confirmation
 
 ### Next Sprint
+
+### Rider Registration, Dine-in, Admin Menu & Cleanup (Aug 2026)
+- [x] Full rider registration form: name, phone, email, home address, branch, vehicle type, plate
+- [x] Backend createRider endpoint creates user account + rider record in one step (no pre-existing account needed)
+- [x] Add dine_in to orderType enum (DB migration applied via SQL)
+- [x] AdminMenu reusable hamburger component: ☰ trigger, slide-up overlay, ✕ close, active indicator, order badges
+- [x] Admin portal layout replaced from 7-tab Tabs to Stack + AdminMenu floating button
+- [x] WhatsApp order notifications via Twilio (admin + rider updateOrderStatus endpoints)
+- [x] Reservation confirmation email with .ics calendar attachment via Resend
+- [x] Fix "Checking access..." infinite spinner: hydrated flag in AppState, SET_HYDRATED action
+- [x] Clean AI-sounding loading messages across all admin screens
 - [x] FR-102: CSV export button on Reports tab (download transactions for date range)
 - [x] FR-006: Role-based access control on admin dashboard (restrict to admin/kitchen roles)
 - [x] Kitchen Portal: dedicated screen for kitchen staff with order queue, stock management, monthly report
@@ -197,3 +208,94 @@
 - [x] Wire Bistro "Add" buttons to cart store (haptics, ADD_TO_CART dispatch, qty badge)
 - [x] Add Fine Dining Tasting Menu section (5-course ₦25,000 set menu with real photo)
 - [x] Update performance test thresholds to 2000ms for sandbox load variability
+
+### Role-Based Navigation & Finance Dashboard (Aug 2026)
+- [x] Remove Contact tab from customer tab bar (5 tabs → 4: Home, Menu, Cart, Orders, Profile)
+- [x] Add staff management endpoints to admin routes (allStaff, allCustomers, setUserRole)
+- [x] Create (portal-admin) tab group: Finance, Orders, Menu, Staff, Settings tabs
+- [x] Admin Finance screen: revenue KPIs, payment breakdown, recent transactions, quick actions
+- [x] Admin Orders screen: live order queue with status update actions
+- [x] Admin Meals screen: meal CRUD (enable/disable/remove) with add-meal link
+- [x] Admin Staff screen: staff list with role assignment + customer list
+- [x] Admin Settings screen: promo code management + report quick links
+- [x] Create (portal-kitchen) tab group: Orders, Inventory, Report tabs
+- [x] Kitchen Orders screen: grouped by status (New/In Progress/Ready) with action buttons
+- [x] Kitchen Inventory screen: stock levels with low-stock alerts and usage recording
+- [x] Kitchen Report screen: monthly summary with month picker and top meals
+- [x] Create (portal-rider) tab group: Deliveries, Map, Profile tabs
+- [x] Rider Deliveries screen: online/offline toggle, active deliveries, status updates
+- [x] Root layout redirects admin/manager → portal-admin, kitchen → portal-kitchen, rider → portal-rider on auth sync
+- [x] OAuth callback redirects by role after login (admin/manager/kitchen/rider get their portal)
+
+### Kitchen Sound & Vibration Alerts (Aug 2026)
+- [x] Generate "New order!" voice chime (assets/sounds/order-alert.mp3)
+- [x] Build useNewOrderAlert hook: detects new pending order IDs between polls, fires haptic + audio
+- [x] Enable playsInSilentMode so chime works even when iOS silent switch is on
+- [x] Wire hook into Kitchen portal orders screen (portal-kitchen/index.tsx)
+- [x] Add 🔔/🔇 mute toggle in kitchen header with AsyncStorage persistence
+- [x] Add animated "New order received!" flash banner on new order arrival
+
+### Kitchen UX Improvements (Aug 2026)
+- [x] Update getActiveOrders in db.ts to include order items (name, quantity, special instructions) via single batch query
+- [x] Kitchen order cards show dish list with quantity badges and special instruction notes
+- [x] Admin orders screen also shows compact dish list on each order card
+- [x] Reduce kitchen portal poll interval from 20s → 10s for faster alert response
+- [x] Reduce admin orders screen poll interval from 30s → 10s
+
+### Admin Super-Access (Aug 2026)
+- [x] Add Kitchen tab to admin portal: full kitchen order view with dish list and status actions
+- [x] Add Riders tab to admin portal: rider online/offline status, assign rider to ready orders, active deliveries
+- [x] Admin portal now has 7 tabs: Finance, Orders, Kitchen, Riders, Menu, Staff, More
+- [x] Add "Preview Customer App" button in admin More/Settings tab to switch to customer view
+- [x] Admin kitchen view also fires sound/haptic alert on new orders
+
+### Backend Completion & Push Notifications (Aug 2026)
+- [x] Audit all 50+ tRPC endpoints — confirmed all frontend calls have matching backend implementations
+- [x] Install expo-server-sdk on server for real Expo push notification delivery
+- [x] Add sendPushToUser() helper in db.ts: fetches active push tokens, sends via Expo API, auto-deactivates invalid tokens
+- [x] Add upsertPushToken() helper: stores tokens in push_tokens table (multi-device support)
+- [x] Wire sendPushToUser into admin.updateOrderStatus: push fires on Accepted/Preparing/Ready/Rejected/Refunded
+- [x] Wire sendPushToUser into rider.updateOrderStatus: push fires on Out for Delivery/Delivered
+- [x] Wire sendPushToUser into orders.place: push fires on order placement
+- [x] Wire sendPushToUser into orders.verifyPayment and orders.confirmPayment: push fires on payment confirmation
+- [x] Update profile.registerPushToken to also upsert into push_tokens table (dual-write)
+- [x] Add rider alert parity: useNewOrderAlert hook on Rider portal detects new rider_assigned orders
+- [x] Add AdminPortalSwitcher component: floating ⚙️ Admin pill + modal with Finance/Kitchen/Rider/Customer options
+- [x] Wire AdminPortalSwitcher into customer tabs layout (shows only when admin is in preview mode)
+
+### Responsive Layout, Push Tokens, Order Timeline & Paystack Webhook (Aug 2026)
+- [x] Create useResponsive hook: rs(), rf(), colWidth(), rp() utilities for fluid sizing across all screen sizes
+- [x] Replace static Dimensions.get with useWindowDimensions in home, bistro, events, fine-dining, onboarding screens
+- [x] Replace hardcoded grid card widths with percentage-based widths (47%) in bistro and fine-dining grids
+- [x] Replace hardcoded grid widths in admin finance screen with colWidth() from useResponsive
+- [x] Register push tokens on app launch: expo-notifications permission request + getExpoPushTokenAsync in AuthSyncBridge
+- [x] Set foreground notification handler (shouldShowAlert, shouldPlaySound, shouldSetBadge, shouldShowBanner, shouldShowList)
+- [x] Set Android notification channel (Amala Oluyole, MAX importance, red light)
+- [x] Rebuild order detail screen with full timeline: all 8 delivery steps / 6 pickup steps with icons, descriptions, timestamps
+- [x] Order timeline shows current step highlighted in status color, completed steps in red, pending steps greyed out
+- [x] Order detail shows special instructions per item, delivery address, delivery instructions, discount and delivery fee breakdown
+- [x] Add Paystack webhook endpoint POST /api/paystack/webhook with HMAC-SHA512 signature verification
+- [x] Webhook auto-confirms payment, awards loyalty points, sends in-app notification and push on charge.success event
+
+### Production Fixes, Revenue Chart & Loyalty Display (Aug 2026)
+- [x] Fix bistro "Get Directions" button: was navigating to removed /(tabs)/contact, now navigates to /contact
+- [x] Add dailyRevenue endpoint to admin router: 7-day breakdown with per-day revenue and order count, fills missing days with 0
+- [x] Add 7-day revenue bar chart to admin Finance dashboard using react-native-svg (Rect, SvgText, Line)
+- [x] Chart shows today's bar in red, past days in navy, value labels above bars, day labels below
+- [x] Rebuild loyalty card on Profile screen: gradient background matching tier, large points display, progress bar to next tier
+- [x] Loyalty card shows tier ladder (Bronze → Silver → Gold → Platinum) with reached tiers highlighted
+- [x] Loyalty card shows exact points needed to reach next tier
+- [x] Platinum tier shows special congratulatory message instead of progress bar
+
+### Menu Seed, Admin Fixes, Paystack & Order Cancellation (Aug 2026)
+- [x] Seed database with 46 real Amala Oluyole meals across 8 categories (swallows, soups, proteins, rice, sides, drinks, desserts, chef specials)
+- [x] Seed 3 real branches (Oluyole Estate, Ring Road, Bodija) with coordinates, hours, and delivery settings
+- [x] Link all 46 meals to all 3 branches in meal_branch_availability table
+- [x] Fix admin Transaction Report: useRequireRole was re-fetching auth and redirecting before role confirmed — now reads from app-store
+- [x] Fix admin Rider Tracking Map: RiderMap was a text placeholder — rebuilt with real OpenStreetMap WebView (Leaflet.js)
+- [x] RiderMap shows interactive map with 🛵 rider pin, optional 📍 destination pin, and dashed route line
+- [x] Install react-native-webview for map rendering on iOS, Android, and Web
+- [x] Set PAYSTACK_SECRET_KEY in project secrets (sk_test format confirmed)
+- [x] Add 5-minute order cancellation window to order detail screen
+- [x] Cancel button only visible within 5 minutes of placing and before order is accepted
+- [x] Cancel button triggers confirmation alert before calling orders.cancel mutation

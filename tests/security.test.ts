@@ -58,11 +58,10 @@ describe("Security: Authentication", () => {
         branchId: 1,
         orderType: "delivery",
         paymentMethod: "card",
-        items: [{ mealId: 1, name: "Test Meal", quantity: 1, unitPrice: 1500, subtotal: 1500 }],
-        subtotal: 1500,
-        deliveryFee: 500,
-        discount: 0,
-        total: 2000,
+        deliveryAddress: "1 Test Street",
+        deliveryLatitude: 7.37,
+        deliveryLongitude: 3.94,
+        items: [{ kind: "meal", mealId: 1, quantity: 1 }],
       })
     ).rejects.toThrow();
   });
@@ -186,10 +185,6 @@ describe("Security: Input Validation", () => {
         orderType: "delivery",
         paymentMethod: "card",
         items: [],
-        subtotal: 0,
-        deliveryFee: 0,
-        discount: 0,
-        total: 0,
       })
     ).rejects.toThrow();
   });
@@ -201,11 +196,7 @@ describe("Security: Input Validation", () => {
         branchId: 1,
         orderType: "delivery",
         paymentMethod: "card",
-        items: [{ mealId: 1, name: "Test", quantity: -1, unitPrice: 1500, subtotal: -1500 }],
-        subtotal: -1500,
-        deliveryFee: 0,
-        discount: 0,
-        total: -1500,
+        items: [{ kind: "meal", mealId: 1, quantity: -1 }],
       })
     ).rejects.toThrow();
   });
@@ -214,7 +205,7 @@ describe("Security: Input Validation", () => {
     const caller = appRouter.createCaller(ctx("customer", 1));
     const longCode = "A".repeat(51);
     await expect(
-      caller.orders.validatePromo({ code: longCode, orderAmount: 1000 })
+      caller.orders.validatePromo({ code: longCode, branchId: 1 })
     ).rejects.toThrow();
   });
 
@@ -275,7 +266,7 @@ describe("Security: Transaction Integrity", () => {
     const caller = appRouter.createCaller(ctx("customer", 1));
     const result = await caller.orders.validatePromo({
       code: "FAKECODE999",
-      orderAmount: 2000,
+      branchId: 1,
     }).catch(() => null);
     // Either throws (DB unavailable) or returns invalid
     if (result !== null) {
@@ -313,6 +304,7 @@ describe("Security: Transaction Integrity", () => {
     const caller = appRouter.createCaller(ctx("rider", 30));
     // updateLocation uses ctx.user.id internally — cannot update another rider's location
     const result = await caller.rider.updateLocation({
+      orderId: 1,
       latitude: 7.3775,
       longitude: 3.9470,
     }).catch(() => null);

@@ -1,175 +1,172 @@
-import { COOKIE_NAME, ONE_YEAR_MS } from "../../shared/const.js";
+import crypto from "crypto";
+import { parse as parseCookieHeader } from "cookie";
 import type { Express, Request, Response } from "express";
+import {
+  COOKIE_NAME,
+  CSRF_COOKIE_NAME,
+  REFRESH_COOKIE_NAME,
+  REFRESH_TTL_MS,
+  SESSION_TTL_MS,
+} from "../../shared/const.js";
 import { getUserByOpenId, upsertUser } from "../db";
 import { getSessionCookieOptions } from "./cookies";
 import { sdk } from "./sdk";
+import { consumeOAuthState, issueOAuthState, OAUTH_BINDING_COOKIE } from "../security/oauth-state";
 
-function getQueryParam(req: Request, key: string): string | undefined {
+function query(req: Request, key: string): string | undefined {
   const value = req.query[key];
   return typeof value === "string" ? value : undefined;
 }
 
-async function syncUser(userInfo: {
-  openId?: string | null;
-  name?: string | null;
-  email?: string | null;
-  loginMethod?: string | null;
-  platform?: string | null;
-}) {
-  if (!userInfo.openId) {
-    throw new Error("openId missing from user info");
-  }
+function cookies(req: Request): Record<string, string> {
+  return parseCookieHeader(req.headers.cookie ?? "");
+}
 
-  const lastSignedIn = new Date();
+function issueCsrfCookie(req: Request, res: Response): string {
+  const token = crypto.randomBytes(24).toString("base64url");
+  const options = getSessionCookieOptions(req);
+  res.cookie(CSRF_COOKIE_NAME, token, { ...options, httpOnly: false, sameSite: "strict", maxAge: REFRESH_TTL_MS });
+  return token;
+}
+
+async function syncUser(userInfo: {
+  openId?: string | null; name?: string | null; email?: string | null; loginMethod?: string | null; platform?: string | null;
+}) {
+  if (!userInfo.openId) throw new Error("Invalid identity response");
   await upsertUser({
     openId: userInfo.openId,
     name: userInfo.name || null,
     email: userInfo.email ?? null,
     loginMethod: userInfo.loginMethod ?? userInfo.platform ?? null,
-    lastSignedIn,
+    lastSignedIn: new Date(),
   });
   const saved = await getUserByOpenId(userInfo.openId);
-  return (
-    saved ?? {
-      openId: userInfo.openId,
-      name: userInfo.name,
-      email: userInfo.email,
-      loginMethod: userInfo.loginMethod ?? null,
-      lastSignedIn,
-    }
-  );
+  if (!saved) throw new Error("User synchronization failed");
+  return saved;
 }
 
-function buildUserResponse(
-  user:
-    | Awaited<ReturnType<typeof getUserByOpenId>>
-    | {
-        openId: string;
-        name?: string | null;
-        email?: string | null;
-        loginMethod?: string | null;
-        lastSignedIn?: Date | null;
-      },
-) {
+function publicUser(user: Awaited<ReturnType<typeof getUserByOpenId>>) {
+  if (!user) return null;
+  return { id: user.id, name: user.name, email: user.email, loginMethod: user.loginMethod, role: user.role, lastSignedIn: user.lastSignedIn.toISOString() };
+}
+
+async function createTokenPair(openId: string, name: string) {
   return {
-    id: (user as any)?.id ?? null,
-    openId: user?.openId ?? null,
-    name: user?.name ?? null,
-    email: user?.email ?? null,
-    loginMethod: user?.loginMethod ?? null,
-    lastSignedIn: (user?.lastSignedIn ?? new Date()).toISOString(),
-    role: (user as any)?.role ?? "customer",
+    accessToken: await sdk.createSessionToken(openId, { name, expiresInMs: SESSION_TTL_MS }),
+    refreshToken: await sdk.createRefreshToken(openId),
   };
 }
 
+function setWebSession(req: Request, res: Response, pair: Awaited<ReturnType<typeof createTokenPair>>) {
+  const options = getSessionCookieOptions(req);
+  res.cookie(COOKIE_NAME, pair.accessToken, { ...options, maxAge: SESSION_TTL_MS });
+  res.cookie(REFRESH_COOKIE_NAME, pair.refreshToken, { ...options, maxAge: REFRESH_TTL_MS });
+  issueCsrfCookie(req, res);
+}
+
 export function registerOAuthRoutes(app: Express) {
-  app.get("/api/oauth/callback", async (req: Request, res: Response) => {
-    const code = getQueryParam(req, "code");
-    const state = getQueryParam(req, "state");
-
-    if (!code || !state) {
-      res.status(400).json({ error: "code and state are required" });
-      return;
-    }
-
+  app.get("/api/oauth/state", async (req, res) => {
     try {
-      const tokenResponse = await sdk.exchangeCodeForToken(code, state);
-      const userInfo = await sdk.getUserInfo(tokenResponse.accessToken);
-      await syncUser(userInfo);
-      const sessionToken = await sdk.createSessionToken(userInfo.openId!, {
-        name: userInfo.name || "",
-        expiresInMs: ONE_YEAR_MS,
-      });
-
-      const cookieOptions = getSessionCookieOptions(req);
-      res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: ONE_YEAR_MS });
-
-      // Redirect to the frontend URL (Expo web on port 8081)
-      // Cookie is set with parent domain so it works across both 3000 and 8081 subdomains
-      const frontendUrl =
-        process.env.EXPO_WEB_PREVIEW_URL ||
-        process.env.EXPO_PACKAGER_PROXY_URL ||
-        "http://localhost:8081";
-      res.redirect(302, frontendUrl);
-    } catch (error) {
-      console.error("[OAuth] Callback failed", error);
-      res.status(500).json({ error: "OAuth callback failed" });
+      const redirectUri = query(req, "redirectUri");
+      if (!redirectUri) return void res.status(400).json({ error: "redirectUri is required" });
+      const suppliedBinding = req.headers["x-oauth-binding"];
+      const existingBinding = typeof suppliedBinding === "string" ? suppliedBinding : cookies(req)[OAUTH_BINDING_COOKIE];
+      const result = await issueOAuthState(redirectUri, existingBinding);
+      const options = getSessionCookieOptions(req);
+      res.cookie(OAUTH_BINDING_COOKIE, result.binding, { ...options, sameSite: "lax", maxAge: result.expiresInSeconds * 1000 });
+      res.setHeader("Cache-Control", "no-store");
+      res.json(result);
+    } catch {
+      res.status(400).json({ error: "Unable to start sign-in" });
     }
   });
 
-  app.get("/api/oauth/mobile", async (req: Request, res: Response) => {
-    const code = getQueryParam(req, "code");
-    const state = getQueryParam(req, "state");
-
-    if (!code || !state) {
-      res.status(400).json({ error: "code and state are required" });
-      return;
-    }
-
+  app.get("/api/oauth/callback", async (req, res) => {
+    const code = query(req, "code");
+    const state = query(req, "state");
+    const binding = cookies(req)[OAUTH_BINDING_COOKIE];
+    if (!code || !state || !binding) return void res.status(400).json({ error: "Invalid sign-in callback" });
     try {
-      const tokenResponse = await sdk.exchangeCodeForToken(code, state);
+      const redirectUri = await consumeOAuthState(state, binding);
+      const tokenResponse = await sdk.exchangeCodeForToken(code, redirectUri);
       const userInfo = await sdk.getUserInfo(tokenResponse.accessToken);
       const user = await syncUser(userInfo);
-
-      const sessionToken = await sdk.createSessionToken(userInfo.openId!, {
-        name: userInfo.name || "",
-        expiresInMs: ONE_YEAR_MS,
-      });
-
-      const cookieOptions = getSessionCookieOptions(req);
-      res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: ONE_YEAR_MS });
-
-      res.json({
-        app_session_id: sessionToken,
-        user: buildUserResponse(user),
-      });
-    } catch (error) {
-      console.error("[OAuth] Mobile exchange failed", error);
-      res.status(500).json({ error: "OAuth mobile exchange failed" });
+      setWebSession(req, res, await createTokenPair(user.openId, user.name || ""));
+      const frontend = process.env.EXPO_WEB_PREVIEW_URL || process.env.EXPO_PACKAGER_PROXY_URL || "http://localhost:8081";
+      res.redirect(302, frontend);
+    } catch {
+      res.status(400).json({ error: "Sign-in failed" });
     }
   });
 
-  app.post("/api/auth/logout", (req: Request, res: Response) => {
-    const cookieOptions = getSessionCookieOptions(req);
-    res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
+  app.post("/api/oauth/mobile", async (req, res) => {
+    const { code, state, binding } = (req.body ?? {}) as Record<string, unknown>;
+    if (typeof code !== "string" || typeof state !== "string" || typeof binding !== "string") {
+      return void res.status(400).json({ error: "Invalid sign-in callback" });
+    }
+    try {
+      const redirectUri = await consumeOAuthState(state, binding);
+      const tokenResponse = await sdk.exchangeCodeForToken(code, redirectUri);
+      const userInfo = await sdk.getUserInfo(tokenResponse.accessToken);
+      const user = await syncUser(userInfo);
+      const pair = await createTokenPair(user.openId, user.name || "");
+      res.setHeader("Cache-Control", "no-store");
+      res.json({ ...pair, user: publicUser(user), expiresInSeconds: SESSION_TTL_MS / 1000 });
+    } catch {
+      res.status(400).json({ error: "Sign-in failed" });
+    }
+  });
+
+  app.post("/api/auth/refresh", async (req, res) => {
+    const bodyToken = typeof req.body?.refreshToken === "string" ? req.body.refreshToken : undefined;
+    const refresh = bodyToken ?? cookies(req)[REFRESH_COOKIE_NAME];
+    const verified = await sdk.verifyRefreshToken(refresh);
+    if (!verified) return void res.status(401).json({ error: "Authentication required" });
+    const user = await getUserByOpenId(verified.openId);
+    if (!user) return void res.status(401).json({ error: "Authentication required" });
+    const pair = await createTokenPair(user.openId, user.name || "");
+    res.setHeader("Cache-Control", "no-store");
+    if (!bodyToken) {
+      setWebSession(req, res, pair);
+      res.json({ expiresInSeconds: SESSION_TTL_MS / 1000 });
+    } else {
+      res.json({ ...pair, expiresInSeconds: SESSION_TTL_MS / 1000 });
+    }
+  });
+
+  app.post("/api/auth/logout", async (req, res) => {
+    const options = getSessionCookieOptions(req);
+    const bodyToken = typeof req.body?.refreshToken === "string" ? req.body.refreshToken : undefined;
+    await sdk.revokeRefreshToken(bodyToken ?? cookies(req)[REFRESH_COOKIE_NAME]);
+    for (const name of [COOKIE_NAME, REFRESH_COOKIE_NAME, CSRF_COOKIE_NAME, OAUTH_BINDING_COOKIE]) {
+      res.clearCookie(name, { ...options, maxAge: -1 });
+    }
+    res.setHeader("Cache-Control", "no-store");
     res.json({ success: true });
   });
 
-  // Get current authenticated user - works with both cookie (web) and Bearer token (mobile)
-  app.get("/api/auth/me", async (req: Request, res: Response) => {
+  app.get("/api/auth/me", async (req, res) => {
     try {
       const user = await sdk.authenticateRequest(req);
-      res.json({ user: buildUserResponse(user) });
-    } catch (error) {
-      console.error("[Auth] /api/auth/me failed:", error);
-      res.status(401).json({ error: "Not authenticated", user: null });
+      res.setHeader("Cache-Control", "no-store");
+      res.json({ user: publicUser(user) });
+    } catch {
+      res.status(401).json({ error: "Authentication required", user: null });
     }
   });
 
-  // Establish session cookie from Bearer token
-  // Used by iframe preview: frontend receives token via postMessage, then calls this endpoint
-  // to get a proper Set-Cookie response from the backend (3000-xxx domain)
-  app.post("/api/auth/session", async (req: Request, res: Response) => {
+  app.post("/api/auth/session", async (req, res) => {
     try {
-      // Authenticate using Bearer token from Authorization header
       const user = await sdk.authenticateRequest(req);
-
-      // Get the token from the Authorization header to set as cookie
-      const authHeader = req.headers.authorization || req.headers.Authorization;
-      if (typeof authHeader !== "string" || !authHeader.startsWith("Bearer ")) {
-        res.status(400).json({ error: "Bearer token required" });
-        return;
-      }
-      const token = authHeader.slice("Bearer ".length).trim();
-
-      // Set cookie for this domain (3000-xxx)
-      const cookieOptions = getSessionCookieOptions(req);
-      res.cookie(COOKIE_NAME, token, { ...cookieOptions, maxAge: ONE_YEAR_MS });
-
-      res.json({ success: true, user: buildUserResponse(user) });
-    } catch (error) {
-      console.error("[Auth] /api/auth/session failed:", error);
-      res.status(401).json({ error: "Invalid token" });
+      const authorization = req.headers.authorization;
+      if (!authorization?.startsWith("Bearer ")) return void res.status(400).json({ error: "Bearer token required" });
+      const options = getSessionCookieOptions(req);
+      res.cookie(COOKIE_NAME, authorization.slice(7).trim(), { ...options, maxAge: SESSION_TTL_MS });
+      issueCsrfCookie(req, res);
+      res.setHeader("Cache-Control", "no-store");
+      res.json({ success: true, user: publicUser(user) });
+    } catch {
+      res.status(401).json({ error: "Authentication required" });
     }
   });
 }

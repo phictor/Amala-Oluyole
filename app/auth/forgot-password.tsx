@@ -29,7 +29,7 @@ export default function ForgotPasswordScreen() {
       <Text style={styles.emoji}>🔐</Text>
       <Text style={styles.title}>Reset Password</Text>
       <Text style={styles.subtitle}>
-        Enter your phone number or email and we'll send you a reset code.
+        Enter your phone number or email and we’ll send you a reset code.
       </Text>
 
       {sent ? (

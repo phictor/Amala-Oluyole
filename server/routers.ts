@@ -10,6 +10,7 @@ import { reservationsRouter } from "./routes/reservations";
 import { riderRouter } from "./routes/rider";
 import { supportRouter } from "./routes/support";
 import { kitchenRouter } from "./routes/kitchen";
+import { securityRouter } from "./routes/security";
 import { COOKIE_NAME } from "../shared/const.js";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
@@ -39,5 +40,6 @@ export const appRouter = router({
   profile: profileRouter,
   admin: adminRouter,
   kitchen: kitchenRouter,
+  security: securityRouter,
 });
 export type AppRouter = typeof appRouter;

@@ -50,6 +50,7 @@ const config: ExpoConfig = {
     supportsTablet: true,
     bundleIdentifier: env.iosBundleId,
     buildNumber: "1",  // Increment this for every new TestFlight / App Store submission
+    associatedDomains: ["applinks:amalaoluyole.com"],
     infoPlist: {
       ITSAppUsesNonExemptEncryption: false,
       NSLocationWhenInUseUsageDescription: "Amala Oluyole uses your location to show nearby branches and track your delivery.",
@@ -94,7 +95,8 @@ const config: ExpoConfig = {
         data: [
           {
             scheme: env.scheme,
-            host: "*",
+            host: "oauth",
+            pathPrefix: "/callback",
           },
         ],
         category: ["BROWSABLE", "DEFAULT"],
@@ -107,6 +109,11 @@ const config: ExpoConfig = {
             scheme: "https",
             host: "amalaoluyole.com",
             pathPrefix: "/meal/custom",
+          },
+          {
+            scheme: "https",
+            host: "amalaoluyole.com",
+            pathPrefix: "/oauth/callback",
           },
         ],
         category: ["BROWSABLE", "DEFAULT"],

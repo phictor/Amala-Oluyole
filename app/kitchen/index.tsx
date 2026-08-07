@@ -17,10 +17,13 @@ const MONTH_NAMES = [
 ];
 
 export default function KitchenPortal() {
-  const { allowed, loading: roleLoading } = useRequireRole(["kitchen", "admin"]);
+  const { allowed, loading: roleLoading } = useRequireRole(["kitchen", "admin", "manager"]);
   if (roleLoading) return <LoadingState fullScreen message="Checking access..." />;
   if (!allowed) return null;
+  return <KitchenPortalContent />;
+}
 
+function KitchenPortalContent() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<KitchenTab>('orders');
   const [branchId] = useState(1); // TODO: derive from user.preferredBranchId

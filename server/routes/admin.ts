@@ -4,17 +4,21 @@ import {
   updateOrderStatus, assignRiderToOrder, getAvailableRiders,
 } from "../db";
 import { createNotification } from "../db";
+import { sendPushToUser } from "../db";
 import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
 import { TRPCError } from "@trpc/server";
 import { getDb } from "../db";
-import { meals, mealCategories, orders, users, riders, branches, promoCodes } from "../../drizzle/schema";
+import { meals, mealCategories, orders, users, riders, branches, promoCodes, customerAddresses } from "../../drizzle/schema";
 import { eq, desc, count, and, gte, lte, sql } from "drizzle-orm";
+import { assertOrderTransition } from "../security/order-state";
+import { requireAppIntegrity } from "../security/app-integrity";
 
 // Admin-only middleware
-const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
+const adminProcedure = protectedProcedure.use(async ({ ctx, next, type }) => {
   if (ctx.user.role !== "admin" && ctx.user.role !== "manager") {
     throw new TRPCError({ code: "FORBIDDEN", message: "Admin access required" });
   }
+  if (type === "mutation") await requireAppIntegrity(ctx.req, ctx.user.id, "admin");
   return next({ ctx });
 });
 
@@ -117,7 +121,11 @@ export const adminRouter = router({
       note: z.string().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
-      await updateOrderStatus(input.orderId, input.status, input.note, ctx.user.id);
+      const current = await getOrderWithItems(input.orderId);
+      if (!current) throw new TRPCError({ code: "NOT_FOUND", message: "Order not found" });
+      const actor = ctx.user.role === "kitchen" ? "kitchen" : ctx.user.role === "manager" ? "manager" : "admin";
+      assertOrderTransition(current.order.status, input.status, actor);
+      await updateOrderStatus(input.orderId, input.status, actor, input.note, ctx.user.id);
       // ── Customer push notification on status change ────────────────────────
       const db = await getDb();
       if (db) {
@@ -140,6 +148,13 @@ export const adminRouter = router({
               body: msg.message,
               orderId: input.orderId,
             }).catch(() => {});
+            sendPushToUser(orderRow[0].userId, msg.title, msg.message, { orderId: input.orderId, orderNumber: orderRow[0].orderNumber }).catch(() => {});
+            // ── WhatsApp notification ──────────────────────────────────────
+            db.select({ phone: users.phone }).from(users).where(eq(users.id, orderRow[0].userId)).limit(1).then(userRow => {
+              if (userRow.length > 0 && userRow[0].phone) {
+                sendOrderStatusWhatsApp(userRow[0].phone, orderRow[0].orderNumber ?? String(input.orderId), input.status, input.note).catch(() => {});
+              }
+            }).catch(() => {});
           }
         }
       }
@@ -158,7 +173,7 @@ export const adminRouter = router({
   // Assign rider to order
   assignRider: adminProcedure
     .input(z.object({ orderId: z.number(), riderId: z.number() }))
-    .mutation(({ input }) => assignRiderToOrder(input.orderId, input.riderId)),
+    .mutation(({ ctx, input }) => assignRiderToOrder(input.orderId, input.riderId, ctx.user.id)),
 
   // ── Meal Management (CRUD) ────────────────────────────────────────────────
   allMeals: adminProcedure.query(async () => {
@@ -339,73 +354,194 @@ export const adminRouter = router({
       return { success: true };
     }),
 
-  // 7-day revenue breakdown by order type (delivery / pickup / dine_in)
+  // ── Staff / User Management ───────────────────────────────────────────────
+  allStaff: adminProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) return [];
+    return db
+      .select({ id: users.id, name: users.name, email: users.email, phone: users.phone, role: users.role, createdAt: users.createdAt, lastSignedIn: users.lastSignedIn })
+      .from(users)
+      .where(ne(users.role, 'customer'))
+      .orderBy(users.role, users.name);
+  }),
+
+  allCustomers: adminProcedure
+    .input(z.object({ limit: z.number().default(50), offset: z.number().default(0) }).optional())
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return { rows: [], total: 0 };
+      const [{ total }] = await db.select({ total: count() }).from(users).where(eq(users.role, 'customer'));
+      const rows = await db
+        .select({ id: users.id, name: users.name, email: users.email, phone: users.phone, createdAt: users.createdAt, lastSignedIn: users.lastSignedIn })
+        .from(users)
+        .where(eq(users.role, 'customer'))
+        .orderBy(desc(users.createdAt))
+        .limit(input?.limit ?? 50)
+        .offset(input?.offset ?? 0);
+      return { rows, total };
+    }),
+
+  setUserRole: adminProcedure
+    .input(z.object({ userId: z.number(), role: z.enum(['customer', 'admin', 'rider', 'kitchen', 'manager']) }))
+    .mutation(async ({ input, ctx }) => {
+      if (input.userId === ctx.user.id) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Cannot change your own role' });
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'DB unavailable' });
+      await db.update(users).set({ role: input.role, updatedAt: new Date() }).where(eq(users.id, input.userId));
+      return { success: true };
+    }),
+
+  // 7-day daily revenue breakdown for the Finance dashboard chart
+  dailyRevenue: adminProcedure
+    .input(z.object({ days: z.number().default(7) }).optional())
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return [];
+      const days = input?.days ?? 7;
+      const from = new Date();
+      from.setDate(from.getDate() - (days - 1));
+      from.setHours(0, 0, 0, 0);
+      const rows = await db
+        .select({
+          day: sql<string>`DATE(${orders.createdAt})`,
+          revenue: sql<number>`COALESCE(SUM(CASE WHEN ${orders.paymentStatus}='paid' THEN CAST(${orders.total} AS DECIMAL(12,2)) ELSE 0 END),0)`,
+          orderCount: sql<number>`COUNT(*)`,
+        })
+        .from(orders)
+        .where(gte(orders.createdAt, from))
+        .groupBy(sql`DATE(${orders.createdAt})`)
+        .orderBy(sql`DATE(${orders.createdAt})`);
+      // Fill in missing days with 0
+      const result: { day: string; revenue: number; orderCount: number }[] = [];
+      for (let i = 0; i < days; i++) {
+        const d = new Date();
+        d.setDate(d.getDate() - (days - 1 - i));
+        const dayStr = d.toISOString().split('T')[0];
+        const found = rows.find(r => r.day === dayStr);
+        result.push({ day: dayStr, revenue: found ? Number(found.revenue) : 0, orderCount: found ? Number(found.orderCount) : 0 });
+      }
+      return result;
+    }),
+
+  // Upload a meal photo (base64 → S3) and return the public URL
+  uploadMealImage: adminProcedure
+    .input(z.object({
+      mealId: z.number().int().positive(),
+      base64: z.string().max(8_000_000).regex(/^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/),
+      fileName: z.string().max(100).regex(/^[A-Za-z0-9_-]+\.(?:jpe?g|png|webp)$/i).default('meal.jpg'),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'DB unavailable' });
+      // Strip data URI prefix if present
+      const base64Data = input.base64.replace(/^data:image\/\w+;base64,/, '');
+      const buffer = Buffer.from(base64Data, 'base64');
+      if (buffer.byteLength > 5 * 1024 * 1024) throw new TRPCError({ code: 'PAYLOAD_TOO_LARGE', message: 'Image must be 5 MB or smaller' });
+      const ext = input.fileName.split('.').pop()?.toLowerCase() ?? 'jpg';
+      const contentType = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
+      const { url } = await storagePut(`meals/${input.mealId}_${Date.now()}.${ext}`, buffer, contentType);
+      // Update the meal's imageUrl
+      await db.update(meals).set({ imageUrl: url, updatedAt: new Date() }).where(eq(meals.id, input.mealId));
+      return { url };
+    }),
+
+  // Create a new rider account (links an existing user to the riders table)
+  createRider: adminProcedure
+    .input(z.object({
+      // Full registration — no pre-existing account needed
+      name: z.string().min(2),
+      phone: z.string().min(7),
+      email: z.string().email().optional(),
+      homeAddress: z.string().min(5),
+      branchId: z.number(),
+      vehicleType: z.enum(['motorcycle', 'bicycle', 'car']).default('motorcycle'),
+      vehiclePlate: z.string().optional(),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Database unavailable' });
+      // Check if phone already registered
+      const existingUser = await db.select({ id: users.id }).from(users).where(eq(users.phone, input.phone)).limit(1);
+      if (existingUser.length > 0) {
+        // User exists — check if already a rider
+        const existingRider = await db.select({ id: riders.id }).from(riders).where(eq(riders.userId, existingUser[0].id)).limit(1);
+        if (existingRider.length > 0) throw new TRPCError({ code: 'CONFLICT', message: 'This phone number is already registered as a rider' });
+        // Promote existing user to rider
+        await db.update(users).set({ role: 'rider', name: input.name, updatedAt: new Date() }).where(eq(users.id, existingUser[0].id));
+        await db.insert(riders).values({ userId: existingUser[0].id, branchId: input.branchId, vehicleType: input.vehicleType, vehiclePlate: input.vehiclePlate ?? null, isOnline: false, isAvailable: true, isActive: true, totalDeliveries: 0, rating: 5.0, ratingCount: 0 });
+        // Save home address
+        if (input.homeAddress) {
+          await db.insert(customerAddresses).values({ userId: existingUser[0].id, label: 'Home', fullAddress: input.homeAddress, isDefault: true });
+        }
+        return { success: true, userId: existingUser[0].id };
+      }
+      // Create brand new user account for the rider
+      const openId = `rider_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      const [newUser] = await db.insert(users).values({
+        openId,
+        name: input.name,
+        phone: input.phone,
+        email: input.email ?? null,
+        loginMethod: 'admin_created',
+        role: 'rider',
+        isGuest: false,
+        preferredBranchId: input.branchId,
+      }).$returningId();
+      await db.insert(riders).values({ userId: newUser.id, branchId: input.branchId, vehicleType: input.vehicleType, vehiclePlate: input.vehiclePlate ?? null, isOnline: false, isAvailable: true, isActive: true, totalDeliveries: 0, rating: 5.0, ratingCount: 0 });
+      // Save home address
+      if (input.homeAddress) {
+        await db.insert(customerAddresses).values({ userId: newUser.id, label: 'Home', fullAddress: input.homeAddress, isDefault: true });
+      }
+      return { success: true, userId: newUser.id };
+    }),
+
   dailyRevenueByType: adminProcedure
     .input(z.object({ branchId: z.number().optional() }).optional())
     .query(async ({ input }) => {
       const db = await getDb();
       if (!db) return [];
-      const baseConditions = [
+      const conditions: Parameters<typeof and>[0][] = [
         gte(orders.createdAt, sql`DATE_SUB(CURDATE(), INTERVAL 6 DAY)`),
-        sql`${orders.paymentStatus} = 'paid'`,
+        eq(orders.paymentStatus, "paid"),
       ];
-      if (input?.branchId) baseConditions.push(eq(orders.branchId, input.branchId));
-      const rows = await db
-        .select({
-          day: sql<string>`DATE(${orders.createdAt})`,
-          orderType: orders.orderType,
-          revenue: sql<number>`COALESCE(SUM(CAST(${orders.total} AS DECIMAL(12,2))), 0)`,
-          orderCount: sql<number>`COUNT(*)`,
-        })
-        .from(orders)
-        .where(and(...baseConditions))
-        .groupBy(sql`DATE(${orders.createdAt})`, orders.orderType)
-        .orderBy(sql`DATE(${orders.createdAt})`);
-      // Pivot into per-day objects with type breakdown
-      const dayMap: Record<string, { day: string; delivery: number; pickup: number; dine_in: number; total: number; deliveryCount: number; pickupCount: number; dineInCount: number }> = {};
+      if (input?.branchId) conditions.push(eq(orders.branchId, input.branchId));
+      const rows = await db.select({
+        day: sql<string>`DATE(${orders.createdAt})`,
+        orderType: orders.orderType,
+        revenue: sql<number>`COALESCE(SUM(CAST(${orders.total} AS DECIMAL(12,2))), 0)`,
+        orderCount: sql<number>`COUNT(*)`,
+      }).from(orders).where(and(...conditions)).groupBy(sql`DATE(${orders.createdAt})`, orders.orderType).orderBy(sql`DATE(${orders.createdAt})`);
+      const days: Record<string, { day: string; delivery: number; pickup: number; dine_in: number; total: number; deliveryCount: number; pickupCount: number; dineInCount: number }> = {};
       for (const row of rows) {
-        const d = row.day;
-        if (!dayMap[d]) dayMap[d] = { day: d, delivery: 0, pickup: 0, dine_in: 0, total: 0, deliveryCount: 0, pickupCount: 0, dineInCount: 0 };
-        const rev = Number(row.revenue);
-        const cnt = Number(row.orderCount);
-        if (row.orderType === 'delivery') { dayMap[d].delivery = rev; dayMap[d].deliveryCount = cnt; }
-        else if (row.orderType === 'pickup') { dayMap[d].pickup = rev; dayMap[d].pickupCount = cnt; }
-        else if (row.orderType === 'dine_in') { dayMap[d].dine_in = rev; dayMap[d].dineInCount = cnt; }
-        dayMap[d].total += rev;
+        days[row.day] ??= { day: row.day, delivery: 0, pickup: 0, dine_in: 0, total: 0, deliveryCount: 0, pickupCount: 0, dineInCount: 0 };
+        const revenue = Number(row.revenue);
+        const countForType = Number(row.orderCount);
+        if (row.orderType === "delivery") { days[row.day].delivery = revenue; days[row.day].deliveryCount = countForType; }
+        else if (row.orderType === "pickup") { days[row.day].pickup = revenue; days[row.day].pickupCount = countForType; }
+        else { days[row.day].dine_in = revenue; days[row.day].dineInCount = countForType; }
+        days[row.day].total += revenue;
       }
-      return Object.values(dayMap);
+      return Object.values(days);
     }),
 
-  // Dine-in revenue summary: today / this week / this month
   dineInRevenueSummary: adminProcedure
     .input(z.object({ branchId: z.number().optional() }).optional())
     .query(async ({ input }) => {
       const db = await getDb();
       if (!db) return { today: 0, thisWeek: 0, thisMonth: 0, todayCount: 0, weekCount: 0, monthCount: 0 };
-      const base: Parameters<typeof and>[0][] = [
-        sql`${orders.orderType} = 'dine_in'`,
-        sql`${orders.paymentStatus} = 'paid'`,
-      ];
+      const base: Parameters<typeof and>[0][] = [eq(orders.orderType, "dine_in"), eq(orders.paymentStatus, "paid")];
       if (input?.branchId) base.push(eq(orders.branchId, input.branchId));
-      const [todayRow] = await db.select({
-        revenue: sql<number>`COALESCE(SUM(CAST(${orders.total} AS DECIMAL(12,2))), 0)`,
-        cnt: sql<number>`COUNT(*)`,
-      }).from(orders).where(and(...base, sql`DATE(${orders.createdAt}) = CURDATE()`));
-      const [weekRow] = await db.select({
-        revenue: sql<number>`COALESCE(SUM(CAST(${orders.total} AS DECIMAL(12,2))), 0)`,
-        cnt: sql<number>`COUNT(*)`,
-      }).from(orders).where(and(...base, gte(orders.createdAt, sql`DATE_SUB(CURDATE(), INTERVAL 6 DAY)`)));
-      const [monthRow] = await db.select({
-        revenue: sql<number>`COALESCE(SUM(CAST(${orders.total} AS DECIMAL(12,2))), 0)`,
-        cnt: sql<number>`COUNT(*)`,
-      }).from(orders).where(and(...base, sql`MONTH(${orders.createdAt}) = MONTH(CURDATE()) AND YEAR(${orders.createdAt}) = YEAR(CURDATE())`));
+      const sum = () => ({ revenue: sql<number>`COALESCE(SUM(CAST(${orders.total} AS DECIMAL(12,2))), 0)`, count: sql<number>`COUNT(*)` });
+      const [today] = await db.select(sum()).from(orders).where(and(...base, sql`DATE(${orders.createdAt}) = CURDATE()`));
+      const [week] = await db.select(sum()).from(orders).where(and(...base, gte(orders.createdAt, sql`DATE_SUB(CURDATE(), INTERVAL 6 DAY)`)));
+      const [month] = await db.select(sum()).from(orders).where(and(...base, sql`MONTH(${orders.createdAt}) = MONTH(CURDATE()) AND YEAR(${orders.createdAt}) = YEAR(CURDATE())`));
       return {
-        today: Number(todayRow?.revenue ?? 0),
-        thisWeek: Number(weekRow?.revenue ?? 0),
-        thisMonth: Number(monthRow?.revenue ?? 0),
-        todayCount: Number(todayRow?.cnt ?? 0),
-        weekCount: Number(weekRow?.cnt ?? 0),
-        monthCount: Number(monthRow?.cnt ?? 0),
+        today: Number(today?.revenue ?? 0), thisWeek: Number(week?.revenue ?? 0), thisMonth: Number(month?.revenue ?? 0),
+        todayCount: Number(today?.count ?? 0), weekCount: Number(week?.count ?? 0), monthCount: Number(month?.count ?? 0),
       };
     }),
 });
+
+import { ne } from "drizzle-orm";
+import { storagePut } from "../storage";
+import { sendOrderStatusWhatsApp } from "../notifications";

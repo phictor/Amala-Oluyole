@@ -258,7 +258,7 @@ export default function MealBuilderScreen() {
           <View style={styles.deepLinkBannerTextCol}>
             <Text style={styles.deepLinkBannerTitle}>Loaded from a shared link</Text>
             <Text style={styles.deepLinkBannerSub}>
-              Your friend's selections have been pre-filled. Customise as you like!
+              Your friend’s selections have been pre-filled. Customise as you like!
             </Text>
           </View>
           <TouchableOpacity onPress={() => setLoadedFromLink(false)}>

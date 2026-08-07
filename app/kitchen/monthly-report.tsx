@@ -116,10 +116,13 @@ async function exportMonthlyPDF(
 }
 
 export default function KitchenMonthlyReport() {
-  const { allowed, loading: roleLoading } = useRequireRole(["kitchen", "admin"]);
+  const { allowed, loading: roleLoading } = useRequireRole(["kitchen", "admin", "manager"]);
   if (roleLoading) return <LoadingState fullScreen message="Checking access..." />;
   if (!allowed) return null;
+  return <KitchenMonthlyReportContent />;
+}
 
+function KitchenMonthlyReportContent() {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);

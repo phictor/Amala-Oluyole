@@ -85,7 +85,7 @@ export default function OTPScreen() {
       </TouchableOpacity>
 
       <TouchableOpacity style={styles.resendBtn}>
-        <Text style={styles.resendText}>Didn't receive the code? <Text style={styles.resendLink}>Resend</Text></Text>
+        <Text style={styles.resendText}>Didn’t receive the code? <Text style={styles.resendLink}>Resend</Text></Text>
       </TouchableOpacity>
     </View>
   );

@@ -305,7 +305,7 @@ export default function HomeScreen() {
                 <View style={styles.listCardTop}>
                   <Text style={styles.listCardName} numberOfLines={1}>{meal.name}</Text>
                   {meal.labels?.includes('chefs_choice') && (
-                    <View style={styles.chefBadge}><Text style={styles.chefBadgeText}>Chef's</Text></View>
+                    <View style={styles.chefBadge}><Text style={styles.chefBadgeText}>Chef’s</Text></View>
                   )}
                 </View>
                 <Text style={styles.listCardDesc} numberOfLines={2}>{meal.description}</Text>

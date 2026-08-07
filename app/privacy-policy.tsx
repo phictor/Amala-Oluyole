@@ -19,7 +19,7 @@ export default function PrivacyPolicyScreen() {
         <Text style={[styles.updated, { color: colors.muted }]}>Last updated: July 2026</Text>
 
         <Text style={[styles.intro, { color: colors.foreground }]}>
-          Amala Oluyole Restaurant ("we", "our", or "us") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, and share information about you when you use our mobile application.
+          Amala Oluyole Restaurant (“we”, “our”, or “us”) is committed to protecting your privacy. This Privacy Policy explains how we collect, use, and share information about you when you use our mobile application.
         </Text>
 
         {[

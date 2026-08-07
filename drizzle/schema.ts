@@ -8,6 +8,7 @@ import {
   mysqlTable,
   text,
   timestamp,
+  uniqueIndex,
   varchar,
 } from "drizzle-orm/mysql-core";
 
@@ -121,7 +122,7 @@ export const orders = mysqlTable("orders", {
   userId: int("userId").notNull(),
   branchId: int("branchId").notNull(),
   riderId: int("riderId"),
-  orderType: mysqlEnum("orderType", ["delivery", "pickup"]).notNull(),
+  orderType: mysqlEnum("orderType", ["delivery", "pickup", "dine_in"]).notNull(),
   status: mysqlEnum("status", [
     "created", "awaiting_payment", "payment_confirmed",
     "accepted", "preparing", "ready",
@@ -130,8 +131,9 @@ export const orders = mysqlTable("orders", {
   ]).default("created").notNull(),
   paymentMethod: mysqlEnum("paymentMethod", ["card", "transfer", "cash_on_delivery", "wallet", "loyalty_points"]).notNull(),
   paymentStatus: mysqlEnum("paymentStatus", ["pending", "paid", "failed", "refunded"]).default("pending").notNull(),
-  paymentReference: varchar("paymentReference", { length: 128 }),
+  paymentReference: varchar("paymentReference", { length: 128 }).unique(),
   subtotal: decimal("subtotal", { precision: 10, scale: 2 }).notNull(),
+  serviceFee: decimal("serviceFee", { precision: 10, scale: 2 }).default("0.00").notNull(),
   deliveryFee: decimal("deliveryFee", { precision: 10, scale: 2 }).default("0.00").notNull(),
   discount: decimal("discount", { precision: 10, scale: 2 }).default("0.00").notNull(),
   loyaltyPointsUsed: int("loyaltyPointsUsed").default(0).notNull(),
@@ -151,6 +153,8 @@ export const orders = mysqlTable("orders", {
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   pickupCode: varchar("pickupCode", { length: 6 }),
+  paymentInitializedAt: timestamp("paymentInitializedAt"),
+  paymentVerifiedAt: timestamp("paymentVerifiedAt"),
 });
 
 // ─── ORDER ITEMS ─────────────────────────────────────────────────────────────
@@ -160,7 +164,10 @@ export const orderItems = mysqlTable("order_items", {
   mealId: int("mealId"),
   isCustomMeal: boolean("isCustomMeal").default(false).notNull(),
   customMealConfig: json("customMealConfig").$type<{
-    swallow?: string; soup?: string; proteins?: string[]; extras?: string[];
+    swallow?: { id: string; name: string };
+    soup?: { id: string; name: string };
+    proteins?: Array<{ id: string; name: string; quantity: number }>;
+    extras?: Array<{ id: string; name: string; quantity: number }>;
   }>(),
   name: varchar("name", { length: 128 }).notNull(), // snapshot of meal name at order time
   unitPrice: decimal("unitPrice", { precision: 10, scale: 2 }).notNull(),
@@ -232,7 +239,44 @@ export const loyaltyTransactions = mysqlTable("loyalty_transactions", {
   type: mysqlEnum("type", ["earned", "redeemed", "bonus", "expired", "adjusted"]).notNull(),
   points: int("points").notNull(), // positive = earned, negative = redeemed
   description: text("description"),
+  idempotencyKey: varchar("idempotencyKey", { length: 160 }),
   expiresAt: timestamp("expiresAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (table) => ({
+  idempotencyKeyUnique: uniqueIndex("loyalty_transactions_idempotency_key_unique").on(table.idempotencyKey),
+}));
+
+// Short-lived, single-use OAuth state. Only a SHA-256 digest is stored.
+export const oauthStates = mysqlTable("oauth_states", {
+  id: int("id").autoincrement().primaryKey(),
+  stateHash: varchar("stateHash", { length: 64 }).notNull().unique(),
+  redirectUri: varchar("redirectUri", { length: 512 }).notNull(),
+  sessionBindingHash: varchar("sessionBindingHash", { length: 64 }).notNull(),
+  expiresAt: timestamp("expiresAt").notNull(),
+  usedAt: timestamp("usedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export const refreshSessions = mysqlTable("refresh_sessions", {
+  id: int("id").autoincrement().primaryKey(),
+  jtiHash: varchar("jtiHash", { length: 64 }).notNull().unique(),
+  openId: varchar("openId", { length: 64 }).notNull(),
+  expiresAt: timestamp("expiresAt").notNull(),
+  usedAt: timestamp("usedAt"),
+  revokedAt: timestamp("revokedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+// Server-issued challenges used to enforce freshness and replay protection for
+// high-risk mobile operations. Provider assertions are never stored.
+export const appIntegrityChallenges = mysqlTable("app_integrity_challenges", {
+  id: int("id").autoincrement().primaryKey(),
+  nonceHash: varchar("nonceHash", { length: 64 }).notNull().unique(),
+  userId: int("userId").notNull(),
+  platform: mysqlEnum("platform", ["android", "ios"]).notNull(),
+  operation: varchar("operation", { length: 64 }).notNull(),
+  expiresAt: timestamp("expiresAt").notNull(),
+  usedAt: timestamp("usedAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
@@ -414,3 +458,6 @@ export type InsertCustomerAddress = typeof customerAddresses.$inferInsert;
 export type InventoryItem = typeof inventory.$inferSelect;
 export type InsertInventoryItem = typeof inventory.$inferInsert;
 export type InventoryTransaction = typeof inventoryTransactions.$inferSelect;
+export type OAuthState = typeof oauthStates.$inferSelect;
+export type RefreshSession = typeof refreshSessions.$inferSelect;
+export type AppIntegrityChallenge = typeof appIntegrityChallenges.$inferSelect;

@@ -72,7 +72,7 @@ export default function ContactScreen() {
         <LinearGradient colors={['#201060', '#150B50', '#0D0A2E']} style={s.header}>
           <Image source={LOGO_CHEF} style={s.headerLogo} contentFit="contain" />
           <Text style={s.headerTitle}>Contact Us</Text>
-          <Text style={s.headerSub}>We'd love to hear from you</Text>
+          <Text style={s.headerSub}>We’d love to hear from you</Text>
         </LinearGradient>
 
         {/* Branches */}

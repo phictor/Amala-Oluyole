@@ -111,7 +111,7 @@ export default function SupportScreen() {
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {tab === 'ticket' ? (
           <View>
-            <Text style={styles.sectionTitle}>What's the issue?</Text>
+            <Text style={styles.sectionTitle}>What’s the issue?</Text>
             <View style={styles.issueGrid}>
               {ISSUE_TYPES.map(issue => (
                 <TouchableOpacity

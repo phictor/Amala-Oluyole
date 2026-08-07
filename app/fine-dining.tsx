@@ -137,7 +137,7 @@ export default function FineDiningScreen() {
             />
             <View style={s.tastingImageContent}>
               <View style={s.tastingBadge}>
-                <Text style={s.tastingBadgeText}>CHEF'S TASTING MENU</Text>
+                <Text style={s.tastingBadgeText}>CHEF’S TASTING MENU</Text>
               </View>
               <Text style={s.tastingTitle}>5-Course Set Menu</Text>
               <Text style={s.tastingPrice}>₦25,000 per person</Text>

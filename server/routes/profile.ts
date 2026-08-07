@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { getUserById, updateUserProfile } from "../db";
+import { upsertPushToken } from "../db";
 import { protectedProcedure, router } from "../_core/trpc";
 
 export const profileRouter = router({
@@ -20,8 +21,9 @@ export const profileRouter = router({
   registerPushToken: protectedProcedure
     .input(z.object({ token: z.string(), platform: z.enum(["ios", "android", "web"]) }))
     .mutation(async ({ ctx, input }) => {
+      // Store in both the legacy users.pushToken column and the push_tokens table
       await updateUserProfile(ctx.user.id, { pushToken: input.token });
+      await upsertPushToken(ctx.user.id, input.token, input.platform);
       return { success: true };
     }),
 });
-

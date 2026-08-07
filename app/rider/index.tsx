@@ -9,8 +9,6 @@ import { trpc } from '@/lib/trpc';
 import { useRequireRole } from "@/hooks/use-require-role";
 import { LoadingState } from "@/components/ui";
 
-type OrderStatus = 'rider_assigned' | 'out_for_delivery' | 'delivered';
-
 const STATUS_LABEL: Record<string, string> = {
   rider_assigned: 'Assigned',
   out_for_delivery: 'Out for Delivery',
@@ -30,10 +28,13 @@ const STATUS_COLOR: Record<string, string> = {
 };
 
 export default function RiderPortal() {
-  const { allowed, loading: roleLoading } = useRequireRole(["rider", "admin"]);
+  const { allowed, loading: roleLoading } = useRequireRole(["rider"]);
   if (roleLoading) return <LoadingState fullScreen message="Checking access..." />;
   if (!allowed) return null;
+  return <RiderPortalContent />;
+}
 
+function RiderPortalContent() {
   const [isOnline, setIsOnline] = useState(false);
   const [locationGranted, setLocationGranted] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -46,12 +47,15 @@ export default function RiderPortal() {
   // Rider's assigned orders
   const { data: myOrders = [], refetch: refetchOrders, isLoading: ordersLoading } = trpc.rider.myOrders.useQuery(
     undefined,
-    { enabled: !!myProfile && ['rider', 'admin', 'manager'].includes(myProfile.role ?? ''), refetchInterval: 30000 }
+    { enabled: myProfile?.role === 'rider', refetchInterval: 30000 }
   );
+  const activeDeliveryOrderId = myOrders.find((order: any) =>
+    ['rider_assigned', 'out_for_delivery'].includes(order.status)
+  )?.id;
 
-  const updateLocationMut = trpc.rider.updateLocation.useMutation();
-  const setStatusMut = trpc.rider.setStatus.useMutation();
-  const updateOrderMut = trpc.rider.updateOrderStatus.useMutation();
+  const { mutateAsync: updateLocation } = trpc.rider.updateLocation.useMutation();
+  const { mutateAsync: setStatus } = trpc.rider.setStatus.useMutation();
+  const { mutateAsync: updateOrder } = trpc.rider.updateOrderStatus.useMutation();
 
   // Request location permission on mount
   useEffect(() => {
@@ -66,17 +70,17 @@ export default function RiderPortal() {
   // Start/stop broadcasting location when going online/offline
   useEffect(() => {
     if (locationInterval.current) clearInterval(locationInterval.current);
-    if (isOnline && locationGranted && Platform.OS !== 'web') {
+    if (isOnline && activeDeliveryOrderId && locationGranted && Platform.OS !== 'web') {
       const broadcast = async () => {
         try {
           const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
-          await updateLocationMut.mutateAsync({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
-        } catch (_) {}
+          await updateLocation({ orderId: activeDeliveryOrderId, latitude: loc.coords.latitude, longitude: loc.coords.longitude });
+        } catch {}
       };
       broadcast();
       locationInterval.current = setInterval(broadcast, 15000); // every 15s
     }
-  }, [isOnline, locationGranted]);
+  }, [isOnline, activeDeliveryOrderId, locationGranted, updateLocation]);
 
   const handleToggleOnline = useCallback(async (val: boolean) => {
     if (val && !locationGranted && Platform.OS !== 'web') {
@@ -84,17 +88,17 @@ export default function RiderPortal() {
       return;
     }
     try {
-      await setStatusMut.mutateAsync({ isOnline: val });
+      await setStatus({ isOnline: val });
       setIsOnline(val);
     } catch (e: any) {
       Alert.alert('Error', e.message ?? 'Could not update status.');
     }
-  }, [locationGranted]);
+  }, [locationGranted, setStatus]);
 
   const handleUpdateOrderStatus = useCallback(async (orderId: number, status: 'out_for_delivery' | 'delivered') => {
     setUpdatingOrder(orderId);
     try {
-      await updateOrderMut.mutateAsync({ orderId, status });
+      await updateOrder({ orderId, status });
       await refetchOrders();
       Alert.alert('Updated', status === 'delivered' ? '✅ Order marked as delivered!' : '🛵 Order marked as out for delivery!');
     } catch (e: any) {
@@ -102,13 +106,13 @@ export default function RiderPortal() {
     } finally {
       setUpdatingOrder(null);
     }
-  }, []);
+  }, [refetchOrders, updateOrder]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await refetchOrders();
     setRefreshing(false);
-  }, []);
+  }, [refetchOrders]);
 
   // Loading state
   if (profileLoading) {
@@ -121,7 +125,7 @@ export default function RiderPortal() {
   }
 
   // Role gate: only rider, admin, manager
-  const allowedRoles = ['rider', 'admin', 'manager'];
+  const allowedRoles = ['rider'];
   if (!myProfile || !allowedRoles.includes(myProfile.role ?? '')) {
     return (
       <View style={s.center}>

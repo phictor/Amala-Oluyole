@@ -15,6 +15,13 @@
       "when": 1785343317493,
       "tag": "0001_chemical_gamora",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1786060800000,
+      "tag": "0002_security_hardening",
+      "breakpoints": true
     }
   ]
 }

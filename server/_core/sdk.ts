@@ -1,10 +1,13 @@
-import { AXIOS_TIMEOUT_MS, COOKIE_NAME, ONE_YEAR_MS } from "../../shared/const.js";
+import { AXIOS_TIMEOUT_MS, COOKIE_NAME, REFRESH_TTL_MS, SESSION_TTL_MS } from "../../shared/const.js";
 import { ForbiddenError } from "../../shared/_core/errors.js";
 import axios, { type AxiosInstance } from "axios";
+import crypto from "crypto";
+import { and, eq, gt, isNull } from "drizzle-orm";
 import { parse as parseCookieHeader } from "cookie";
 import type { Request } from "express";
 import { SignJWT, jwtVerify } from "jose";
 import type { User } from "../../drizzle/schema";
+import { refreshSessions } from "../../drizzle/schema";
 import * as db from "../db";
 import { ENV } from "./env";
 import type {
@@ -18,6 +21,8 @@ import type {
 const isNonEmptyString = (value: unknown): value is string =>
   typeof value === "string" && value.length > 0;
 
+const hashTokenId = (value: string) => crypto.createHash("sha256").update(value).digest("hex");
+
 export type SessionPayload = {
   openId: string;
   appId: string;
@@ -30,7 +35,6 @@ const GET_USER_INFO_WITH_JWT_PATH = `/webdev.v1.WebDevAuthPublicService/GetUserI
 
 class OAuthService {
   constructor(private client: ReturnType<typeof axios.create>) {
-    console.log("[OAuth] Initialized with baseURL:", ENV.oAuthServerUrl);
     if (!ENV.oAuthServerUrl) {
       console.error(
         "[OAuth] ERROR: OAUTH_SERVER_URL is not configured! Set OAUTH_SERVER_URL environment variable.",
@@ -38,17 +42,12 @@ class OAuthService {
     }
   }
 
-  private decodeState(state: string): string {
-    const redirectUri = atob(state);
-    return redirectUri;
-  }
-
-  async getTokenByCode(code: string, state: string): Promise<ExchangeTokenResponse> {
+  async getTokenByCode(code: string, redirectUri: string): Promise<ExchangeTokenResponse> {
     const payload: ExchangeTokenRequest = {
       clientId: ENV.appId,
       grantType: "authorization_code",
       code,
-      redirectUri: this.decodeState(state),
+      redirectUri,
     };
 
     const { data } = await this.client.post<ExchangeTokenResponse>(EXCHANGE_TOKEN_PATH, payload);
@@ -102,8 +101,8 @@ class SDKServer {
    * @example
    * const tokenResponse = await sdk.exchangeCodeForToken(code, state);
    */
-  async exchangeCodeForToken(code: string, state: string): Promise<ExchangeTokenResponse> {
-    return this.oauthService.getTokenByCode(code, state);
+  async exchangeCodeForToken(code: string, redirectUri: string): Promise<ExchangeTokenResponse> {
+    return this.oauthService.getTokenByCode(code, redirectUri);
   }
 
   /**
@@ -164,7 +163,7 @@ class SDKServer {
     options: { expiresInMs?: number } = {},
   ): Promise<string> {
     const issuedAt = Date.now();
-    const expiresInMs = options.expiresInMs ?? ONE_YEAR_MS;
+    const expiresInMs = options.expiresInMs ?? SESSION_TTL_MS;
     const expirationSeconds = Math.floor((issuedAt + expiresInMs) / 1000);
     const secretKey = this.getSessionSecret();
 
@@ -174,8 +173,80 @@ class SDKServer {
       name: payload.name,
     })
       .setProtectedHeader({ alg: "HS256", typ: "JWT" })
+      .setIssuedAt(Math.floor(issuedAt / 1000))
+      .setIssuer(ENV.sessionIssuer)
+      .setAudience(ENV.appId)
+      .setJti(crypto.randomUUID())
       .setExpirationTime(expirationSeconds)
       .sign(secretKey);
+  }
+
+  async createRefreshToken(openId: string): Promise<string> {
+    const issuedAt = Date.now();
+    const jti = crypto.randomUUID();
+    const expiresAt = new Date(issuedAt + REFRESH_TTL_MS);
+    const token = await new SignJWT({ openId, appId: ENV.appId, tokenUse: "refresh" })
+      .setProtectedHeader({ alg: "HS256", typ: "JWT" })
+      .setIssuedAt(Math.floor(issuedAt / 1000))
+      .setIssuer(ENV.sessionIssuer)
+      .setAudience(ENV.appId)
+      .setJti(jti)
+      .setExpirationTime(Math.floor(expiresAt.getTime() / 1000))
+      .sign(this.getSessionSecret());
+    const database = await db.getDb();
+    if (!database) throw new Error("Session service unavailable");
+    await database.insert(refreshSessions).values({ jtiHash: hashTokenId(jti), openId, expiresAt });
+    return token;
+  }
+
+  async verifyRefreshToken(token: string | undefined | null): Promise<{ openId: string } | null> {
+    if (!token) return null;
+    try {
+      const { payload } = await jwtVerify(token, this.getSessionSecret(), {
+        algorithms: ["HS256"],
+        issuer: ENV.sessionIssuer,
+        audience: ENV.appId,
+        maxTokenAge: "7d",
+      });
+      if (!isNonEmptyString(payload.openId) || !isNonEmptyString(payload.jti) || payload.appId !== ENV.appId || payload.tokenUse !== "refresh") return null;
+      if (typeof payload.iat !== "number" || typeof payload.exp !== "number" || payload.iat > Math.floor(Date.now() / 1000) + 60) return null;
+      const database = await db.getDb();
+      if (!database) return null;
+      const consumed = await database.transaction(async (tx) => {
+        const [session] = await tx.select().from(refreshSessions).where(and(
+          eq(refreshSessions.jtiHash, hashTokenId(payload.jti as string)),
+          eq(refreshSessions.openId, payload.openId as string),
+          isNull(refreshSessions.usedAt),
+          isNull(refreshSessions.revokedAt),
+          gt(refreshSessions.expiresAt, new Date()),
+        )).limit(1);
+        if (!session) return false;
+        const result = await tx.update(refreshSessions).set({ usedAt: new Date() }).where(and(
+          eq(refreshSessions.id, session.id), isNull(refreshSessions.usedAt), isNull(refreshSessions.revokedAt),
+        ));
+        const header = (Array.isArray(result) ? result[0] : result) as unknown as { affectedRows?: number };
+        return header.affectedRows === 1;
+      });
+      if (!consumed) return null;
+      return { openId: payload.openId };
+    } catch {
+      return null;
+    }
+  }
+
+  async revokeRefreshToken(token: string | undefined | null): Promise<void> {
+    if (!token) return;
+    try {
+      const { payload } = await jwtVerify(token, this.getSessionSecret(), {
+        algorithms: ["HS256"], issuer: ENV.sessionIssuer, audience: ENV.appId, maxTokenAge: "7d",
+      });
+      if (!isNonEmptyString(payload.jti) || payload.tokenUse !== "refresh") return;
+      const database = await db.getDb();
+      if (database) await database.update(refreshSessions).set({ revokedAt: new Date() })
+        .where(and(eq(refreshSessions.jtiHash, hashTokenId(payload.jti)), isNull(refreshSessions.revokedAt)));
+    } catch {
+      // Invalid tokens need no persisted revocation record.
+    }
   }
 
   async verifySession(
@@ -190,21 +261,25 @@ class SDKServer {
       const secretKey = this.getSessionSecret();
       const { payload } = await jwtVerify(cookieValue, secretKey, {
         algorithms: ["HS256"],
+        issuer: ENV.sessionIssuer,
+        audience: ENV.appId,
+        maxTokenAge: "15m",
       });
       const { openId, appId, name } = payload as Record<string, unknown>;
 
-      if (!isNonEmptyString(openId) || !isNonEmptyString(appId) || !isNonEmptyString(name)) {
+      if (!isNonEmptyString(openId) || appId !== ENV.appId || typeof name !== "string" || typeof payload.iat !== "number" || typeof payload.exp !== "number") {
         console.warn("[Auth] Session payload missing required fields");
         return null;
       }
+      if (payload.iat > Math.floor(Date.now() / 1000) + 60) return null;
 
       return {
         openId,
-        appId,
-        name,
+        appId: appId as string,
+        name: name as string,
       };
-    } catch (error) {
-      console.warn("[Auth] Session verification failed", String(error));
+    } catch {
+      console.warn("[Auth] Session verification failed");
       return null;
     }
   }
@@ -272,9 +347,9 @@ class SDKServer {
           lastSignedIn: signedInAt,
         });
         user = await db.getUserByOpenId(userInfo.openId);
-      } catch (error) {
-        console.error("[Auth] Failed to sync user from OAuth:", error);
-        throw ForbiddenError("Failed to sync user info");
+      } catch {
+        console.error("[Auth] Failed to sync user from OAuth");
+        throw ForbiddenError("Authentication failed");
       }
     }
 

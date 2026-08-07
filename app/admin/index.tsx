@@ -93,10 +93,13 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 export default function AdminDashboard() {
-  const { allowed, loading: roleLoading } = useRequireRole(["admin"]);
-  if (roleLoading) return <LoadingState fullScreen message="Checking access..." />;
+  const { allowed, loading: roleLoading } = useRequireRole(["admin", "manager"]);
+  if (roleLoading) return <LoadingState fullScreen message="Opening portal..." />;
   if (!allowed) return null;
+  return <AdminDashboardContent />;
+}
 
+function AdminDashboardContent() {
   const [activeTab, setActiveTab] = useState<DashTab>('overview');
   const [refreshing, setRefreshing] = useState(false);
 
@@ -259,7 +262,7 @@ export default function AdminDashboard() {
         {/* ── OVERVIEW TAB ──────────────────────────────────────────────── */}
         {activeTab === 'overview' && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Today's Overview</Text>
+            <Text style={styles.sectionTitle}>Today’s Overview</Text>
             <View style={styles.statsGrid}>
               {[
                 { label: "Today's Orders", value: overview?.todayOrders ?? '—', icon: '📦', color: '#D02010' },

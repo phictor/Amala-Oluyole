@@ -233,10 +233,9 @@ describe("Rider Workflow", () => {
     await expect(caller.rider.setStatus({ isOnline: true })).rejects.toThrow();
   });
 
-  it("admin can access rider procedures (for management)", async () => {
+  it("admin cannot impersonate a rider through operational rider procedures", async () => {
     const caller = appRouter.createCaller(makeCtx("admin", 99));
-    const orders = await caller.rider.myOrders();
-    expect(Array.isArray(orders)).toBe(true);
+    await expect(caller.rider.myOrders()).rejects.toThrow();
   });
 });
 
