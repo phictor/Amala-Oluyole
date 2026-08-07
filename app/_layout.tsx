@@ -1,4 +1,5 @@
 import "@/global.css";
+import "@/lib/_core/monitoring";
 import { AppProvider } from "@/lib/store/app-store";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { router, Stack, usePathname, useSegments } from "expo-router";
@@ -24,6 +25,7 @@ import type { EdgeInsets, Metrics, Rect } from "react-native-safe-area-context";
 
 import { trpc, createTRPCClient } from "@/lib/trpc";
 import { initManusRuntime, subscribeSafeAreaInsets } from "@/lib/_core/manus-runtime";
+import { EnvironmentBanner } from "@/components/environment-banner";
 
 const DEFAULT_WEB_INSETS: EdgeInsets = { top: 0, right: 0, bottom: 0, left: 0 };
 const DEFAULT_WEB_FRAME: Rect = { x: 0, y: 0, width: 0, height: 0 };
@@ -116,11 +118,20 @@ export const unstable_settings = {
 };
 
 function SensitiveScreenProtection() {
-  ScreenCapture.usePreventScreenCapture("sensitive-route");
   useEffect(() => {
-    if (Platform.OS !== "ios") return;
-    ScreenCapture.enableAppSwitcherProtectionAsync(0.9).catch(() => {});
-    return () => { ScreenCapture.disableAppSwitcherProtectionAsync().catch(() => {}); };
+    if (Platform.OS === "web") return;
+
+    ScreenCapture.preventScreenCaptureAsync("sensitive-route").catch(() => {});
+    if (Platform.OS === "ios") {
+      ScreenCapture.enableAppSwitcherProtectionAsync(0.9).catch(() => {});
+    }
+
+    return () => {
+      ScreenCapture.allowScreenCaptureAsync("sensitive-route").catch(() => {});
+      if (Platform.OS === "ios") {
+        ScreenCapture.disableAppSwitcherProtectionAsync().catch(() => {});
+      }
+    };
   }, []);
   return null;
 }
@@ -201,6 +212,7 @@ export default function RootLayout() {
 
   const content = (
     <GestureHandlerRootView style={{ flex: 1 }}>
+      <EnvironmentBanner />
       <trpc.Provider client={trpcClient} queryClient={queryClient}>
         <QueryClientProvider client={queryClient}>
           {isSensitiveScreen && <SensitiveScreenProtection />}
