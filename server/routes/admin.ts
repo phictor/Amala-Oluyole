@@ -408,4 +408,56 @@ export const adminRouter = router({
         monthCount: Number(monthRow?.cnt ?? 0),
       };
     }),
+
+  // Staff management
+  allStaff: adminProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) return [];
+    return db.select({ id: users.id, name: users.name, email: users.email, role: users.role, createdAt: users.createdAt })
+      .from(users)
+      .where(sql`${users.role} != 'customer'`)
+      .orderBy(desc(users.createdAt));
+  }),
+
+  setUserRole: adminProcedure
+    .input(z.object({ userId: z.number(), role: z.enum(['customer', 'kitchen', 'rider', 'manager', 'admin']) }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR' });
+      await db.update(users).set({ role: input.role }).where(eq(users.id, input.userId));
+      return { success: true };
+    }),
+
+  createRider: adminProcedure
+    .input(z.object({
+      name: z.string().min(2),
+      phone: z.string().min(7),
+      email: z.string().email().optional(),
+      address: z.string().optional(),
+      vehicleType: z.string().default('motorcycle'),
+      plateNumber: z.string().optional(),
+      branchId: z.number().default(1),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR' });
+      // Create user account
+      const [newUser] = await db.insert(users).values({
+        name: input.name,
+        email: input.email ?? ('rider_' + Date.now() + '@amalaoluyole.internal'),
+        phone: input.phone,
+        role: 'rider' as const,
+      } as never);
+      const userId = (newUser as { insertId?: number }).insertId;
+      if (!userId) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Failed to create user' });
+      // Create rider profile
+      await db.insert(riders).values({
+        userId,
+        branchId: input.branchId,
+        vehicleType: input.vehicleType,
+        vehiclePlate: input.plateNumber ?? null,
+        isOnline: false,
+      } as never);
+      return { success: true, userId };
+    }),
 });
