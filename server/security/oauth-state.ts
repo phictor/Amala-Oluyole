@@ -14,7 +14,7 @@ function digest(value: string): string {
 export function isAllowedOAuthRedirect(value: string): boolean {
   try {
     const url = new URL(value);
-    if (["amalaoluyole:", "manusapp:"].includes(url.protocol)) {
+    if (["amalaoluyole:", "amalaoluyole-preview:", "amalaoluyole-dev:"].includes(url.protocol)) {
       return (url.hostname === "oauth" && url.pathname === "/callback") ||
         (!url.hostname && url.pathname === "/oauth/callback");
     }

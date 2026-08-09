@@ -2,7 +2,7 @@
  * Kitchen Monthly Report Screen
  *
  * Displays a full monthly performance report for the kitchen:
- *   - Summary stats (orders, revenue, completion rate, avg order value)
+ *   - Kitchen-safe summary stats (orders and completion rate)
  *   - Daily order bar chart (visual bars scaled to max)
  *   - Top 10 most ordered meals
  *   - Order type breakdown (delivery vs pickup)
@@ -13,7 +13,7 @@ import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
   RefreshControl, FlatList,
 } from "react-native";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import {
   StatCard, SectionHeader, EmptyState, LoadingState, BadgeChip,
@@ -26,14 +26,6 @@ const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December",
 ];
-
-function fmt(n: number | string | null | undefined): string {
-  const v = Number(n ?? 0);
-  if (v >= 1_000_000) return `₦${(v / 1_000_000).toFixed(1)}M`;
-  if (v >= 1_000) return `₦${(v / 1_000).toFixed(1)}K`;
-  return `₦${v.toLocaleString()}`;
-}
-
 
 // ── PDF Export ────────────────────────────────────────────────────────────────
 async function exportMonthlyPDF(
@@ -56,9 +48,7 @@ async function exportMonthlyPDF(
       title: "Performance Summary",
       stats: [
         { label: "Total Orders", value: Number(summary?.totalOrders ?? 0), color: "#201060" },
-        { label: "Revenue", value: fmt(summary?.totalRevenue), color: "#D02010" },
         { label: "Completion Rate", value: `${completionRate}%`, color: "#22C55E" },
-        { label: "Avg Order Value", value: fmt(summary?.avgOrderValue), color: "#F0C000" },
         { label: "Completed", value: Number(summary?.completedOrders ?? 0), color: "#22C55E" },
         { label: "Cancelled", value: Number(summary?.cancelledOrders ?? 0), color: "#EF4444" },
       ],
@@ -68,18 +58,17 @@ async function exportMonthlyPDF(
       title: "Daily Order Volume",
       headers: ["Date", "Orders"],
       colWidths: ["60%", "40%"],
-      rows: dailyOrders.map(d => [d.date, Number(d.count)]),
+      rows: dailyOrders.map(d => [d.day, Number(d.count)]),
     },
     {
       type: "table",
       title: "Top Meals by Orders",
-      headers: ["#", "Meal", "Qty Sold", "Revenue"],
-      colWidths: ["8%", "42%", "20%", "30%"],
+      headers: ["#", "Meal", "Qty Prepared"],
+      colWidths: ["10%", "60%", "30%"],
       rows: topMeals.map((m, i) => [
         i + 1,
-        m.name,
+        m.mealName,
         Number(m.totalQuantity),
-        fmt(m.totalRevenue),
       ]),
     },
     {
@@ -97,13 +86,13 @@ async function exportMonthlyPDF(
       title: "Low Stock Alerts",
       headers: ["Item", "Current Stock", "Min Stock"],
       colWidths: ["50%", "25%", "25%"],
-      rows: lowStockItems.map(item => [item.name, item.currentStock, item.minStock]),
+      rows: lowStockItems.map(item => [item.name, item.currentStock, item.minimumStock]),
     });
   }
 
   sections.push({
     type: "text",
-    body: `This report covers kitchen performance for ${monthName} ${year}. All revenue figures are in Nigerian Naira (₦). Completion rate reflects orders marked as completed or delivered. This document is confidential and intended for kitchen management and administrators only.`,
+    body: `This report covers kitchen service performance for ${monthName} ${year}. Completion rate reflects orders marked as completed or delivered. Financial values are intentionally available only in the Finance workspace.`,
   });
 
   await generatePdf({
@@ -123,13 +112,14 @@ export default function KitchenMonthlyReport() {
 }
 
 function KitchenMonthlyReportContent() {
+  const params = useLocalSearchParams<{ branchId?: string }>();
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Use branchId=1 as default; in production this comes from the user's profile
-  const branchId = 1;
+  const parsedBranchId = Number(params.branchId);
+  const branchId = Number.isInteger(parsedBranchId) && parsedBranchId > 0 ? parsedBranchId : undefined;
 
   const { data, isLoading, refetch } = trpc.kitchen.monthlyReport.useQuery(
     { branchId, year, month },
@@ -205,11 +195,9 @@ function KitchenMonthlyReportContent() {
           <SectionHeader title="Summary" style={s.sectionHeader} />
           <View style={s.statsRow}>
             <StatCard icon="📦" label="Total Orders" value={Number(summary?.totalOrders ?? 0)} color="#201060" />
-            <StatCard icon="💰" label="Revenue" value={fmt(summary?.totalRevenue)} color="#D02010" />
           </View>
           <View style={[s.statsRow, { marginTop: 10 }]}>
             <StatCard icon="✅" label="Completion" value={`${completionRate}%`} color="#22C55E" />
-            <StatCard icon="🧾" label="Avg Order" value={fmt(summary?.avgOrderValue)} color="#F0C000" />
           </View>
           <View style={[s.statsRow, { marginTop: 10 }]}>
             <StatCard icon="❌" label="Cancelled" value={Number(summary?.cancelledOrders ?? 0)} color="#EF4444" />
@@ -273,7 +261,7 @@ function KitchenMonthlyReportContent() {
                   </View>
                   <View style={s.mealInfo}>
                     <Text style={s.mealName} numberOfLines={1}>{m.mealName}</Text>
-                    <Text style={s.mealSub}>{m.totalQuantity} sold · {fmt(m.totalRevenue)}</Text>
+                    <Text style={s.mealSub}>{m.totalQuantity} prepared</Text>
                   </View>
                 </View>
               ))}

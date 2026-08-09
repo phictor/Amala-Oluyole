@@ -491,7 +491,14 @@ export async function getActiveOrders(branchId?: number) {
   // Fetch items for all active orders in a single query
   const orderIds = activeOrders.map(o => o.id);
   const items = await db
-    .select({ orderId: orderItems.orderId, name: orderItems.name, quantity: orderItems.quantity, specialInstructions: orderItems.specialInstructions })
+    .select({
+      orderId: orderItems.orderId,
+      name: orderItems.name,
+      quantity: orderItems.quantity,
+      isCustomMeal: orderItems.isCustomMeal,
+      customMealConfig: orderItems.customMealConfig,
+      specialInstructions: orderItems.specialInstructions,
+    })
     .from(orderItems)
     .where(inArray(orderItems.orderId, orderIds));
   // Group items by orderId

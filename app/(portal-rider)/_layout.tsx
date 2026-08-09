@@ -4,13 +4,29 @@ import { HapticTab } from "@/components/haptic-tab";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Platform, View, Text, StyleSheet } from "react-native";
 import { trpc } from "@/lib/trpc";
+import { LoadingState } from "@/components/ui/loading-state";
+import { useRequireRole } from "@/hooks/use-require-role";
+import { useRiderLocationBroadcast } from "@/hooks/use-rider-location-broadcast";
 
 export default function RiderPortalLayout() {
+  const access = useRequireRole(["rider"]);
   const insets = useSafeAreaInsets();
   const bottomPadding = Platform.OS === "web" ? 12 : Math.max(insets.bottom, 8);
   const tabBarHeight = 56 + bottomPadding;
-  const { data: myOrders = [] } = trpc.rider.myOrders.useQuery(undefined, { refetchInterval: 30_000 });
+  const { data: myOrders = [] } = trpc.rider.myOrders.useQuery(undefined, {
+    enabled: access.allowed,
+    refetchInterval: 30_000,
+  });
+  const { data: riderProfile } = trpc.rider.profile.useQuery(undefined, {
+    enabled: access.allowed,
+    refetchInterval: 15_000,
+  });
+  const activeDeliveryId = myOrders.find((order) => ['rider_assigned', 'out_for_delivery'].includes(order.status))?.id;
+  useRiderLocationBroadcast({ enabled: Boolean(riderProfile?.isOnline), orderId: activeDeliveryId });
   const activeCount = myOrders.filter((o: any) => o.status !== 'delivered' && o.status !== 'cancelled').length;
+
+  if (access.loading) return <LoadingState fullScreen message="Opening your delivery workspace..." />;
+  if (!access.allowed) return null;
 
   return (
     <Tabs

@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, RefreshControl, Alert, Switch, Platform } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, RefreshControl, Alert, Switch } from 'react-native';
 import { ScreenContainer } from '@/components/screen-container';
 import { trpc } from '@/lib/trpc';
 import { StatusBar } from 'expo-status-bar';
 import { useAuth } from '@/hooks/use-auth';
 import { useNewOrderAlert } from '@/hooks/use-new-order-alert';
+import { LoadingState } from '@/components/ui';
+import { QueryProblem } from '@/components/roles/role-portal-ui';
 
 const STATUS_COLOR: Record<string, string> = {
   rider_assigned: '#F59E0B', out_for_delivery: '#0EA5E9', delivered: '#22C55E', cancelled: '#EF4444',
@@ -12,28 +14,31 @@ const STATUS_COLOR: Record<string, string> = {
 
 export default function RiderDeliveriesScreen() {
   const { user, logout } = useAuth();
-  const [isOnline, setIsOnline] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   const ordersQ = trpc.rider.myOrders.useQuery(undefined, { refetchInterval: 30_000 });
+  const profileQ = trpc.rider.profile.useQuery(undefined, { refetchInterval: 15_000 });
   const utils = trpc.useUtils();
-  const setStatus = trpc.rider.setStatus.useMutation();
+  const setStatus = trpc.rider.setStatus.useMutation({ onSuccess: () => profileQ.refetch() });
   const updateOrder = trpc.rider.updateOrderStatus.useMutation({ onSuccess: () => utils.rider.myOrders.invalidate() });
 
   const orders = ordersQ.data ?? [];
+  const isOnline = profileQ.data?.isOnline ?? false;
 
   // Alert when a new order is assigned (rider_assigned status)
-  const assignedOrders = orders.map((o: any) => ({ id: o.id, status: o.status === 'rider_assigned' ? 'pending' : o.status }));
-  useNewOrderAlert(assignedOrders, false);
+  useNewOrderAlert(orders, false, 'rider_assigned');
 
   const active = orders.filter((o: any) => !['delivered', 'cancelled'].includes(o.status));
   const completed = orders.filter((o: any) => o.status === 'delivered');
 
   const onRefresh = async () => { setRefreshing(true); await ordersQ.refetch(); setRefreshing(false); };
 
-  const handleToggleOnline = (val: boolean) => {
-    setIsOnline(val);
-    setStatus.mutate({ isOnline: val });
+  const handleToggleOnline = async (val: boolean) => {
+    try {
+      await setStatus.mutateAsync({ isOnline: val });
+    } catch {
+      Alert.alert('Status update failed', 'Check location access and your connection, then try again.');
+    }
   };
 
   const handleUpdateOrder = (orderId: number, current: string) => {
@@ -62,6 +67,7 @@ export default function RiderDeliveriesScreen() {
           <Switch
             value={isOnline}
             onValueChange={handleToggleOnline}
+            disabled={setStatus.isPending || profileQ.isLoading}
             trackColor={{ false: '#E5E7EB', true: '#BBF7D0' }}
             thumbColor={isOnline ? '#059669' : '#9CA3AF'}
           />
@@ -72,6 +78,8 @@ export default function RiderDeliveriesScreen() {
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
+        {(ordersQ.isLoading || profileQ.isLoading) && <LoadingState message="Loading your rider workspace..." />}
+        {(ordersQ.isError || profileQ.isError) && <QueryProblem accent="#059669" title="Rider workspace unavailable" message="Your live status or assigned deliveries could not be loaded." onRetry={() => Promise.all([ordersQ.refetch(), profileQ.refetch()]).then(() => undefined)} />}
         {active.length > 0 && (
           <View style={s.group}>
             <Text style={s.groupTitle}>🚴 Active Deliveries ({active.length})</Text>
@@ -83,7 +91,7 @@ export default function RiderDeliveriesScreen() {
                     <Text style={[s.statusText, { color: STATUS_COLOR[order.status] ?? '#6B7280' }]}>{order.status?.replace(/_/g, ' ')}</Text>
                   </View>
                 </View>
-                <Text style={s.orderTotal}>₦{Number(order.total).toLocaleString()}</Text>
+                <Text style={s.orderContext}>{order.deliveryAddress || (order.orderType === 'pickup' ? 'Pickup order' : 'Delivery address unavailable')}</Text>
                 {['rider_assigned', 'out_for_delivery'].includes(order.status) && (
                   <TouchableOpacity style={s.actionBtn} onPress={() => handleUpdateOrder(order.id, order.status)} activeOpacity={0.8}>
                     <Text style={s.actionBtnText}>
@@ -95,7 +103,7 @@ export default function RiderDeliveriesScreen() {
             ))}
           </View>
         )}
-        {active.length === 0 && (
+        {!ordersQ.isLoading && !ordersQ.isError && active.length === 0 && (
           <View style={s.empty}>
             <Text style={s.emptyIcon}>🛵</Text>
             <Text style={s.emptyText}>{isOnline ? 'Waiting for orders...' : 'Go online to receive orders'}</Text>
@@ -107,7 +115,7 @@ export default function RiderDeliveriesScreen() {
             {completed.slice(0, 5).map((order: any) => (
               <View key={order.id} style={[s.card, { opacity: 0.7 }]}>
                 <Text style={s.orderNum}>#{order.orderNumber}</Text>
-                <Text style={s.orderTotal}>₦{Number(order.total).toLocaleString()} · Delivered</Text>
+                <Text style={s.orderContext}>Delivered</Text>
               </View>
             ))}
           </View>
@@ -133,7 +141,7 @@ const s = StyleSheet.create({
   orderNum: { fontSize: 16, fontWeight: '800', color: '#111827' },
   statusBadge: { borderRadius: 10, paddingHorizontal: 10, paddingVertical: 4 },
   statusText: { fontSize: 12, fontWeight: '700' },
-  orderTotal: { fontSize: 14, fontWeight: '600', color: '#374151', marginBottom: 10 },
+  orderContext: { fontSize: 13, fontWeight: '600', color: '#374151', marginBottom: 10 },
   actionBtn: { backgroundColor: '#DCFCE7', borderRadius: 10, paddingVertical: 10, alignItems: 'center' },
   actionBtnText: { fontSize: 14, fontWeight: '700', color: '#166534' },
   empty: { alignItems: 'center', paddingTop: 80 },

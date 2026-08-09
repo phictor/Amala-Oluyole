@@ -13,9 +13,9 @@ const STATUS_COLOR: Record<string, string> = {
 
 export default function AdminOrdersScreen() {
   const [refreshing, setRefreshing] = useState(false);
-  const ordersQ = trpc.admin.activeOrders.useQuery(undefined, { refetchInterval: 10_000 });
+  const ordersQ = trpc.admin.activeOrdersAdmin.useQuery(undefined, { refetchInterval: 10_000 });
   const utils = trpc.useUtils();
-  const updateStatus = trpc.admin.updateOrderStatus.useMutation({ onSuccess: () => utils.admin.activeOrders.invalidate() });
+  const updateStatus = trpc.admin.updateOrderStatus.useMutation({ onSuccess: () => utils.admin.activeOrdersAdmin.invalidate() });
 
   const orders = ordersQ.data ?? [];
 

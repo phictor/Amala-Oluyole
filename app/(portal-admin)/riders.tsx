@@ -7,9 +7,9 @@ import { StatusBar } from 'expo-status-bar';
 export default function AdminRidersScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const ridersQ = trpc.admin.riders.useQuery(undefined, { staleTime: 30_000 });
-  const ordersQ = trpc.admin.activeOrders.useQuery(undefined, { refetchInterval: 10_000 });
+  const ordersQ = trpc.admin.activeOrdersAdmin.useQuery(undefined, { refetchInterval: 10_000 });
   const utils = trpc.useUtils();
-  const assignRider = trpc.admin.assignRider.useMutation({ onSuccess: () => { utils.admin.activeOrders.invalidate(); utils.admin.riders.invalidate(); } });
+  const assignRider = trpc.admin.assignRider.useMutation({ onSuccess: () => { utils.admin.activeOrdersAdmin.invalidate(); utils.admin.riders.invalidate(); } });
 
   const riders = ridersQ.data ?? [];
   const orders = ordersQ.data ?? [];

@@ -7,6 +7,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useAppStore } from '@/lib/store/app-store';
 import { trpc } from '@/lib/trpc';
 import * as Auth from '@/lib/_core/auth';
+import * as Api from '@/lib/_core/api';
+import { routeForRole } from '@/lib/auth/role-routing';
+import { clearPersistedSensitiveState } from '@/lib/store/app-store';
 
 const TIER_CONFIG = {
   bronze: { label: 'Bronze', color: '#F0C000', emoji: '🥉' },
@@ -54,7 +57,7 @@ export default function ProfileScreen() {
   const displayEmail = p?.email ?? state.user?.email ?? '';
   const displayPhone = p?.phone ?? state.user?.phone ?? '';
   const liveRole = p?.role ?? state.user?.role ?? 'customer';
-  const isStaff = ['admin', 'manager', 'kitchen'].includes(liveRole);
+  const isStaff = ['admin', 'manager', 'finance', 'staff', 'kitchen', 'rider'].includes(liveRole);
 
   // Loyalty data from live backend
   const la = loyaltyAccount as { points?: number; tier?: string; pointsToNextTier?: number } | undefined;
@@ -66,8 +69,10 @@ export default function ProfileScreen() {
       {
         text: 'Log Out', style: 'destructive',
         onPress: async () => {
+          try { await Api.logout(); } catch { /* local sign-out still completes */ }
           await Auth.removeSessionToken();
           await Auth.clearUserInfo();
+          await clearPersistedSensitiveState();
           dispatch({ type: 'LOGOUT' });
           router.replace('/auth/login' as never);
         },
@@ -83,11 +88,8 @@ export default function ProfileScreen() {
         <Text style={styles.guestSubtitle}>Sign in to access your profile, orders, and loyalty rewards</Text>
         <TouchableOpacity style={styles.signInBtn} onPress={() => router.push('/auth/login' as never)}>
           <LinearGradient colors={['#201060', '#150B50']} style={styles.signInBtnGrad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
-            <Text style={styles.signInBtnText}>Sign In</Text>
+            <Text style={styles.signInBtnText}>Sign in or create account</Text>
           </LinearGradient>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.registerBtn} onPress={() => router.push('/auth/register' as never)}>
-          <Text style={styles.registerBtnText}>Create Account</Text>
         </TouchableOpacity>
       </View>
     );
@@ -198,15 +200,12 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        {/* Staff Portal — only visible to kitchen/admin/manager */}
+        {/* Staff workspace shortcut when an owner explicitly previews the customer app. */}
         {isStaff && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Staff Tools</Text>
             <View style={styles.menuCard}>
-              <MenuRow icon="👨‍🍳" label="Kitchen Portal" onPress={() => router.push('/kitchen' as never)} />
-              {['admin', 'manager'].includes(liveRole) && (
-                <MenuRow icon="🛠️" label="Admin Dashboard" onPress={() => router.push('/admin' as never)} />
-              )}
+              <MenuRow icon="↩️" label="Return to My Workspace" onPress={() => router.replace(routeForRole(liveRole) as never)} />
             </View>
           </View>
         )}
@@ -245,8 +244,6 @@ const styles = StyleSheet.create({
   signInBtn: { overflow: 'hidden', borderRadius: 14, paddingVertical: 14, paddingHorizontal: 40, marginBottom: 12 },
   signInBtnGrad: { paddingVertical: 16, paddingHorizontal: 40, alignItems: 'center' },
   signInBtnText: { color: '#FFF', fontSize: 16, fontWeight: '700' },
-  registerBtn: { borderWidth: 2, borderColor: '#D02010', borderRadius: 14, paddingVertical: 12, paddingHorizontal: 40 },
-  registerBtnText: { color: '#D02010', fontSize: 16, fontWeight: '700' },
   profileHeader: { paddingTop: 56, paddingHorizontal: 20, paddingBottom: 20, alignItems: 'center' },
   avatar: {
     width: 80, height: 80, borderRadius: 40, backgroundColor: '#D02010',

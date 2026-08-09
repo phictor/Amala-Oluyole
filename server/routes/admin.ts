@@ -12,6 +12,8 @@ import { meals, mealCategories, orders, users, riders, branches, promoCodes, cus
 import { eq, desc, count, and, gte, lte, sql } from "drizzle-orm";
 import { assertOrderTransition } from "../security/order-state";
 import { requireAppIntegrity } from "../security/app-integrity";
+import { projectOperationalOrder, projectOperationalOrderDetail } from "../security/order-projection";
+import { assertKitchenBranchAccess, resolveKitchenBranch } from "../security/branch-access";
 
 // Admin-only middleware
 const adminProcedure = protectedProcedure.use(async ({ ctx, next, type }) => {
@@ -22,18 +24,43 @@ const adminProcedure = protectedProcedure.use(async ({ ctx, next, type }) => {
   return next({ ctx });
 });
 
+// Read-only finance access. Finance users never inherit operational mutations.
+const financeProcedure = protectedProcedure.use(({ ctx, next }) => {
+  if (!["admin", "manager", "finance"].includes(ctx.user.role)) {
+    throw new TRPCError({ code: "FORBIDDEN", message: "Finance access required" });
+  }
+  return next({ ctx });
+});
+
+// Day-to-day restaurant operations without finance or account administration.
+const operationsProcedure = protectedProcedure.use(async ({ ctx, next, type }) => {
+  if (!["admin", "manager", "staff"].includes(ctx.user.role)) {
+    throw new TRPCError({ code: "FORBIDDEN", message: "Operations access required" });
+  }
+  if (type === "mutation") await requireAppIntegrity(ctx.req, ctx.user.id, "admin");
+  return next({ ctx });
+});
+
+const workspaceProcedure = protectedProcedure.use(({ ctx, next }) => {
+  if (ctx.user.role === "customer") {
+    throw new TRPCError({ code: "FORBIDDEN", message: "Staff access required" });
+  }
+  return next({ ctx });
+});
+
 // Kitchen/admin procedure
-const kitchenProcedure = protectedProcedure.use(({ ctx, next }) => {
-  const allowed = ["admin", "manager", "kitchen"];
+const kitchenProcedure = protectedProcedure.use(async ({ ctx, next, type }) => {
+  const allowed = ["admin", "manager", "staff", "kitchen"];
   if (!allowed.includes(ctx.user.role)) {
     throw new TRPCError({ code: "FORBIDDEN", message: "Kitchen access required" });
   }
+  if (type === "mutation") await requireAppIntegrity(ctx.req, ctx.user.id, "admin");
   return next({ ctx });
 });
 
 export const adminRouter = router({
   // Dashboard stats
-  stats: adminProcedure
+  stats: financeProcedure
     .input(z.object({
       branchId: z.number().optional(),
       fromDate: z.string().optional(),
@@ -47,7 +74,7 @@ export const adminRouter = router({
 
   // Active orders monitoring
   // Transaction / payment reconciliation report (FR-100, FR-101, FR-102)
-  transactionReport: adminProcedure
+  transactionReport: financeProcedure
     .input(z.object({
       branchId: z.number().optional(),
       fromDate: z.string().optional(),
@@ -98,7 +125,7 @@ export const adminRouter = router({
     }),
 
   // All branches for filter dropdowns
-  allBranches: adminProcedure.query(async () => {
+  allBranches: workspaceProcedure.query(async () => {
     const db = await getDb();
     if (!db) return [];
     return db.select({ id: branches.id, name: branches.name }).from(branches).where(eq(branches.isActive, true));
@@ -106,10 +133,27 @@ export const adminRouter = router({
 
   activeOrders: kitchenProcedure
     .input(z.object({ branchId: z.number().optional() }).optional())
+    .query(async ({ ctx, input }) => {
+      const branchId = resolveKitchenBranch(ctx.user, input?.branchId);
+      const activeOrders = await getActiveOrders(branchId);
+      return activeOrders.map(projectOperationalOrder);
+    }),
+
+  activeOrdersAdmin: adminProcedure
+    .input(z.object({ branchId: z.number().optional() }).optional())
     .query(({ input }) => getActiveOrders(input?.branchId)),
 
   // Get full order detail
   orderDetail: kitchenProcedure
+    .input(z.object({ orderId: z.number() }))
+    .query(async ({ ctx, input }) => {
+      const detail = await getOrderWithItems(input.orderId);
+      if (!detail) return detail;
+      assertKitchenBranchAccess(ctx.user, detail.order.branchId);
+      return projectOperationalOrderDetail(detail);
+    }),
+
+  orderDetailAdmin: adminProcedure
     .input(z.object({ orderId: z.number() }))
     .query(({ input }) => getOrderWithItems(input.orderId)),
 
@@ -123,7 +167,14 @@ export const adminRouter = router({
     .mutation(async ({ ctx, input }) => {
       const current = await getOrderWithItems(input.orderId);
       if (!current) throw new TRPCError({ code: "NOT_FOUND", message: "Order not found" });
-      const actor = ctx.user.role === "kitchen" ? "kitchen" : ctx.user.role === "manager" ? "manager" : "admin";
+      assertKitchenBranchAccess(ctx.user, current.order.branchId);
+      const actor = ctx.user.role === "kitchen"
+        ? "kitchen"
+        : ctx.user.role === "staff"
+          ? "staff"
+          : ctx.user.role === "manager"
+            ? "manager"
+            : "admin";
       assertOrderTransition(current.order.status, input.status, actor);
       await updateOrderStatus(input.orderId, input.status, actor, input.note, ctx.user.id);
       // ── Customer push notification on status change ────────────────────────
@@ -162,21 +213,21 @@ export const adminRouter = router({
     }),
 
   // Rider management
-  riders: adminProcedure
+  riders: operationsProcedure
     .input(z.object({ branchId: z.number().optional() }).optional())
     .query(({ input }) => getAllRiders(input?.branchId)),
 
-  availableRiders: adminProcedure
+  availableRiders: operationsProcedure
     .input(z.object({ branchId: z.number() }))
     .query(({ input }) => getAvailableRiders(input.branchId)),
 
   // Assign rider to order
-  assignRider: adminProcedure
+  assignRider: operationsProcedure
     .input(z.object({ orderId: z.number(), riderId: z.number() }))
     .mutation(({ ctx, input }) => assignRiderToOrder(input.orderId, input.riderId, ctx.user.id)),
 
   // ── Meal Management (CRUD) ────────────────────────────────────────────────
-  allMeals: adminProcedure.query(async () => {
+  allMeals: operationsProcedure.query(async () => {
     const db = await getDb();
     if (!db) return [];
     return db.select().from(meals).orderBy(meals.categoryId, meals.sortOrder, meals.name);
@@ -249,7 +300,7 @@ export const adminRouter = router({
    }),
 
   // ── Dashboard Overview ────────────────────────────────────────────────────
-  overview: adminProcedure.query(async () => {
+  overview: operationsProcedure.query(async () => {
     const db = await getDb();
     if (!db) return null;
     const today = new Date(); today.setHours(0, 0, 0, 0);
@@ -268,7 +319,7 @@ export const adminRouter = router({
   }),
 
   // ── FR-070 / FR-071: Promo Code Management ──────────────────────────────
-  allPromoCodes: adminProcedure
+  allPromoCodes: financeProcedure
     .query(async () => {
       const db = await getDb();
       if (!db) return [];
@@ -382,7 +433,7 @@ export const adminRouter = router({
     }),
 
   setUserRole: adminProcedure
-    .input(z.object({ userId: z.number(), role: z.enum(['customer', 'admin', 'rider', 'kitchen', 'manager']) }))
+    .input(z.object({ userId: z.number(), role: z.enum(['customer', 'finance', 'staff', 'admin', 'rider', 'kitchen', 'manager']) }))
     .mutation(async ({ input, ctx }) => {
       if (input.userId === ctx.user.id) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Cannot change your own role' });
       const db = await getDb();
@@ -392,7 +443,7 @@ export const adminRouter = router({
     }),
 
   // 7-day daily revenue breakdown for the Finance dashboard chart
-  dailyRevenue: adminProcedure
+  dailyRevenue: financeProcedure
     .input(z.object({ days: z.number().default(7) }).optional())
     .query(async ({ input }) => {
       const db = await getDb();
@@ -495,7 +546,7 @@ export const adminRouter = router({
       return { success: true, userId: newUser.id };
     }),
 
-  dailyRevenueByType: adminProcedure
+  dailyRevenueByType: financeProcedure
     .input(z.object({ branchId: z.number().optional() }).optional())
     .query(async ({ input }) => {
       const db = await getDb();
@@ -524,7 +575,7 @@ export const adminRouter = router({
       return Object.values(days);
     }),
 
-  dineInRevenueSummary: adminProcedure
+  dineInRevenueSummary: financeProcedure
     .input(z.object({ branchId: z.number().optional() }).optional())
     .query(async ({ input }) => {
       const db = await getDb();

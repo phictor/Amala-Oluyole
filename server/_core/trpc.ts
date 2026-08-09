@@ -31,11 +31,19 @@ const requireUser = t.middleware(async (opts) => {
 
 export const protectedProcedure = t.procedure.use(requireUser);
 
+export const customerProcedure = protectedProcedure.use(async ({ ctx, next }) => {
+  const user = ctx.user;
+  if (!user || user.role !== "customer") {
+    throw new TRPCError({ code: "FORBIDDEN", message: "Customer access required" });
+  }
+  return next({ ctx: { ...ctx, user } });
+});
+
 export const adminProcedure = t.procedure.use(
   t.middleware(async (opts) => {
     const { ctx, next } = opts;
 
-    const ADMIN_ROLES = ['admin', 'kitchen', 'manager'] as const;
+    const ADMIN_ROLES = ['admin', 'manager'] as const;
     if (!ctx.user || !(ADMIN_ROLES as readonly string[]).includes(ctx.user.role)) {
       throw new TRPCError({ code: "FORBIDDEN", message: NOT_ADMIN_ERR_MSG });
     }

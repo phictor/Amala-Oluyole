@@ -1,13 +1,13 @@
 import { z } from "zod";
 import { cancelReservation, createReservation, getUserReservations, getBranchById } from "../db";
-import { protectedProcedure, router } from "../_core/trpc";
+import { customerProcedure, router } from "../_core/trpc";
 import { sendReservationConfirmationEmail } from "../notifications";
 
 export const reservationsRouter = router({
-  list: protectedProcedure
+  list: customerProcedure
     .query(({ ctx }) => getUserReservations(ctx.user.id)),
 
-  create: protectedProcedure
+  create: customerProcedure
     .input(z.object({
       branchId: z.number(),
       guestName: z.string().min(2),
@@ -46,7 +46,7 @@ export const reservationsRouter = router({
       return reservation;
     }),
 
-  cancel: protectedProcedure
+  cancel: customerProcedure
     .input(z.object({ id: z.number() }))
     .mutation(({ ctx, input }) => cancelReservation(input.id, ctx.user.id)),
 });

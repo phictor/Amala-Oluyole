@@ -6,18 +6,18 @@ import { StatusBar } from 'expo-status-bar';
 import { useNewOrderAlert } from '@/hooks/use-new-order-alert';
 
 const STATUS_COLOR: Record<string, string> = {
-  pending: '#F59E0B', accepted: '#0EA5E9', preparing: '#8B5CF6',
+  payment_confirmed: '#F59E0B', accepted: '#0EA5E9', preparing: '#8B5CF6',
   ready: '#22C55E', cancelled: '#EF4444',
 };
 
 export default function AdminKitchenScreen() {
   const [refreshing, setRefreshing] = useState(false);
-  const ordersQ = trpc.admin.activeOrders.useQuery(undefined, { refetchInterval: 10_000 });
+  const ordersQ = trpc.admin.activeOrdersAdmin.useQuery(undefined, { refetchInterval: 10_000 });
   const utils = trpc.useUtils();
-  const updateStatus = trpc.admin.updateOrderStatus.useMutation({ onSuccess: () => utils.admin.activeOrders.invalidate() });
+  const updateStatus = trpc.admin.updateOrderStatus.useMutation({ onSuccess: () => utils.admin.activeOrdersAdmin.invalidate() });
 
   const orders = ordersQ.data ?? [];
-  const pending = orders.filter((o: any) => o.status === 'pending');
+  const pending = orders.filter((o: any) => o.status === 'payment_confirmed');
   const inProgress = orders.filter((o: any) => ['accepted', 'preparing'].includes(o.status));
   const ready = orders.filter((o: any) => o.status === 'ready');
 
@@ -28,10 +28,9 @@ export default function AdminKitchenScreen() {
 
   const handleAction = (orderId: number, status: string) => {
     const next: Record<string, { label: string; status: any }> = {
-      pending: { label: 'Accept Order', status: 'accepted' },
+      payment_confirmed: { label: 'Accept Order', status: 'accepted' },
       accepted: { label: 'Start Preparing', status: 'preparing' },
       preparing: { label: 'Mark Ready', status: 'ready' },
-      ready: { label: 'Out for Delivery', status: 'out_for_delivery' },
     };
     const action = next[status];
     if (!action) return;
@@ -64,10 +63,10 @@ export default function AdminKitchenScreen() {
           ))}
         </View>
       )}
-      {['pending', 'accepted', 'preparing', 'ready'].includes(order.status) && (
+      {['payment_confirmed', 'accepted', 'preparing'].includes(order.status) && (
         <TouchableOpacity style={s.actionBtn} onPress={() => handleAction(order.id, order.status)} activeOpacity={0.8}>
           <Text style={s.actionBtnText}>
-            {order.status === 'pending' ? '✅ Accept' : order.status === 'accepted' ? '👨‍🍳 Start Preparing' : order.status === 'preparing' ? '🍽️ Mark Ready' : '🚴 Out for Delivery'}
+            {order.status === 'payment_confirmed' ? '✅ Accept' : order.status === 'accepted' ? '👨‍🍳 Start Preparing' : '🍽️ Mark Ready'}
           </Text>
         </TouchableOpacity>
       )}

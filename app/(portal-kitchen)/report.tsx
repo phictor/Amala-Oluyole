@@ -4,12 +4,16 @@ import { ScreenContainer } from '@/components/screen-container';
 import { trpc } from '@/lib/trpc';
 import { StatusBar } from 'expo-status-bar';
 import { router } from 'expo-router';
+import { KitchenBranchPicker, useKitchenWorkspace } from '@/components/kitchen/kitchen-workspace';
+import { LoadingState } from '@/components/ui';
+import { QueryProblem } from '@/components/roles/role-portal-ui';
 
 export default function KitchenReportScreen() {
+  const { branchId } = useKitchenWorkspace();
   const now = new Date();
-  const [year, setYear] = useState(now.getFullYear());
+  const [year] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
-  const reportQ = trpc.kitchen.monthlyReport.useQuery({ branchId: 1, year, month }, { staleTime: 60_000 });
+  const reportQ = trpc.kitchen.monthlyReport.useQuery({ branchId, year, month }, { staleTime: 60_000 });
   const report = reportQ.data;
 
   const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -19,10 +23,11 @@ export default function KitchenReportScreen() {
       <StatusBar style="dark" />
       <View style={s.header}>
         <Text style={s.title}>Monthly Report</Text>
-        <TouchableOpacity style={s.fullBtn} onPress={() => router.push('/kitchen/monthly-report' as any)} activeOpacity={0.8}>
+        <TouchableOpacity style={s.fullBtn} onPress={() => router.push({ pathname: '/kitchen/monthly-report' as never, params: { branchId: String(branchId) } })} activeOpacity={0.8}>
           <Text style={s.fullBtnText}>Full Report →</Text>
         </TouchableOpacity>
       </View>
+      <KitchenBranchPicker />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100 }}>
         {/* Month Picker */}
         <View style={s.monthRow}>
@@ -38,12 +43,15 @@ export default function KitchenReportScreen() {
           ))}
         </View>
         {/* Summary */}
-        {report ? (
+        {reportQ.isLoading ? (
+          <LoadingState message="Preparing kitchen report..." />
+        ) : reportQ.isError ? (
+          <QueryProblem accent="#D97706" title="Report unavailable" message="The branch report could not be loaded." onRetry={() => reportQ.refetch()} />
+        ) : report ? (
           <>
             <View style={s.summaryGrid}>
               {[
                 { label: 'Total Orders', value: String(report.summary?.totalOrders ?? 0) },
-                { label: 'Revenue', value: '₦' + Number(report.summary?.totalRevenue ?? 0).toLocaleString() },
                 { label: 'Completed', value: String(report.summary?.completedOrders ?? 0) },
                 { label: 'Cancelled', value: String(report.summary?.cancelledOrders ?? 0) },
               ].map((item, i) => (
@@ -60,8 +68,8 @@ export default function KitchenReportScreen() {
                 {report.topMeals.slice(0, 5).map((meal: any, i: number) => (
                   <View key={i} style={s.mealRow}>
                     <Text style={s.mealRank}>#{i + 1}</Text>
-                    <Text style={s.mealName}>{meal.name}</Text>
-                    <Text style={s.mealCount}>{meal.totalOrdered} orders</Text>
+                    <Text style={s.mealName}>{meal.mealName}</Text>
+                    <Text style={s.mealCount}>{meal.totalQuantity} ordered</Text>
                   </View>
                 ))}
               </View>

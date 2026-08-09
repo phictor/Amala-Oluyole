@@ -38,6 +38,13 @@ export default function CateringScreen() {
       ]);
       return;
     }
+    if (!state.selectedBranch) {
+      Alert.alert('Choose a Branch', 'Select the branch that should coordinate this catering request.', [
+        { text: 'Choose Branch', onPress: () => router.push('/branch-select' as never) },
+        { text: 'Cancel', style: 'cancel' },
+      ]);
+      return;
+    }
     setLoading(true);
     const budgetMap: Record<string, number> = {
       'Under ₦100,000': 75000,
@@ -47,7 +54,7 @@ export default function CateringScreen() {
     };
     try {
       await createCatering.mutateAsync({
-        branchId: 1,
+        branchId: Number(state.selectedBranch.id),
         contactName,
         contactPhone,
         eventType,

@@ -16,7 +16,7 @@ import { appRouter } from "../server/routers";
 import type { TrpcContext } from "../server/_core/context";
 
 // Finance is handled by admin/manager role in this system
-type UserRole = "customer" | "kitchen" | "admin" | "manager" | "rider";
+type UserRole = "customer" | "finance" | "staff" | "kitchen" | "admin" | "manager" | "rider";
 
 function makeCtx(role: UserRole, id = 1, extra: Partial<NonNullable<TrpcContext["user"]>> = {}): TrpcContext {
   return {
@@ -33,7 +33,7 @@ function makeCtx(role: UserRole, id = 1, extra: Partial<NonNullable<TrpcContext[
       phone: null,
       isGuest: false,
       pushToken: null,
-      preferredBranchId: null,
+      preferredBranchId: role === "kitchen" ? 1 : null,
       ...extra,
     },
     req: { protocol: "https", headers: {}, hostname: "localhost" } as TrpcContext["req"],
@@ -128,6 +128,9 @@ describe("Kitchen Workflow", () => {
     const caller = appRouter.createCaller(makeCtx("kitchen", 10));
     const report = await caller.kitchen.monthlyReport({ branchId: 1, year: 2025, month: 7 });
     expect(report).toHaveProperty("summary");
+    expect(report.summary).not.toHaveProperty("totalRevenue");
+    expect(report.summary).not.toHaveProperty("avgOrderValue");
+    for (const meal of report.topMeals) expect(meal).not.toHaveProperty("totalRevenue");
   });
 
   it("kitchen staff cannot access admin-only stats", async () => {
@@ -241,6 +244,25 @@ describe("Rider Workflow", () => {
 
 // ─── ROLE 5: FINANCE WORKFLOW ─────────────────────────────────────────────────
 describe("Finance / Reports Workflow", () => {
+  it("finance has read-only access to transaction reports", async () => {
+    const caller = appRouter.createCaller(makeCtx("finance", 40));
+    const report = await caller.admin.transactionReport({});
+    expect(report).toHaveProperty("rows");
+  });
+
+  it("finance cannot access the operational order queue", async () => {
+    const caller = appRouter.createCaller(makeCtx("finance", 40));
+    await expect(caller.admin.activeOrders()).rejects.toThrow();
+    await expect(caller.admin.activeOrdersAdmin()).rejects.toThrow();
+    await expect(caller.orders.list()).rejects.toThrow();
+    await expect(caller.rider.getLocation({ orderId: 1 })).rejects.toThrow();
+  });
+
+  it("finance cannot change user roles", async () => {
+    const caller = appRouter.createCaller(makeCtx("finance", 40));
+    await expect(caller.admin.setUserRole({ userId: 1, role: "staff" })).rejects.toThrow();
+  });
+
   it("admin can generate a transaction report", async () => {
     const caller = appRouter.createCaller(makeCtx("admin", 99));
     const report = await caller.admin.transactionReport({});
@@ -291,5 +313,40 @@ describe("Finance / Reports Workflow", () => {
     const caller = appRouter.createCaller(makeCtx("admin", 99));
     const promos = await caller.admin.allPromoCodes();
     expect(Array.isArray(promos)).toBe(true);
+  });
+});
+
+describe("Operations Staff Workflow", () => {
+  it("staff can access active orders and dispatch data", async () => {
+    const caller = appRouter.createCaller(makeCtx("staff", 50));
+    await expect(caller.admin.activeOrders()).resolves.toEqual(expect.any(Array));
+    await expect(caller.admin.riders({})).resolves.toEqual(expect.any(Array));
+  });
+
+  it("staff cannot access finance reports", async () => {
+    const caller = appRouter.createCaller(makeCtx("staff", 50));
+    await expect(caller.admin.transactionReport({})).rejects.toThrow();
+    await expect(caller.orders.list()).rejects.toThrow();
+    await expect(caller.admin.activeOrdersAdmin()).rejects.toThrow();
+    await expect(caller.rider.getLocation({ orderId: 1 })).rejects.toThrow();
+  });
+
+  it("kitchen accounts cannot request a different branch", async () => {
+    const caller = appRouter.createCaller(makeCtx("kitchen", 10, { preferredBranchId: 1 }));
+    await expect(caller.admin.activeOrders({ branchId: 2 })).rejects.toThrow();
+    await expect(caller.kitchen.allInventory({ branchId: 2 })).rejects.toThrow();
+  });
+
+  it("staff cannot manage roles or promotion configuration", async () => {
+    const caller = appRouter.createCaller(makeCtx("staff", 50));
+    await expect(caller.admin.setUserRole({ userId: 1, role: "finance" })).rejects.toThrow();
+    await expect(caller.admin.createPromoCode({
+      code: "NOPE",
+      type: "percentage",
+      value: 10,
+      minOrderAmount: 0,
+      perUserLimit: 1,
+      isActive: true,
+    })).rejects.toThrow();
   });
 });

@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity, StyleSheet,
+  View, Text, TouchableOpacity, StyleSheet,
   TextInput, FlatList, Dimensions, Animated,
 } from 'react-native';
 import { Image } from 'expo-image';
@@ -55,12 +55,9 @@ export default function HomeScreen() {
   const [search, setSearch] = useState('');
   const scrollY = useRef(new Animated.Value(0)).current;
 
-  const cartCount = state.cartItems.reduce((s, i) => s + i.quantity, 0);
-
   // Live data from backend, fallback to mock data
   const { data: liveFeatured } = trpc.menu.featured.useQuery(undefined, { retry: 1, staleTime: 60_000 });
   const { data: livePopular } = trpc.menu.meals.useQuery({ popular: true }, { retry: 1, staleTime: 60_000 });
-  const { data: liveBranches } = trpc.menu.branches.useQuery(undefined, { retry: 1, staleTime: 300_000 });
 
   const popularMeals: MealCard[] = (livePopular && livePopular.length > 0
     ? livePopular.map(m => toMealCard(m as unknown as Record<string, unknown>))

@@ -1,7 +1,6 @@
 import React, { useRef, useState } from 'react';
-import { View, Text, FlatList, Dimensions, TouchableOpacity, Image, StyleSheet } from 'react-native';
+import { View, Text, FlatList, Dimensions, TouchableOpacity, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useAppStore } from '@/lib/store/app-store';
 import { Image as ExpoImage } from 'expo-image';
 

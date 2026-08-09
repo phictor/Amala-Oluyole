@@ -38,9 +38,21 @@ const roleOpenIds = {
   customer: required("STAGING_TEST_CUSTOMER_OPEN_ID"),
   admin: required("STAGING_TEST_ADMIN_OPEN_ID"),
   manager: required("STAGING_TEST_MANAGER_OPEN_ID"),
+  finance: required("STAGING_TEST_FINANCE_OPEN_ID"),
+  staff: required("STAGING_TEST_STAFF_OPEN_ID"),
   kitchen: required("STAGING_TEST_KITCHEN_OPEN_ID"),
   rider: required("STAGING_TEST_RIDER_OPEN_ID"),
 } as const;
+
+const roleEmails: Record<keyof typeof roleOpenIds, string> = {
+  customer: required("STAGING_TEST_CUSTOMER_EMAIL"),
+  admin: required("STAGING_TEST_ADMIN_EMAIL"),
+  manager: required("STAGING_TEST_MANAGER_EMAIL"),
+  finance: required("STAGING_TEST_FINANCE_EMAIL"),
+  staff: required("STAGING_TEST_STAFF_EMAIL"),
+  kitchen: required("STAGING_TEST_KITCHEN_EMAIL"),
+  rider: required("STAGING_TEST_RIDER_EMAIL"),
+};
 
 async function ensureUser(role: keyof typeof roleOpenIds, name: string, email: string) {
   const openId = roleOpenIds[role];
@@ -120,17 +132,20 @@ async function resetStagingData() {
 }
 
 async function seedStagingData() {
-  const customer = await ensureUser("customer", "Preview Customer", "customer.preview@amalaoluyole.test");
-  await ensureUser("admin", "Preview Administrator", "admin.preview@amalaoluyole.test");
-  await ensureUser("manager", "Preview Manager", "manager.preview@amalaoluyole.test");
-  await ensureUser("kitchen", "Preview Kitchen", "kitchen.preview@amalaoluyole.test");
-  const riderUser = await ensureUser("rider", "Preview Rider", "rider.preview@amalaoluyole.test");
+  const customer = await ensureUser("customer", "Preview Customer", roleEmails.customer);
+  await ensureUser("admin", "Preview Administrator", roleEmails.admin);
+  await ensureUser("manager", "Preview Manager", roleEmails.manager);
+  await ensureUser("finance", "Preview Finance", roleEmails.finance);
+  const staffUser = await ensureUser("staff", "Preview Operations Staff", roleEmails.staff);
+  const kitchenUser = await ensureUser("kitchen", "Preview Kitchen", roleEmails.kitchen);
+  const riderUser = await ensureUser("rider", "Preview Rider", roleEmails.rider);
   await db.insert(users).values({ openId: UNASSIGNED_RIDER_OPEN_ID, role: "rider", name: "Preview Spare Rider", email: "rider.unassigned.preview@amalaoluyole.test", loginMethod: "seed-only" })
     .onDuplicateKeyUpdate({ set: { role: "rider", name: "Preview Spare Rider" } });
   const [spareRiderUser] = await db.select().from(users).where(eq(users.openId, UNASSIGNED_RIDER_OPEN_ID)).limit(1);
 
   const branchA = await ensureBranch(BRANCH_NAMES[0], "12 Preview Lane, Oluyole Estate", 7.3775, 3.9470);
   const branchB = await ensureBranch(BRANCH_NAMES[1], "45 Preview Lane, Ring Road", 7.39, 3.91);
+  await db.update(users).set({ preferredBranchId: branchA.id }).where(inArray(users.id, [staffUser.id, kitchenUser.id]));
 
   await db.insert(mealCategories).values({ name: "Preview Staples", slug: CATEGORY_SLUG, emoji: "🧪", description: "Staging-only repeatable test meals", sortOrder: 1, isActive: true })
     .onDuplicateKeyUpdate({ set: { name: "Preview Staples", isActive: true } });
@@ -187,19 +202,19 @@ async function seedStagingData() {
   const [existingReservation] = await db.select().from(reservations).where(and(eq(reservations.userId, customer.id), eq(reservations.specialRequests, "[BYTECHAIN PREVIEW] window table"))).limit(1);
   if (!existingReservation) await db.insert(reservations).values({
     userId: customer.id, branchId: branchB.id, guestName: "Preview Customer", guestPhone: "+2340000000000",
-    guestEmail: "customer.preview@amalaoluyole.test", partySize: 4,
+    guestEmail: roleEmails.customer, partySize: 4,
     reservationDate: new Date(Date.now() + 7 * 86_400_000), occasion: "Preview QA", specialRequests: "[BYTECHAIN PREVIEW] window table", status: "confirmed",
   });
   const [existingCatering] = await db.select().from(cateringRequests).where(and(eq(cateringRequests.userId, customer.id), eq(cateringRequests.additionalRequirements, "[BYTECHAIN PREVIEW] repeatable catering request"))).limit(1);
   if (!existingCatering) await db.insert(cateringRequests).values({
     userId: customer.id, branchId: branchA.id, contactName: "Preview Customer", contactPhone: "+2340000000000",
-    contactEmail: "customer.preview@amalaoluyole.test", eventType: "Preview QA Event",
+    contactEmail: roleEmails.customer, eventType: "Preview QA Event",
     eventDate: new Date(Date.now() + 21 * 86_400_000), guestCount: 40, venue: "Preview Test Venue",
     mealPreferences: "Amala, ewedu, jollof rice, and zobo", budget: "250000.00",
     additionalRequirements: "[BYTECHAIN PREVIEW] repeatable catering request", status: "reviewing",
   });
 
-  console.log(JSON.stringify({ event: "staging_seed_complete", users: 6, branches: 2, meals: seededMeals.length, customMealOptions: "canonical server catalog", orders: 2, riders: 2, promoCode: PROMO_CODE }));
+  console.log(JSON.stringify({ event: "staging_seed_complete", users: 8, branches: 2, meals: seededMeals.length, customMealOptions: "canonical server catalog", orders: 2, riders: 2, promoCode: PROMO_CODE }));
 }
 
 async function main() {

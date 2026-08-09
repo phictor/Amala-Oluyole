@@ -2,7 +2,7 @@ import { z } from "zod";
 import { and, eq } from "drizzle-orm";
 import { getBranches, getFeaturedMeals, getMealById, getMealCategories, getMeals, getUserFavourites, toggleFavourite, getDb } from "../db";
 import { promoCodes } from "../../drizzle/schema";
-import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
+import { customerProcedure, publicProcedure, router } from "../_core/trpc";
 import { BUILDER_OPTIONS } from "../catalog/builder-options";
 
 export const menuRouter = router({
@@ -43,10 +43,10 @@ export const menuRouter = router({
   // without a DB migration. In a future version these can be moved to a DB table.
   builderOptions: publicProcedure.query(() => BUILDER_OPTIONS),
 
-  favourites: protectedProcedure
+  favourites: customerProcedure
     .query(({ ctx }) => getUserFavourites(ctx.user.id)),
 
-  toggleFavourite: protectedProcedure
+  toggleFavourite: customerProcedure
     .input(z.object({ mealId: z.number() }))
     .mutation(({ ctx, input }) => toggleFavourite(ctx.user.id, input.mealId)),
 });

@@ -20,7 +20,7 @@ export const users = mysqlTable("users", {
   email: varchar("email", { length: 320 }),
   phone: varchar("phone", { length: 20 }),
   loginMethod: varchar("loginMethod", { length: 64 }),
-  role: mysqlEnum("role", ["customer", "admin", "rider", "kitchen", "manager"]).default("customer").notNull(),
+  role: mysqlEnum("role", ["customer", "admin", "rider", "kitchen", "manager", "finance", "staff"]).default("customer").notNull(),
   isGuest: boolean("isGuest").default(false).notNull(),
   pushToken: text("pushToken"),
   preferredBranchId: int("preferredBranchId"),
@@ -267,6 +267,19 @@ export const refreshSessions = mysqlTable("refresh_sessions", {
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
+// Short-lived passwordless sign-in challenges. The one-time code is never
+// persisted: codeHash is an HMAC bound to this challenge's random identifier.
+export const loginChallenges = mysqlTable("login_challenges", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  channel: mysqlEnum("channel", ["email", "phone"]).notNull(),
+  destination: varchar("destination", { length: 320 }).notNull(),
+  codeHash: varchar("codeHash", { length: 64 }).notNull(),
+  attempts: int("attempts").default(0).notNull(),
+  expiresAt: timestamp("expiresAt").notNull(),
+  consumedAt: timestamp("consumedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
 // Server-issued challenges used to enforce freshness and replay protection for
 // high-risk mobile operations. Provider assertions are never stored.
 export const appIntegrityChallenges = mysqlTable("app_integrity_challenges", {
@@ -460,4 +473,5 @@ export type InsertInventoryItem = typeof inventory.$inferInsert;
 export type InventoryTransaction = typeof inventoryTransactions.$inferSelect;
 export type OAuthState = typeof oauthStates.$inferSelect;
 export type RefreshSession = typeof refreshSessions.$inferSelect;
+export type LoginChallenge = typeof loginChallenges.$inferSelect;
 export type AppIntegrityChallenge = typeof appIntegrityChallenges.$inferSelect;

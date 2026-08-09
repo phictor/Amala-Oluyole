@@ -1,12 +1,12 @@
 import { z } from "zod";
 import { getLoyaltyAccount, getLoyaltyTransactions } from "../db";
-import { protectedProcedure, router } from "../_core/trpc";
+import { customerProcedure, router } from "../_core/trpc";
 
 export const loyaltyRouter = router({
-  account: protectedProcedure
+  account: customerProcedure
     .query(({ ctx }) => getLoyaltyAccount(ctx.user.id)),
 
-  transactions: protectedProcedure
+  transactions: customerProcedure
     .input(z.object({ limit: z.number().default(20) }).optional())
     .query(({ ctx, input }) => getLoyaltyTransactions(ctx.user.id, input?.limit)),
 });

@@ -14,21 +14,23 @@ The gold `TEST ENVIRONMENT` banner and TEST-marked home-screen icon distinguish 
 
 ## Test accounts
 
-The staging OAuth provider owns credentials; passwords and recovery codes are never stored in this repository. Ask the repository owner for the current staging-only credentials for these identities:
+Every tester uses the same neutral **Sign in** screen. Choose **Email** or **Phone**, then enter the one-time code delivered by the staging Resend/Twilio account. Passwords, codes, and recovery credentials are never stored in this repository. The repository owner supplies reachable staging-only addresses for these environment variables:
 
 | Role | Staging identity | Main scenario |
 | --- | --- | --- |
-| Customer | `customer.preview@amalaoluyole.test` | Browse, order, Paystack, loyalty, reservations, catering |
-| Administrator | `admin.preview@amalaoluyole.test` | Dashboard, staff, riders, promotions, reports |
-| Manager | `manager.preview@amalaoluyole.test` | Admin and kitchen oversight |
-| Kitchen | `kitchen.preview@amalaoluyole.test` | Accept, prepare, and mark orders ready |
-| Rider | `rider.preview@amalaoluyole.test` | Assigned orders, location, delivery completion |
+| Customer | `STAGING_TEST_CUSTOMER_EMAIL` | Browse, order, Paystack, loyalty, reservations, catering |
+| Finance | `STAGING_TEST_FINANCE_EMAIL` | Read-only overview, transactions, and reports |
+| Operations staff | `STAGING_TEST_STAFF_EMAIL` | Today view, orders, and dispatch |
+| Kitchen | `STAGING_TEST_KITCHEN_EMAIL` | Accept, prepare, and mark orders ready |
+| Rider | `STAGING_TEST_RIDER_EMAIL` | Assigned orders, location, and delivery completion |
+| Owner/admin | `STAGING_TEST_ADMIN_EMAIL` | Restricted role assignment and system administration |
+| Legacy manager | `STAGING_TEST_MANAGER_EMAIL` | Compatibility and management oversight |
 
-To switch roles, sign out, choose **Sign In**, and authenticate with the next staging OAuth account. The server routes administrators/managers, kitchen staff, and riders to their respective portals. Never reuse production credentials in preview.
+To switch roles, sign out, choose **Sign in**, and request a code for the next staging identity. The server—not the app screen—decides which workspace opens. A new unrecognised email or phone number always creates a **Customer** account and can never self-select a staff role. Never reuse production identities in preview.
 
 ## Seed and reset staging data
 
-Configure an isolated staging database and the five `STAGING_TEST_*_OPEN_ID` values from `.env.example`, then run:
+Configure an isolated staging database plus the `STAGING_TEST_*_OPEN_ID` and `STAGING_TEST_*_EMAIL` values from `.env.example`, then run:
 
 ```powershell
 pnpm db:migrate
@@ -52,9 +54,10 @@ The script refuses to run unless `APP_ENV=staging`, the database label contains 
 3. Choose delivery, enter a staging-only test address inside the configured delivery radius, and select card payment.
 4. Complete a Paystack **test-mode** payment. For a successful payment use card `4084 0840 8408 4081`, any future expiry, and CVV `408`. For a decline use `4084 0800 0000 5408`, any future expiry, and CVV `001`.
 5. Sign out and sign in as Kitchen. Accept the order, start preparation, then mark it ready.
-6. Sign in as Administrator or Manager. Assign the Preview Rider.
-7. Sign in as Rider. Go online, accept the assigned order, start delivery, and complete it using the displayed handover flow.
+6. Sign in as Operations staff. Open Dispatch and assign the Preview Rider.
+7. Sign in as Rider. Go online, start the assigned delivery, and complete it using the displayed handover flow.
 8. Sign back in as Customer and confirm the final status, loyalty update, and receipt.
+9. Sign in as Finance and confirm the paid transaction appears without kitchen, dispatch, menu-editing, or role-management controls.
 
 Paystack must be configured with an `sk_test_...` server key and a staging webhook. Never use a live key or treat the client callback as payment proof.
 
@@ -189,6 +192,7 @@ The generated report includes only safe build metadata. Do not paste addresses, 
 - Register iPhone UDIDs and approve Apple signing credentials.
 - Provision `staging.amalaoluyole.com` and `staging-api.amalaoluyole.com` over HTTPS.
 - Configure isolated staging database, Paystack test, OAuth, storage, push, email, WhatsApp, Sentry, and log retention settings.
+- Configure `RESEND_API_KEY`/`EMAIL_FROM` for email codes and Twilio with `TWILIO_SMS_FROM` (or the WhatsApp fallback) for phone codes.
 - Add `EXPO_TOKEN` and `STAGING_API_HEALTH_URL` to GitHub Actions secrets and populate any sensitive values in the EAS `preview` environment.
 
 No command in this guide submits to the App Store or Google Play, publishes to the production update channel, or merges branches.

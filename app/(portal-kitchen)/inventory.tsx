@@ -3,10 +3,14 @@ import { View, Text, ScrollView, TouchableOpacity, StyleSheet, RefreshControl, A
 import { ScreenContainer } from '@/components/screen-container';
 import { trpc } from '@/lib/trpc';
 import { StatusBar } from 'expo-status-bar';
+import { KitchenBranchPicker, useKitchenWorkspace } from '@/components/kitchen/kitchen-workspace';
+import { LoadingState } from '@/components/ui';
+import { QueryProblem } from '@/components/roles/role-portal-ui';
 
 export default function KitchenInventoryScreen() {
+  const { branchId } = useKitchenWorkspace();
   const [refreshing, setRefreshing] = useState(false);
-  const stockQ = trpc.kitchen.allInventory.useQuery({ branchId: 1 }, { staleTime: 30_000 });
+  const stockQ = trpc.kitchen.allInventory.useQuery({ branchId }, { staleTime: 30_000 });
   const utils = trpc.useUtils();
   const depleteStock = trpc.kitchen.updateStock.useMutation({ onSuccess: () => utils.kitchen.allInventory.invalidate() });
 
@@ -18,7 +22,7 @@ export default function KitchenInventoryScreen() {
   const handleDeplete = (itemId: number, name: string) => {
     Alert.alert('Use Stock', `Record usage for "${name}"?`, [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Use 1 unit', onPress: () => depleteStock.mutate({ inventoryId: itemId, branchId: 1, type: 'usage', quantity: 1, note: 'Kitchen usage', recordedBy: 1 }) },
+      { text: 'Use 1 unit', onPress: () => depleteStock.mutate({ inventoryId: itemId, branchId, type: 'usage', quantity: -1, note: 'Kitchen usage' }) },
     ]);
   };
 
@@ -29,11 +33,14 @@ export default function KitchenInventoryScreen() {
         <Text style={s.title}>Inventory</Text>
         <Text style={s.sub}>{items.length} items · {lowStock.length} low stock</Text>
       </View>
+      <KitchenBranchPicker />
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
+        {stockQ.isLoading && <LoadingState message="Loading branch inventory..." />}
+        {stockQ.isError && <QueryProblem accent="#D97706" title="Inventory unavailable" message="Stock could not be loaded. Retry before recording usage." onRetry={() => stockQ.refetch()} />}
         {lowStock.length > 0 && (
           <View style={s.alertBanner}>
             <Text style={s.alertText}>⚠️ {lowStock.length} item{lowStock.length > 1 ? 's' : ''} below minimum stock level</Text>
@@ -58,7 +65,7 @@ export default function KitchenInventoryScreen() {
             </View>
           );
         })}
-        {items.length === 0 && (
+        {!stockQ.isLoading && !stockQ.isError && items.length === 0 && (
           <View style={s.empty}>
             <Text style={s.emptyIcon}>📦</Text>
             <Text style={s.emptyText}>No inventory items yet</Text>

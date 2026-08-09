@@ -19,7 +19,8 @@ export function isApprovedOrigin(origin: string | undefined): boolean {
 
 function ratePolicy(req: Request): { limit: number; windowMs: number; group: string } | null {
   const path = req.originalUrl;
-  if (/\/api\/oauth|\/api\/auth\/(session|refresh)|\/api\/integrity\/challenge/.test(path)) return { limit: 20, windowMs: 60_000, group: "auth" };
+  if (/\/api\/auth\/passwordless\/challenge(?:\?|$)/.test(path)) return { limit: 5, windowMs: 60_000, group: "auth_challenge" };
+  if (/\/api\/oauth|\/api\/auth\/(session|refresh|passwordless\/verify)|\/api\/integrity\/challenge/.test(path)) return { limit: 20, windowMs: 60_000, group: "auth" };
   if (/orders\.(place|initializePayment|verifyPayment)|validatePromo/.test(path)) return { limit: 20, windowMs: 60_000, group: "checkout" };
   if (/rider\.(updateLocation|setStatus|updateOrderStatus)/.test(path)) return { limit: 120, windowMs: 60_000, group: "rider" };
   if (/admin\./.test(path)) return { limit: 60, windowMs: 60_000, group: "admin" };

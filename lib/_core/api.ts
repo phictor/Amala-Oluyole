@@ -57,6 +57,39 @@ export async function exchangeOAuthCode(code: string, state: string): Promise<{ 
   return { sessionToken: result.accessToken, user: result.user };
 }
 
+export type LoginChannel = "email" | "phone";
+type SerializedAuthUser = Omit<Auth.User, "lastSignedIn"> & { lastSignedIn: string };
+
+export async function requestLoginCode(input: {
+  channel: LoginChannel;
+  identifier: string;
+}): Promise<{ challengeId: string; destinationHint: string; expiresInSeconds: number }> {
+  return apiCall("/api/auth/passwordless/challenge", {
+    method: "POST",
+    body: JSON.stringify(input),
+  }, false);
+}
+
+export async function verifyLoginCode(input: {
+  challengeId: string;
+  code: string;
+}): Promise<{ sessionToken: string; refreshToken: string; user: Auth.User }> {
+  const result = await apiCall<{
+    accessToken: string;
+    refreshToken: string;
+    user: SerializedAuthUser;
+  }>("/api/auth/passwordless/verify", {
+    method: "POST",
+    body: JSON.stringify(input),
+  }, false);
+
+  return {
+    sessionToken: result.accessToken,
+    refreshToken: result.refreshToken,
+    user: { ...result.user, lastSignedIn: new Date(result.user.lastSignedIn) },
+  };
+}
+
 export async function logout(): Promise<void> {
   const refreshToken = Platform.OS === "web" ? null : await Auth.getRefreshToken();
   await apiCall<void>("/api/auth/logout", {

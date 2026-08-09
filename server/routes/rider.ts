@@ -2,7 +2,7 @@ import { TRPCError } from "@trpc/server";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { orders, riders, users } from "../../drizzle/schema";
-import { protectedProcedure, router } from "../_core/trpc";
+import { customerProcedure, protectedProcedure, router } from "../_core/trpc";
 import {
   createNotification,
   getDb,
@@ -16,13 +16,31 @@ import {
 import { sendOrderStatusWhatsApp } from "../notifications";
 import { assertOrderTransition, CUSTOMER_TRACKABLE_STATUSES } from "../security/order-state";
 import { requireAppIntegrity } from "../security/app-integrity";
+import { projectRiderOrder } from "../security/order-projection";
 
 function requireRiderRole(role: string) {
   if (role !== "rider") throw new TRPCError({ code: "FORBIDDEN", message: "Rider access required" });
 }
 
 export const riderRouter = router({
-  getLocation: protectedProcedure.input(z.object({ orderId: z.number().int().positive() })).query(async ({ ctx, input }) => {
+  profile: protectedProcedure.query(async ({ ctx }) => {
+    requireRiderRole(ctx.user.role);
+    const rider = await getRiderByUserId(ctx.user.id);
+    if (!rider?.isActive) throw new TRPCError({ code: "FORBIDDEN", message: "Active rider profile required" });
+    return {
+      id: rider.id,
+      branchId: rider.branchId,
+      vehicleType: rider.vehicleType,
+      vehiclePlate: rider.vehiclePlate,
+      isOnline: rider.isOnline,
+      isAvailable: rider.isAvailable,
+      currentLatitude: rider.currentLatitude,
+      currentLongitude: rider.currentLongitude,
+      lastLocationUpdate: rider.lastLocationUpdate,
+    };
+  }),
+
+  getLocation: customerProcedure.input(z.object({ orderId: z.number().int().positive() })).query(async ({ ctx, input }) => {
     const db = await getDb();
     if (!db) throw new TRPCError({ code: "SERVICE_UNAVAILABLE", message: "Location service unavailable" });
     const [order] = await db.select({
@@ -75,7 +93,8 @@ export const riderRouter = router({
     requireRiderRole(ctx.user.role);
     const rider = await getRiderByUserId(ctx.user.id);
     if (!rider?.isActive) throw new TRPCError({ code: "FORBIDDEN", message: "Active rider profile required" });
-    return getOrdersByRider(rider.id, input?.status);
+    const riderOrders = await getOrdersByRider(rider.id, input?.status);
+    return riderOrders.map(projectRiderOrder);
   }),
 
   updateOrderStatus: protectedProcedure.input(z.object({

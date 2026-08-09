@@ -111,7 +111,7 @@ function AdminDashboardContent() {
   useEffect(() => {
     if (!profileLoading && myProfile && !hasAccess) {
       Alert.alert('Access Denied', 'You do not have permission to access the admin dashboard.', [
-        { text: 'Go Back', onPress: () => router.replace('/(tabs)' as never) },
+        { text: 'Go Back', onPress: () => router.replace('/(tabs)/home' as never) },
       ]);
     }
   }, [profileLoading, myProfile, hasAccess]);
@@ -130,7 +130,7 @@ function AdminDashboardContent() {
 
   // ── Queries ──────────────────────────────────────────────────────────────
   const { data: overview, refetch: refetchOverview } = trpc.admin.overview.useQuery(undefined, { retry: 1 });
-  const { data: activeOrders, refetch: refetchOrders } = trpc.admin.activeOrders.useQuery(undefined, { retry: 1, refetchInterval: 15_000 });
+  const { data: activeOrders, refetch: refetchOrders } = trpc.admin.activeOrdersAdmin.useQuery(undefined, { retry: 1, refetchInterval: 15_000 });
   const { data: allMeals, refetch: refetchMeals } = trpc.admin.allMeals.useQuery(undefined, { retry: 1 });
   const { data: riders, refetch: refetchRiders } = trpc.admin.riders.useQuery(undefined, { retry: 1 });
 
@@ -155,7 +155,7 @@ function AdminDashboardContent() {
   const deletePromo = trpc.admin.deletePromoCode.useMutation({ onSuccess: () => refetchPromos() });
 
   const updateStatus = trpc.admin.updateOrderStatus.useMutation({
-    onSuccess: () => { refetchOrders(); utils.admin.activeOrders.invalidate(); },
+    onSuccess: () => { refetchOrders(); utils.admin.activeOrdersAdmin.invalidate(); },
   });
   const updateMeal = trpc.admin.updateMeal.useMutation({
     onSuccess: () => { refetchMeals(); setEditingMeal(null); },
@@ -219,7 +219,7 @@ function AdminDashboardContent() {
           </Text>
           <TouchableOpacity
             style={{ backgroundColor: '#D02010', borderRadius: 12, paddingHorizontal: 24, paddingVertical: 12 }}
-            onPress={() => router.replace('/(tabs)' as never)}>
+            onPress={() => router.replace('/(tabs)/home' as never)}>
             <Text style={{ color: '#FFF', fontWeight: '700', fontSize: 16 }}>Go Back</Text>
           </TouchableOpacity>
         </View>
