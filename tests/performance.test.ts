@@ -37,7 +37,7 @@ function makeCtx(role: "customer" | "kitchen" | "admin" | "manager" | "rider", i
       phone: null,
       isGuest: false,
       pushToken: null,
-      preferredBranchId: null,
+      preferredBranchId: role === "kitchen" ? 1 : null,
     },
     req: { protocol: "https", headers: {}, hostname: "localhost" } as TrpcContext["req"],
     res: { clearCookie: () => {} } as unknown as TrpcContext["res"],
