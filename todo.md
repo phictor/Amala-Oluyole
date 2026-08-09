@@ -206,3 +206,10 @@
 - [x] Rebuild Kitchen portal for desktop: 3-column Kanban board (New / In Progress / Ready)
 - [x] Kitchen order cards show dish list, elapsed time, late warning (>20 min)
 - [x] All portal screens use PortalLayout instead of ScreenContainer + AdminMenu
+- [x] Build desktop-optimised Menu management screen with PortalLayout
+- [x] Category sidebar (desktop) / horizontal chips (mobile) for filtering
+- [x] Inline price editor: tap price to edit, press Enter or ✓ to save instantly
+- [x] Availability toggle with green/red label per meal card
+- [x] Meal cards show photo, badges (Popular/Best Seller/Chef Special), prep time
+- [x] Search bar to filter meals by name
+- [x] 2-column grid on desktop, single column on mobile
