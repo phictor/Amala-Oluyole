@@ -197,3 +197,12 @@
 - [x] Wire Bistro "Add" buttons to cart store (haptics, ADD_TO_CART dispatch, qty badge)
 - [x] Add Fine Dining Tasting Menu section (5-course ₦25,000 set menu with real photo)
 - [x] Update performance test thresholds to 2000ms for sandbox load variability
+
+### Desktop Portal Optimisation (Aug 2026)
+- [x] Build reusable PortalLayout component with collapsible sidebar navigation
+- [x] Sidebar shows brand logo, nav items with badges, sign-out button
+- [x] Responsive: sidebar on desktop (≥900px), compact header on mobile
+- [x] Rebuild Finance & Operations portal for desktop: 8-KPI row, stacked revenue chart, live orders table
+- [x] Rebuild Kitchen portal for desktop: 3-column Kanban board (New / In Progress / Ready)
+- [x] Kitchen order cards show dish list, elapsed time, late warning (>20 min)
+- [x] All portal screens use PortalLayout instead of ScreenContainer + AdminMenu
