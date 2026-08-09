@@ -67,15 +67,10 @@ jobs:
       - run: pnpm build
       - name: Detect native-runtime changes
         id: native
-        shell: bash
-        run: |
-          if ! git rev-parse "${{ github.event.before }}^{commit}" >/dev/null 2>&1; then
-            echo "changed=true" >> "$GITHUB_OUTPUT"
-          elif git diff --name-only "${{ github.event.before }}" "${{ github.sha }}" | grep -Eq '^(app\.config\.ts|eas\.json|package\.json|pnpm-lock\.yaml|ios/|android/|plugins/)'; then
-            echo "changed=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-          fi
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.sha }}
+        run: node scripts/validate-native-runtime.mjs "$BASE_SHA" "$HEAD_SHA"
     outputs:
       native_changed: ${{ steps.native.outputs.changed }}
 
@@ -98,7 +93,11 @@ jobs:
     runs-on: ubuntu-latest
     env:
       EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-      EAS_PROJECT_ID: ${{ secrets.EAS_PROJECT_ID }}
+      APP_VARIANT: preview
+      EXPO_PUBLIC_API_BASE_URL: https://staging-api.amalaoluyole.com
+      EXPO_PUBLIC_API_ENVIRONMENT: staging
+      EXPO_PUBLIC_DATABASE_ENVIRONMENT_LABEL: staging-isolated
+      EXPO_PUBLIC_INTEGRITY_ENABLED: "true"
       EXPO_PUBLIC_GIT_COMMIT_SHA: ${{ github.sha }}
     steps:
       - uses: actions/checkout@v4
@@ -112,13 +111,13 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Require preview publishing credentials
         shell: bash
-        run: test -n "$EXPO_TOKEN" && test -n "$EAS_PROJECT_ID"
+        run: test -n "$EXPO_TOKEN"
       - name: Set build date
         shell: bash
         run: echo "EXPO_PUBLIC_BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
       - name: Create replacement internal binaries after native changes
         if: needs.verify.outputs.native_changed == 'true'
-        run: npx --yes eas-cli@latest build --platform all --profile preview --non-interactive --no-wait
+        run: npx --yes --package=eas-cli@21.7.0 --package=typescript@5.9.3 eas build --platform all --profile preview --non-interactive --no-wait
       - name: Publish compatible Bytechain preview update
         if: needs.verify.outputs.native_changed != 'true'
-        run: npx --yes eas-cli@latest update --channel bytechain-preview --environment preview --message "Bytechain ${{ github.sha }}" --non-interactive
+        run: npx --yes --package=eas-cli@21.7.0 --package=typescript@5.9.3 eas update --channel bytechain-preview --environment preview --message "Bytechain ${{ github.sha }}" --non-interactive

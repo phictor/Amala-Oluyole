@@ -4,9 +4,12 @@ import type { ConfigContext, ExpoConfig } from "expo/config";
 type AppVariant = "production" | "preview" | "development";
 
 const DEFAULT_EAS_PROJECT_ID = "b5118588-8592-414a-a716-e991acd4183a";
+const PRODUCTION_APP_VERSION = "1.0.0";
+const BYTECHAIN_APP_VERSION = "1.0.1";
 
 const VARIANTS: Record<AppVariant, {
   name: string;
+  appVersion: string;
   bundleSuffix: string;
   scheme: string;
   icon: string;
@@ -14,6 +17,7 @@ const VARIANTS: Record<AppVariant, {
 }> = {
   production: {
     name: "Amala Oluyole",
+    appVersion: PRODUCTION_APP_VERSION,
     bundleSuffix: "",
     scheme: "amalaoluyole",
     icon: "./assets/images/icon.png",
@@ -21,6 +25,7 @@ const VARIANTS: Record<AppVariant, {
   },
   preview: {
     name: "Amala Oluyole Preview",
+    appVersion: BYTECHAIN_APP_VERSION,
     bundleSuffix: ".preview",
     scheme: "amalaoluyole-preview",
     icon: "./assets/images/icon-preview.png",
@@ -28,6 +33,7 @@ const VARIANTS: Record<AppVariant, {
   },
   development: {
     name: "Amala Oluyole Dev",
+    appVersion: BYTECHAIN_APP_VERSION,
     bundleSuffix: ".dev",
     scheme: "amalaoluyole-dev",
     icon: "./assets/images/icon-development.png",
@@ -95,14 +101,14 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     name: variant.name,
     owner: "emmapastor",
     slug: "amala-oluyole",
-    version: "1.0.0",
+    version: variant.appVersion,
     description: "Order authentic Yoruba cuisine from Amala Oluyole Restaurant.",
     orientation: "portrait",
     icon: variant.icon,
     scheme: variant.scheme,
     userInterfaceStyle: "automatic",
     newArchEnabled: true,
-    runtimeVersion: { policy: "fingerprint" },
+    runtimeVersion: { policy: "appVersion" },
     updates: projectId
       ? {
           url: `https://u.expo.dev/${projectId}`,
@@ -116,8 +122,11 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       environmentName: variant.environment,
       apiEnvironment: process.env.EXPO_PUBLIC_API_ENVIRONMENT || variant.environment,
       databaseEnvironmentLabel: process.env.EXPO_PUBLIC_DATABASE_ENVIRONMENT_LABEL || "not-configured",
-      gitCommitSha: process.env.EXPO_PUBLIC_GIT_COMMIT_SHA || "local",
-      buildDate: process.env.EXPO_PUBLIC_BUILD_DATE || "local-development",
+      gitCommitSha: process.env.EXPO_PUBLIC_GIT_COMMIT_SHA
+        || process.env.EAS_BUILD_GIT_COMMIT_HASH
+        || "local",
+      buildDate: process.env.EXPO_PUBLIC_BUILD_DATE
+        || (process.env.EAS_BUILD === "true" ? new Date().toISOString() : "local-development"),
       feedbackIssueUrl: process.env.EXPO_PUBLIC_FEEDBACK_ISSUE_URL || "https://github.com/phictor/Amala-Oluyole/issues/new",
       eas: projectId ? { projectId } : undefined,
     },
