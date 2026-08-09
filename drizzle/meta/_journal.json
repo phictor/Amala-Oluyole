@@ -22,6 +22,20 @@
       "when": 1786060800000,
       "tag": "0002_security_hardening",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1786266688567,
+      "tag": "0003_preview_schema_sync",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1786290663151,
+      "tag": "0004_role_passwordless_auth",
+      "breakpoints": true
     }
   ]
 }

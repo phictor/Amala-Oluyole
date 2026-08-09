@@ -39,7 +39,7 @@ export default function BranchSelectScreen() {
 
   const handleSelect = (branch: typeof branches[number]) => {
     dispatch({ type: 'SET_BRANCH', payload: branch });
-    router.replace('/(tabs)' as never);
+    router.replace('/(tabs)/home' as never);
   };
 
   const renderBranch = ({ item }: { item: typeof branches[number] }) => (

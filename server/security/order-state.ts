@@ -1,7 +1,7 @@
 import type { Order } from "../../drizzle/schema";
 
 export type OrderStatus = Order["status"];
-export type OrderActor = "customer" | "rider" | "kitchen" | "admin" | "manager" | "system";
+export type OrderActor = "customer" | "rider" | "kitchen" | "staff" | "admin" | "manager" | "system";
 
 const TRANSITIONS: Record<OrderStatus, readonly OrderStatus[]> = {
   created: ["awaiting_payment", "accepted", "cancelled"],
@@ -23,6 +23,7 @@ const ACTOR_TARGETS: Record<OrderActor, readonly OrderStatus[]> = {
   customer: ["cancelled"],
   rider: ["out_for_delivery", "delivered"],
   kitchen: ["accepted", "preparing", "ready", "rejected"],
+  staff: ["accepted", "preparing", "ready", "rider_assigned", "completed", "cancelled", "rejected"],
   admin: Object.keys(TRANSITIONS) as OrderStatus[],
   manager: Object.keys(TRANSITIONS) as OrderStatus[],
   system: Object.keys(TRANSITIONS) as OrderStatus[],

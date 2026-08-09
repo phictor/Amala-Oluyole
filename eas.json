@@ -1,40 +1,65 @@
 {
+  "$schema": "https://json.schemastore.org/eas.json",
   "cli": {
-    "version": ">= 16.0.0"
+    "version": ">= 16.0.0",
+    "appVersionSource": "remote"
   },
   "build": {
-    "development": {
+    "development-device": {
       "developmentClient": true,
       "distribution": "internal",
+      "environment": "preview",
+      "env": {
+        "APP_VARIANT": "development",
+        "EXPO_PUBLIC_API_BASE_URL": "https://staging-api.amalaoluyole.com",
+        "EXPO_PUBLIC_API_ENVIRONMENT": "staging",
+        "EXPO_PUBLIC_DATABASE_ENVIRONMENT_LABEL": "staging-isolated",
+        "EXPO_PUBLIC_INTEGRITY_ENABLED": "true",
+        "SENTRY_ENVIRONMENT": "development"
+      },
+      "android": {
+        "buildType": "apk"
+      }
+    },
+    "development-simulator": {
+      "extends": "development-device",
       "ios": {
         "simulator": true
       }
     },
     "preview": {
       "distribution": "internal",
+      "channel": "bytechain-preview",
+      "environment": "preview",
+      "autoIncrement": true,
+      "env": {
+        "APP_VARIANT": "preview",
+        "EXPO_PUBLIC_API_BASE_URL": "https://staging-api.amalaoluyole.com",
+        "EXPO_PUBLIC_API_ENVIRONMENT": "staging",
+        "EXPO_PUBLIC_DATABASE_ENVIRONMENT_LABEL": "staging-isolated",
+        "EXPO_PUBLIC_INTEGRITY_ENABLED": "true",
+        "SENTRY_ENVIRONMENT": "staging"
+      },
       "android": {
         "buildType": "apk"
       }
     },
     "production": {
+      "channel": "production",
+      "environment": "production",
+      "env": {
+        "APP_VARIANT": "production",
+        "EXPO_PUBLIC_API_BASE_URL": "https://api.amalaoluyole.com",
+        "EXPO_PUBLIC_API_ENVIRONMENT": "production",
+        "EXPO_PUBLIC_DATABASE_ENVIRONMENT_LABEL": "production",
+        "EXPO_PUBLIC_INTEGRITY_ENABLED": "true",
+        "SENTRY_ENVIRONMENT": "production"
+      },
       "android": {
         "buildType": "app-bundle"
       },
       "ios": {
         "autoIncrement": true
-      }
-    }
-  },
-  "submit": {
-    "production": {
-      "android": {
-        "serviceAccountKeyPath": "./google-service-account.json",
-        "track": "internal"
-      },
-      "ios": {
-        "appleId": "your-apple-id@email.com",
-        "ascAppId": "YOUR_APP_STORE_CONNECT_APP_ID",
-        "appleTeamId": "YOUR_APPLE_TEAM_ID"
       }
     }
   }

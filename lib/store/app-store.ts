@@ -11,6 +11,7 @@ interface AppState {
   isGuest: boolean;
   isAuthenticated: boolean;
   hydrated: boolean; // true once AsyncStorage has been read
+  authResolved: boolean; // true once the secure/web session has been checked
   // Branch
   selectedBranch: Branch | null;
   // Cart
@@ -46,6 +47,7 @@ type AppAction =
   | { type: 'SET_ONBOARDING_SEEN' }
   | { type: 'HYDRATE'; payload: Partial<AppState> }
   | { type: 'SET_HYDRATED' }
+  | { type: 'SET_AUTH_RESOLVED' }
   | { type: 'LOGOUT' };
 
 const initialState: AppState = {
@@ -53,6 +55,7 @@ const initialState: AppState = {
   isGuest: false,
   isAuthenticated: false,
   hydrated: false,
+  authResolved: false,
   selectedBranch: null,
   cartItems: [],
   promoCode: '',
@@ -67,9 +70,21 @@ const initialState: AppState = {
 function appReducer(state: AppState, action: AppAction): AppState {
   switch (action.type) {
     case 'SET_USER':
-      return { ...state, user: action.payload, isAuthenticated: action.payload !== null };
+      return {
+        ...state,
+        user: action.payload,
+        isGuest: false,
+        isAuthenticated: action.payload !== null,
+        authResolved: true,
+      };
     case 'SET_GUEST':
-      return { ...state, isGuest: action.payload, isAuthenticated: action.payload };
+      return {
+        ...state,
+        user: action.payload ? null : state.user,
+        isGuest: action.payload,
+        isAuthenticated: action.payload ? false : state.isAuthenticated,
+        authResolved: true,
+      };
     case 'SET_BRANCH':
       return { ...state, selectedBranch: action.payload };
     case 'ADD_TO_CART': {
@@ -141,12 +156,19 @@ function appReducer(state: AppState, action: AppAction): AppState {
       };
     case 'SET_ONBOARDING_SEEN':
       return { ...state, hasSeenOnboarding: true };
-    case 'LOGOUT':
-      return { ...initialState, hasSeenOnboarding: state.hasSeenOnboarding };
     case 'HYDRATE':
       return { ...state, ...action.payload };
     case 'SET_HYDRATED':
       return { ...state, hydrated: true };
+    case 'SET_AUTH_RESOLVED':
+      return { ...state, authResolved: true };
+    case 'LOGOUT':
+      return {
+        ...initialState,
+        hydrated: true,
+        authResolved: true,
+        hasSeenOnboarding: state.hasSeenOnboarding,
+      };
     default:
       return state;
   }

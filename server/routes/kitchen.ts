@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { TRPCError } from "@trpc/server";
 import { eq, and, gte, lte, desc, sql } from "drizzle-orm";
 import { router, protectedProcedure } from "../_core/trpc";
 import { getDb } from "../db";
@@ -9,37 +10,57 @@ import {
   orderItems,
   meals,
   mealBranchAvailability,
+  branches,
 } from "../../drizzle/schema";
 import { users } from "../../drizzle/schema";
 import { notifyOwner } from "../_core/notification";
 import { createNotification } from "../db";
+import { requireKitchenBranch } from "../security/branch-access";
 
 // Kitchen + admin + manager can access all kitchen procedures
 const kitchenProcedure = protectedProcedure.use(({ ctx, next }) => {
   const allowed = ["admin", "manager", "kitchen"];
   if (!ctx.user || !allowed.includes(ctx.user.role)) {
-    throw new Error("Access denied: kitchen staff only");
+    throw new TRPCError({ code: "FORBIDDEN", message: "Kitchen access required" });
   }
   return next({ ctx });
 });
 
 export const kitchenRouter = router({
+  workspace: kitchenProcedure.query(async ({ ctx }) => {
+    const assignedBranchId = ctx.user.role === "kitchen" ? requireKitchenBranch(ctx.user) : null;
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "SERVICE_UNAVAILABLE", message: "Branch service unavailable" });
+    const activeBranches = await db.select({ id: branches.id, name: branches.name })
+      .from(branches)
+      .where(eq(branches.isActive, true));
+    if (ctx.user.role !== "kitchen") {
+      return { assignedBranchId: null, canSwitchBranches: true, branches: activeBranches };
+    }
+    const assigned = activeBranches.filter((branch) => branch.id === assignedBranchId);
+    if (!assigned.length) {
+      throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Assigned kitchen branch is unavailable" });
+    }
+    return { assignedBranchId, canSwitchBranches: false, branches: assigned };
+  }),
+
   // ── INVENTORY ──────────────────────────────────────────────────────────────
   allInventory: kitchenProcedure
-    .input(z.object({ branchId: z.number() }))
-    .query(async ({ input }) => {
+    .input(z.object({ branchId: z.number().optional() }))
+    .query(async ({ ctx, input }) => {
+      const branchId = requireKitchenBranch(ctx.user, input.branchId);
       const db = await getDb();
       if (!db) return [] as any;
       return db
         .select()
         .from(inventory)
-        .where(and(eq(inventory.branchId, input.branchId), eq(inventory.isActive, true)))
+        .where(and(eq(inventory.branchId, branchId), eq(inventory.isActive, true)))
         .orderBy(inventory.category, inventory.name);
     }),
 
   addInventoryItem: kitchenProcedure
     .input(z.object({
-      branchId: z.number(),
+      branchId: z.number().optional(),
       name: z.string().min(1),
       category: z.enum(["swallow","soup","protein","spice","vegetable","drink","packaging","other"]),
       unit: z.string().default("kg"),
@@ -49,11 +70,12 @@ export const kitchenRouter = router({
       supplier: z.string().optional(),
       notes: z.string().optional(),
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      const branchId = requireKitchenBranch(ctx.user, input.branchId);
       const db = await getDb();
       if (!db) throw new Error("DB unavailable");
       await db.insert(inventory).values({
-        branchId: input.branchId,
+        branchId,
         name: input.name,
         category: input.category,
         unit: input.unit,
@@ -69,26 +91,29 @@ export const kitchenRouter = router({
   updateStock: kitchenProcedure
     .input(z.object({
       inventoryId: z.number(),
-      branchId: z.number(),
+      branchId: z.number().optional(),
       type: z.enum(["restock","usage","waste","adjustment"]),
       quantity: z.number(), // positive = add, negative = remove
       note: z.string().optional(),
-      recordedBy: z.number(),
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      const branchId = requireKitchenBranch(ctx.user, input.branchId);
       const db = await getDb();
       if (!db) throw new Error("DB unavailable");
+      const item = await db.select().from(inventory)
+        .where(and(eq(inventory.id, input.inventoryId), eq(inventory.branchId, branchId), eq(inventory.isActive, true)))
+        .limit(1);
+      if (!item.length) throw new TRPCError({ code: "NOT_FOUND", message: "Inventory item not found for this branch" });
       // Record the transaction
       await db.insert(inventoryTransactions).values({
         inventoryId: input.inventoryId,
-        branchId: input.branchId,
+        branchId,
         type: input.type,
         quantity: String(input.quantity),
         note: input.note,
-        recordedBy: input.recordedBy,
+        recordedBy: ctx.user.id,
       });
       // Update current stock
-      const item = await db.select().from(inventory).where(eq(inventory.id, input.inventoryId)).limit(1);
       if (item.length > 0) {
         const newStock = Math.max(0, parseFloat(String(item[0].currentStock)) + input.quantity);
         await db.update(inventory)
@@ -96,7 +121,7 @@ export const kitchenRouter = router({
             currentStock: String(newStock),
             lastRestockedAt: input.type === "restock" ? new Date() : undefined,
           })
-          .where(eq(inventory.id, input.inventoryId));
+          .where(and(eq(inventory.id, input.inventoryId), eq(inventory.branchId, branchId)));
         // ── Low-stock push notification ──────────────────────────────────────
         const minStock = parseFloat(String(item[0].minimumStock));
         if (newStock <= minStock && input.type !== "restock") {
@@ -122,23 +147,25 @@ export const kitchenRouter = router({
     }),
 
   deleteInventoryItem: kitchenProcedure
-    .input(z.object({ id: z.number() }))
-    .mutation(async ({ input }) => {
+    .input(z.object({ id: z.number(), branchId: z.number().optional() }))
+    .mutation(async ({ ctx, input }) => {
+      const branchId = requireKitchenBranch(ctx.user, input.branchId);
       const db = await getDb();
       if (!db) throw new Error("DB unavailable");
-      await db.update(inventory).set({ isActive: false }).where(eq(inventory.id, input.id));
+      await db.update(inventory).set({ isActive: false }).where(and(eq(inventory.id, input.id), eq(inventory.branchId, branchId)));
       return { success: true };
     }),
 
   stockTransactions: kitchenProcedure
-    .input(z.object({ inventoryId: z.number(), limit: z.number().default(20) }))
-    .query(async ({ input }) => {
+    .input(z.object({ inventoryId: z.number(), branchId: z.number().optional(), limit: z.number().default(20) }))
+    .query(async ({ ctx, input }) => {
+      const branchId = requireKitchenBranch(ctx.user, input.branchId);
       const db = await getDb();
       if (!db) return [] as any;
       return db
         .select()
         .from(inventoryTransactions)
-        .where(eq(inventoryTransactions.inventoryId, input.inventoryId))
+        .where(and(eq(inventoryTransactions.inventoryId, input.inventoryId), eq(inventoryTransactions.branchId, branchId)))
         .orderBy(desc(inventoryTransactions.createdAt))
         .limit(input.limit);
     }),
@@ -146,7 +173,8 @@ export const kitchenRouter = router({
   // ── MEAL AVAILABILITY (kitchen can toggle availability) ────────────────────
   toggleMealAvailability: kitchenProcedure
     .input(z.object({ mealId: z.number(), branchId: z.number(), isAvailable: z.boolean() }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      const branchId = requireKitchenBranch(ctx.user, input.branchId);
       const db = await getDb();
       if (!db) throw new Error("DB unavailable");
       // Update global meal availability
@@ -155,12 +183,12 @@ export const kitchenRouter = router({
         .where(eq(meals.id, input.mealId));
       // Also update branch-specific availability if record exists
       const existing = await db.select().from(mealBranchAvailability)
-        .where(and(eq(mealBranchAvailability.mealId, input.mealId), eq(mealBranchAvailability.branchId, input.branchId)))
+        .where(and(eq(mealBranchAvailability.mealId, input.mealId), eq(mealBranchAvailability.branchId, branchId)))
         .limit(1);
       if (existing.length > 0) {
         await db.update(mealBranchAvailability)
           .set({ isAvailable: input.isAvailable })
-          .where(and(eq(mealBranchAvailability.mealId, input.mealId), eq(mealBranchAvailability.branchId, input.branchId)));
+          .where(and(eq(mealBranchAvailability.mealId, input.mealId), eq(mealBranchAvailability.branchId, branchId)));
       }
       return { success: true };
     }),
@@ -168,28 +196,27 @@ export const kitchenRouter = router({
   // ── MONTHLY REPORT ─────────────────────────────────────────────────────────
   monthlyReport: kitchenProcedure
     .input(z.object({
-      branchId: z.number(),
+      branchId: z.number().optional(),
       year: z.number(),
       month: z.number(), // 1-12
     }))
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
+      const branchId = requireKitchenBranch(ctx.user, input.branchId);
       const db = await getDb();
       if (!db) throw new Error("DB unavailable");
       const startDate = new Date(input.year, input.month - 1, 1);
       const endDate = new Date(input.year, input.month, 0, 23, 59, 59);
 
-      // Total orders and revenue for the month
+      // Kitchen-safe service counts. Financial totals stay in the Finance workspace.
       const orderStats = await db
         .select({
           totalOrders: sql<number>`COUNT(*)`,
-          totalRevenue: sql<number>`SUM(CAST(${orders.total} AS DECIMAL(10,2)))`,
           completedOrders: sql<number>`SUM(CASE WHEN ${orders.status} IN ('completed','delivered') THEN 1 ELSE 0 END)`,
           cancelledOrders: sql<number>`SUM(CASE WHEN ${orders.status} = 'cancelled' THEN 1 ELSE 0 END)`,
-          avgOrderValue: sql<number>`AVG(CAST(${orders.total} AS DECIMAL(10,2)))`,
         })
         .from(orders)
         .where(and(
-          eq(orders.branchId, input.branchId),
+          eq(orders.branchId, branchId),
           gte(orders.createdAt, startDate),
           lte(orders.createdAt, endDate),
         ));
@@ -200,11 +227,10 @@ export const kitchenRouter = router({
         .select({
           day: sql<string>`DATE(orders.createdAt)`,
           count: sql<number>`COUNT(*)`,
-          revenue: sql<number>`SUM(CAST(orders.total AS DECIMAL(10,2)))`,
         })
         .from(orders)
         .where(and(
-          eq(orders.branchId, input.branchId),
+          eq(orders.branchId, branchId),
           gte(orders.createdAt, startDate),
           lte(orders.createdAt, endDate),
         ))
@@ -216,12 +242,11 @@ export const kitchenRouter = router({
         .select({
           mealName: orderItems.name,
           totalQuantity: sql<number>`SUM(${orderItems.quantity})`,
-          totalRevenue: sql<number>`SUM(CAST(${orderItems.subtotal} AS DECIMAL(10,2)))`,
         })
         .from(orderItems)
         .innerJoin(orders, eq(orderItems.orderId, orders.id))
         .where(and(
-          eq(orders.branchId, input.branchId),
+          eq(orders.branchId, branchId),
           gte(orders.createdAt, startDate),
           lte(orders.createdAt, endDate),
           eq(orderItems.isCustomMeal, false),
@@ -238,7 +263,7 @@ export const kitchenRouter = router({
         })
         .from(orders)
         .where(and(
-          eq(orders.branchId, input.branchId),
+          eq(orders.branchId, branchId),
           gte(orders.createdAt, startDate),
           lte(orders.createdAt, endDate),
         ))
@@ -249,14 +274,14 @@ export const kitchenRouter = router({
         .select()
         .from(inventory)
         .where(and(
-          eq(inventory.branchId, input.branchId),
+          eq(inventory.branchId, branchId),
           eq(inventory.isActive, true),
           sql`${inventory.currentStock} <= ${inventory.minimumStock}`,
         ));
 
       return {
        period: { year: input.year, month: input.month, startDate, endDate },
-       summary: orderStats[0] ?? { totalOrders: 0, totalRevenue: 0, completedOrders: 0, cancelledOrders: 0, avgOrderValue: 0 },
+       summary: orderStats[0] ?? { totalOrders: 0, completedOrders: 0, cancelledOrders: 0 },
        dailyOrders,
        topMeals,
        orderTypeBreakdown,

@@ -1,0 +1,123 @@
+name: Bytechain preview
+
+on:
+  push:
+    branches: [Bytechain]
+  pull_request:
+    branches: [Bytechain]
+
+concurrency:
+  group: bytechain-preview-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_DATABASE: amala_test
+          MYSQL_USER: amala
+          MYSQL_PASSWORD: amala_test_password
+          MYSQL_ROOT_PASSWORD: root_test_password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uamala -pamala_test_password"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    env:
+      NODE_ENV: test
+      APP_ENV: test
+      DATABASE_URL: mysql://amala:amala_test_password@127.0.0.1:3306/amala_test
+      DATABASE_ENVIRONMENT_LABEL: ci-test
+      JWT_SECRET: ci-only-secret-value-with-more-than-32-characters
+      SESSION_ISSUER: amala-oluyole-api
+      VITE_APP_ID: amala-ci
+      ALLOWED_ORIGINS: https://staging.amalaoluyole.com
+      PAYSTACK_SECRET_KEY: sk_test_ci_placeholder_not_a_real_secret
+      OAUTH_SERVER_URL: https://oauth-staging.amalaoluyole.com
+      PLAY_INTEGRITY_VERIFIER_URL: https://integrity-staging.amalaoluyole.com/play
+      PLAY_INTEGRITY_VERIFIER_TOKEN: ci-only-play-verifier-token-more-than-32-chars
+      APPLE_APP_ATTEST_VERIFIER_URL: https://integrity-staging.amalaoluyole.com/apple
+      APPLE_APP_ATTEST_VERIFIER_TOKEN: ci-only-apple-verifier-token-more-than-32-chars
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm db:migrate
+      - run: pnpm validate:preview
+      - run: pnpm check
+      - run: pnpm lint
+      - run: pnpm test
+      - run: pnpm test:security
+      - run: pnpm build
+      - name: Detect native-runtime changes
+        id: native
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.sha }}
+        run: node scripts/validate-native-runtime.mjs "$BASE_SHA" "$HEAD_SHA"
+    outputs:
+      native_changed: ${{ steps.native.outputs.changed }}
+
+  staging:
+    if: github.event_name == 'push'
+    needs: verify
+    runs-on: ubuntu-latest
+    env:
+      STAGING_API_HEALTH_URL: ${{ secrets.STAGING_API_HEALTH_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/validate-staging-health.mjs
+
+  distribute:
+    if: github.event_name == 'push'
+    needs: [verify, staging]
+    runs-on: ubuntu-latest
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      APP_VARIANT: preview
+      EXPO_PUBLIC_API_BASE_URL: https://staging-api.amalaoluyole.com
+      EXPO_PUBLIC_API_ENVIRONMENT: staging
+      EXPO_PUBLIC_DATABASE_ENVIRONMENT_LABEL: staging-isolated
+      EXPO_PUBLIC_INTEGRITY_ENABLED: "true"
+      EXPO_PUBLIC_GIT_COMMIT_SHA: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Require preview publishing credentials
+        shell: bash
+        run: test -n "$EXPO_TOKEN"
+      - name: Set build date
+        shell: bash
+        run: echo "EXPO_PUBLIC_BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
+      - name: Create replacement internal binaries after native changes
+        if: needs.verify.outputs.native_changed == 'true'
+        run: npx --yes --package=eas-cli@21.7.0 --package=typescript@5.9.3 eas build --platform all --profile preview --non-interactive --no-wait
+      - name: Publish compatible Bytechain preview update
+        if: needs.verify.outputs.native_changed != 'true'
+        run: npx --yes --package=eas-cli@21.7.0 --package=typescript@5.9.3 eas update --channel bytechain-preview --environment preview --message "Bytechain ${{ github.sha }}" --non-interactive

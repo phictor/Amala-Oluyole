@@ -2,7 +2,7 @@ import { TRPCError } from "@trpc/server";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { branches, promoCodeUsage, promoCodes } from "../../drizzle/schema";
-import { protectedProcedure, router } from "../_core/trpc";
+import { customerProcedure, router } from "../_core/trpc";
 import { createNotification, getDb, getOrderById, getOrderWithItems, getUserOrders, rateOrder, updateOrderStatus } from "../db";
 import { placeServerPricedOrder } from "../orders/service";
 import { initializeOrderPayment, verifyAndConfirmOrderPayment } from "../payments/service";
@@ -31,17 +31,17 @@ const itemRequest = z.discriminatedUnion("kind", [
 ]);
 
 export const ordersRouter = router({
-  list: protectedProcedure
+  list: customerProcedure
     .input(z.object({ limit: z.number().int().min(1).max(100).default(20), offset: z.number().int().min(0).default(0) }).optional())
     .query(({ ctx, input }) => getUserOrders(ctx.user.id, input?.limit, input?.offset)),
 
-  get: protectedProcedure.input(z.object({ id: z.number().int().positive() })).query(async ({ ctx, input }) => {
+  get: customerProcedure.input(z.object({ id: z.number().int().positive() })).query(async ({ ctx, input }) => {
     const result = await getOrderWithItems(input.id);
     if (!result || result.order.userId !== ctx.user.id) throw new TRPCError({ code: "NOT_FOUND", message: "Order not found" });
     return result;
   }),
 
-  validatePromo: protectedProcedure
+  validatePromo: customerProcedure
     .input(z.object({ code: z.string().trim().min(1).max(32), branchId: z.number().int().positive() }))
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
@@ -61,7 +61,7 @@ export const ordersRouter = router({
       return { valid: true, message: "Final discount will be calculated securely at checkout" };
     }),
 
-  place: protectedProcedure.input(z.object({
+  place: customerProcedure.input(z.object({
     branchId: z.number().int().positive(),
     orderType: z.enum(["delivery", "pickup"]),
     paymentMethod: z.enum(["card", "cash_on_delivery"]),
@@ -87,14 +87,14 @@ export const ordersRouter = router({
     return order;
   }),
 
-  initializePayment: protectedProcedure
+  initializePayment: customerProcedure
     .input(z.object({ orderId: z.number().int().positive() }))
     .mutation(async ({ ctx, input }) => {
       await requireAppIntegrity(ctx.req, ctx.user.id, "payment.initialize");
       return initializeOrderPayment(ctx.user.id, input.orderId);
     }),
 
-  verifyPayment: protectedProcedure
+  verifyPayment: customerProcedure
     .input(z.object({ orderId: z.number().int().positive(), paymentReference: z.string().min(8).max(128) }))
     .mutation(async ({ ctx, input }) => {
       await requireAppIntegrity(ctx.req, ctx.user.id, "payment.verify");
@@ -113,7 +113,7 @@ export const ordersRouter = router({
       return result;
     }),
 
-  cancel: protectedProcedure.input(z.object({ orderId: z.number().int().positive(), reason: z.string().trim().min(3).max(500) }))
+  cancel: customerProcedure.input(z.object({ orderId: z.number().int().positive(), reason: z.string().trim().min(3).max(500) }))
     .mutation(async ({ ctx, input }) => {
       const order = await getOrderById(input.orderId);
       if (!order || order.userId !== ctx.user.id) throw new TRPCError({ code: "NOT_FOUND", message: "Order not found" });
@@ -122,13 +122,13 @@ export const ordersRouter = router({
       return { success: true };
     }),
 
-  rate: protectedProcedure.input(z.object({ orderId: z.number().int().positive(), rating: z.number().int().min(1).max(5), review: z.string().max(2_000).optional() }))
+  rate: customerProcedure.input(z.object({ orderId: z.number().int().positive(), rating: z.number().int().min(1).max(5), review: z.string().max(2_000).optional() }))
     .mutation(async ({ ctx, input }) => {
       await rateOrder(input.orderId, ctx.user.id, input.rating, input.review);
       return { success: true };
     }),
 
-  validateDeliveryZone: protectedProcedure.input(z.object({
+  validateDeliveryZone: customerProcedure.input(z.object({
     branchId: z.number().int().positive(), latitude: z.number().min(-90).max(90), longitude: z.number().min(-180).max(180),
   })).mutation(async ({ input }) => {
     const db = await getDb();

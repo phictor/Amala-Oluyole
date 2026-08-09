@@ -3,6 +3,7 @@ import crypto from "crypto";
 import express from "express";
 import { createServer } from "http";
 import net from "net";
+import { setInterval as setNodeInterval } from "node:timers";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { and, eq } from "drizzle-orm";
 import { orders, riders } from "../../drizzle/schema";
@@ -17,6 +18,7 @@ import { installHttpSecurity, productionErrorHandler } from "./http-security";
 import { registerOAuthRoutes } from "./oauth";
 import { sdk, type AuthenticatedUser } from "./sdk";
 import { registerStorageProxy } from "./storageProxy";
+import { captureServerError, logger } from "./observability";
 
 type SseClient = { res: express.Response; user: AuthenticatedUser; orderId?: number };
 const sseClients = new Set<SseClient>();
@@ -55,12 +57,13 @@ async function riderSnapshot(client: SseClient) {
   return { type: "riderLocation", orderId: client.orderId, location: delivery, ts: Date.now() };
 }
 
-setInterval(async () => {
+const trackingInterval = setNodeInterval(async () => {
   for (const client of sseClients) {
     try { client.res.write(`data: ${JSON.stringify(await riderSnapshot(client))}\n\n`); }
     catch { client.res.end(); sseClients.delete(client); }
   }
-}, 3_000).unref();
+}, 3_000);
+(trackingInterval as unknown as { unref: () => void }).unref();
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise((resolve) => {
@@ -122,7 +125,13 @@ export async function startServer() {
     try { res.json(await createIntegrityChallenge(user.id, platform, operation)); }
     catch { res.status(503).json({ error: "Integrity challenge unavailable" }); }
   });
-  app.get("/api/health", (_req, res) => res.json({ ok: true, timestamp: Date.now() }));
+  app.get("/api/health", (_req, res) => res.json({
+    ok: true,
+    environment: process.env.APP_ENV || process.env.NODE_ENV || "development",
+    database: process.env.DATABASE_ENVIRONMENT_LABEL || "unlabelled",
+    commit: process.env.GIT_COMMIT_SHA || "local",
+    timestamp: Date.now(),
+  }));
 
   app.get("/api/riders/live", async (req, res) => {
     let user: AuthenticatedUser;
@@ -147,18 +156,18 @@ export async function startServer() {
     router: appRouter,
     createContext,
     onError({ error, ctx }) {
-      console.warn(JSON.stringify({ event: "trpc_error", requestId: ctx?.res.locals.requestId, code: error.code }));
+      logger.warn({ event: "trpc_error", requestId: ctx?.res.locals.requestId, code: error.code });
     },
   }));
   app.use(productionErrorHandler);
 
   const preferredPort = Number.parseInt(process.env.PORT || "3000", 10);
   const port = await findAvailablePort(preferredPort);
-  server.listen(port, () => console.log(`[api] server listening on port ${port}`));
+  server.listen(port, () => logger.info({ event: "server_started", port }));
   return server;
 }
 
-if (process.env.NODE_ENV !== "test") startServer().catch(() => {
-  console.error("[api] failed to start");
+if (process.env.NODE_ENV !== "test") startServer().catch((error) => {
+  captureServerError(error, { event: "server_start_failed" });
   process.exitCode = 1;
 });

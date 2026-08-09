@@ -12,9 +12,14 @@
  * Add 50-100ms for real network latency in production.
  * SLA targets are set conservatively for a single-instance Node.js server.
  */
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
+import { ensureTestFixtures } from "./fixtures/seed";
 import { appRouter } from "../server/routers";
 import type { TrpcContext } from "../server/_core/context";
+
+beforeAll(async () => {
+  await ensureTestFixtures();
+}, 30_000);
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 function makeCtx(role: "customer" | "kitchen" | "admin" | "manager" | "rider", id = 1): TrpcContext {
@@ -32,7 +37,7 @@ function makeCtx(role: "customer" | "kitchen" | "admin" | "manager" | "rider", i
       phone: null,
       isGuest: false,
       pushToken: null,
-      preferredBranchId: null,
+      preferredBranchId: role === "kitchen" ? 1 : null,
     },
     req: { protocol: "https", headers: {}, hostname: "localhost" } as TrpcContext["req"],
     res: { clearCookie: () => {} } as unknown as TrpcContext["res"],
@@ -166,8 +171,8 @@ describe("Performance: Concurrent Read Load", () => {
 
   it("10 simultaneous rider.myOrders requests complete within 3000ms total", async () => {
     const start = performance.now();
-    const promises = Array.from({ length: 10 }, (_, i) => {
-      const caller = appRouter.createCaller(makeCtx("rider", 30 + i));
+    const promises = Array.from({ length: 10 }, () => {
+      const caller = appRouter.createCaller(makeCtx("rider", 30));
       return caller.rider.myOrders();
     });
     const results = await Promise.all(promises);

@@ -1,12 +1,12 @@
 import { z } from "zod";
 import { createAddress, deleteAddress, getUserAddresses } from "../db";
-import { protectedProcedure, router } from "../_core/trpc";
+import { customerProcedure, router } from "../_core/trpc";
 
 export const addressesRouter = router({
-  list: protectedProcedure
+  list: customerProcedure
     .query(({ ctx }) => getUserAddresses(ctx.user.id)),
 
-  create: protectedProcedure
+  create: customerProcedure
     .input(z.object({
       label: z.string().default("Home"),
       fullAddress: z.string().min(5),
@@ -21,7 +21,7 @@ export const addressesRouter = router({
       landmark: input.landmark || null,
     })),
 
-  delete: protectedProcedure
+  delete: customerProcedure
     .input(z.object({ id: z.number() }))
     .mutation(({ ctx, input }) => deleteAddress(input.id, ctx.user.id)),
 });

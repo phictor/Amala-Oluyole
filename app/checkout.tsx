@@ -33,9 +33,44 @@ function CheckoutInner() {
   const initializePaymentMutation = trpc.orders.initializePayment.useMutation();
   const verifyPaymentMutation = trpc.orders.verifyPayment.useMutation();
   const validateZoneMutation = trpc.orders.validateDeliveryZone.useMutation();
+  const branchId = state.selectedBranch ? Number(state.selectedBranch.id) : null;
+
+  if (!state.isAuthenticated || state.isGuest) {
+    return (
+      <View style={styles.signInGate}>
+        <View style={styles.signInIcon}><Text style={styles.signInIconText}>✓</Text></View>
+        <Text style={styles.signInTitle}>Sign in to place your order</Text>
+        <Text style={styles.signInBody}>
+          Your cart is saved. Use your phone number or email, then return here to pay and track delivery.
+        </Text>
+        <TouchableOpacity style={styles.signInButton} onPress={() => router.push('/auth/login' as never)}>
+          <Text style={styles.signInButtonText}>Sign in and continue</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.keepBrowsing} onPress={() => router.back()}>
+          <Text style={styles.keepBrowsingText}>Keep browsing</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  if (!branchId) {
+    return (
+      <View style={styles.signInGate}>
+        <View style={styles.signInIcon}><Text style={styles.signInIconText}>⌖</Text></View>
+        <Text style={styles.signInTitle}>Choose your branch</Text>
+        <Text style={styles.signInBody}>Select the restaurant preparing this order before checkout. Your cart will stay saved.</Text>
+        <TouchableOpacity style={styles.signInButton} onPress={() => router.push('/branch-select' as never)}>
+          <Text style={styles.signInButtonText}>Choose a branch</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.keepBrowsing} onPress={() => router.back()}>
+          <Text style={styles.keepBrowsingText}>Return to cart</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   const buildOrderPayload = (coords?: { latitude: number; longitude: number }) => ({
-    branchId: state.selectedBranch ? Number(state.selectedBranch.id) : 1,
+    branchId,
     orderType,
     paymentMethod: paymentMethod as 'card' | 'cash_on_delivery',
     promoCode: promoCode || undefined,
@@ -67,7 +102,6 @@ function CheckoutInner() {
     }
 
     // FR-060: Validate delivery zone if we have GPS coordinates for the branch
-    const branchId = state.selectedBranch ? Number(state.selectedBranch.id) : 1;
     setLoading(true);
     try {
       let coords: { latitude: number; longitude: number } | undefined;
@@ -264,6 +298,15 @@ export default function CheckoutScreen() {
 }
 
 const styles = StyleSheet.create({
+  signInGate: { alignItems: 'center', backgroundColor: '#FFF9F3', flex: 1, justifyContent: 'center', padding: 32 },
+  signInIcon: { alignItems: 'center', backgroundColor: '#FBE5D8', borderRadius: 32, height: 64, justifyContent: 'center', width: 64 },
+  signInIconText: { color: '#C82B1D', fontSize: 28, fontWeight: '900' },
+  signInTitle: { color: '#201A2D', fontSize: 24, fontWeight: '900', marginTop: 22, textAlign: 'center' },
+  signInBody: { color: '#6F687B', fontSize: 14, lineHeight: 21, marginTop: 10, maxWidth: 380, textAlign: 'center' },
+  signInButton: { alignItems: 'center', alignSelf: 'stretch', backgroundColor: '#C82B1D', borderRadius: 15, marginTop: 24, paddingVertical: 16 },
+  signInButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '800' },
+  keepBrowsing: { marginTop: 12, padding: 12 },
+  keepBrowsingText: { color: '#6F687B', fontSize: 14, fontWeight: '700' },
   container: { flex: 1, backgroundColor: '#FFFFFF' },
   header: { paddingTop: 56, paddingHorizontal: 20, paddingBottom: 16 },
   backText: { color: '#D02010', fontSize: 16, fontWeight: '600', marginBottom: 8 },

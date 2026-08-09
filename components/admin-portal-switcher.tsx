@@ -20,7 +20,7 @@ export function AdminPortalSwitcher() {
       admin: '/(portal-admin)',
       kitchen: '/(portal-kitchen)',
       rider: '/(portal-rider)',
-      customer: '/(tabs)',
+      customer: '/(tabs)/home',
     };
     router.replace(routes[portal] as any);
   };

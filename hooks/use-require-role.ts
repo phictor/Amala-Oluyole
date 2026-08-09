@@ -12,9 +12,11 @@
  */
 import { useEffect, useRef } from "react";
 import { router } from "expo-router";
+import { routeForRole } from "@/lib/auth/role-routing";
 import { useAppStore } from "@/lib/store/app-store";
+import type { AppRole } from "@/shared/roles";
 
-export type AppRole = "customer" | "admin" | "kitchen" | "rider" | "manager";
+export type { AppRole } from "@/shared/roles";
 
 /**
  * Reads role from the app-store (populated by AuthSyncBridge on login) so
@@ -26,30 +28,27 @@ export function useRequireRole(allowedRoles: AppRole[]) {
 
   const role = state.user?.role as AppRole | undefined;
   // Loading only while AsyncStorage hydration is still in progress
-  const loading = !state.hydrated;
+  const loading = !state.hydrated || !state.authResolved;
   const allowed = state.isAuthenticated && !state.isGuest && !!role && allowedRoles.includes(role);
 
   useEffect(() => {
     // Don't redirect while the app is still hydrating
     if (loading) return;
-    // If not authenticated after hydration, let the root layout handle redirect
-    if (!state.isAuthenticated || state.isGuest) return;
+    if (!state.isAuthenticated || state.isGuest) {
+      if (!redirectedRef.current) {
+        redirectedRef.current = true;
+        router.replace((state.isGuest ? "/(tabs)/home" : "/auth/login") as never);
+      }
+      return;
+    }
     if (!role || !allowedRoles.includes(role)) {
       if (!redirectedRef.current) {
         redirectedRef.current = true;
-        if (role === "admin" || role === "manager") {
-          router.replace("/(portal-admin)" as any);
-        } else if (role === "kitchen") {
-          router.replace("/(portal-kitchen)" as any);
-        } else if (role === "rider") {
-          router.replace("/(portal-rider)" as any);
-        } else {
-          router.replace("/(tabs)" as any);
-        }
+        router.replace(routeForRole(role) as never);
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.hydrated, state.isAuthenticated, state.isGuest, role]);
+  }, [state.authResolved, state.hydrated, state.isAuthenticated, state.isGuest, role]);
 
   return { allowed, loading, role };
 }

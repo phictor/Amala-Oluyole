@@ -1,179 +1,195 @@
-// Load environment variables with proper priority (system > .env)
 import "./scripts/load-env.js";
-import type { ExpoConfig } from "expo/config";
+import type { ConfigContext, ExpoConfig } from "expo/config";
 
-// Bundle ID format: space.manus.<project_name_dots>.<timestamp>
-// e.g., "my-app" created at 2024-01-15 10:30:45 -> "space.manus.my.app.t20240115103045"
-// Bundle ID can only contain letters, numbers, and dots
-// Android requires each dot-separated segment to start with a letter
-const rawBundleId = "com.app.amala_oluyole_app";
-const bundleId =
-  rawBundleId
-    .replace(/[-_]/g, ".") // Replace hyphens/underscores with dots
-    .replace(/[^a-zA-Z0-9.]/g, "") // Remove invalid chars
-    .replace(/\.+/g, ".") // Collapse consecutive dots
-    .replace(/^\.+|\.+$/g, "") // Trim leading/trailing dots
-    .toLowerCase()
-    .split(".")
-    .map((segment) => {
-      // Android requires each segment to start with a letter
-      // Prefix with 'x' if segment starts with a digit
-      return /^[a-zA-Z]/.test(segment) ? segment : "x" + segment;
-    })
-    .join(".") || "space.manus.app";
-// Extract timestamp from bundle ID and prefix with "manus" for deep link scheme
-// e.g., "space.manus.my.app.t20240115103045" -> "manus20240115103045"
-const timestamp = bundleId.split(".").pop()?.replace(/^t/, "") ?? "";
-const schemeFromBundleId = `manus${timestamp}`;
+type AppVariant = "production" | "preview" | "development";
 
-const env = {
-  // App branding - update these values directly (do not use env vars)
-  appName: "Amala Oluyole",
-  appSlug: "amala_oluyole_app",
-  logoUrl: "https://files.manuscdn.com/user_upload_by_module/session_file/310519663088610231/rsDGLFlAijpbpOkV.png",
-  scheme: "amalaoluyole",
-  iosBundleId: bundleId,
-  androidPackage: bundleId,
+const DEFAULT_EAS_PROJECT_ID = "b5118588-8592-414a-a716-e991acd4183a";
+const PRODUCTION_APP_VERSION = "1.0.0";
+const BYTECHAIN_APP_VERSION = "1.0.1";
+
+const VARIANTS: Record<AppVariant, {
+  name: string;
+  appVersion: string;
+  bundleSuffix: string;
+  scheme: string;
+  icon: string;
+  environment: string;
+}> = {
+  production: {
+    name: "Amala Oluyole",
+    appVersion: PRODUCTION_APP_VERSION,
+    bundleSuffix: "",
+    scheme: "amalaoluyole",
+    icon: "./assets/images/icon.png",
+    environment: "production",
+  },
+  preview: {
+    name: "Amala Oluyole Preview",
+    appVersion: BYTECHAIN_APP_VERSION,
+    bundleSuffix: ".preview",
+    scheme: "amalaoluyole-preview",
+    icon: "./assets/images/icon-preview.png",
+    environment: "staging",
+  },
+  development: {
+    name: "Amala Oluyole Dev",
+    appVersion: BYTECHAIN_APP_VERSION,
+    bundleSuffix: ".dev",
+    scheme: "amalaoluyole-dev",
+    icon: "./assets/images/icon-development.png",
+    environment: "development",
+  },
 };
 
-const config: ExpoConfig = {
-  name: env.appName,
-  slug: env.appSlug,
-  version: "1.0.0",  // Public version shown in App Store / Play Store
-  description: "Order authentic Yoruba cuisine from Amala Oluyole Restaurant. Build your swallow, track your rider, earn loyalty points, and enjoy the best amala in Ibadan — delivered to your door.",
-  orientation: "portrait",
-  icon: "./assets/images/icon.png",
-  scheme: ["amalaoluyole", schemeFromBundleId],
-  userInterfaceStyle: "automatic",
-  newArchEnabled: true,
-  ios: {
-    supportsTablet: true,
-    bundleIdentifier: env.iosBundleId,
-    buildNumber: "1",  // Increment this for every new TestFlight / App Store submission
-    associatedDomains: ["applinks:amalaoluyole.com"],
-    infoPlist: {
-      ITSAppUsesNonExemptEncryption: false,
-      NSLocationWhenInUseUsageDescription: "Amala Oluyole uses your location to show nearby branches and track your delivery.",
-      NSLocationAlwaysAndWhenInUseUsageDescription: "Amala Oluyole uses your location to track your delivery in real time.",
-      NSCameraUsageDescription: "Allow Amala Oluyole to access your camera to upload a profile photo.",
-      NSPhotoLibraryUsageDescription: "Allow Amala Oluyole to access your photos to upload a profile photo.",
-      NSUserNotificationsUsageDescription: "Amala Oluyole sends order updates, promotions, and loyalty rewards via notifications.",
-    },
-    privacyManifests: {
-      NSPrivacyAccessedAPITypes: [
-        {
-          NSPrivacyAccessedAPIType: "NSPrivacyAccessedAPICategoryUserDefaults",
-          NSPrivacyAccessedAPITypeReasons: ["CA92.1"],
-        },
-      ],
-    },
-  },
-  android: {
-    adaptiveIcon: {
-      backgroundColor: "#FFFFFF",
-      foregroundImage: "./assets/images/android-icon-foreground.png",
-      backgroundImage: "./assets/images/android-icon-background.png",
-      monochromeImage: "./assets/images/android-icon-monochrome.png",
-    },
-    edgeToEdgeEnabled: true,
-    predictiveBackGestureEnabled: false,
-    package: env.androidPackage,
-    versionCode: 1,  // Increment this integer for every new Play Store submission
-    permissions: [
-      "POST_NOTIFICATIONS",
-      "ACCESS_FINE_LOCATION",
-      "ACCESS_COARSE_LOCATION",
-      "CAMERA",
-      "READ_MEDIA_IMAGES",
-      "VIBRATE",
-      "RECEIVE_BOOT_COMPLETED",
-    ],
-    intentFilters: [
-      {
-        action: "VIEW",
-        autoVerify: true,
-        data: [
-          {
-            scheme: env.scheme,
-            host: "oauth",
-            pathPrefix: "/callback",
-          },
-        ],
-        category: ["BROWSABLE", "DEFAULT"],
-      },
-      {
-        action: "VIEW",
-        autoVerify: true,
-        data: [
-          {
-            scheme: "https",
-            host: "amalaoluyole.com",
-            pathPrefix: "/meal/custom",
-          },
-          {
-            scheme: "https",
-            host: "amalaoluyole.com",
-            pathPrefix: "/oauth/callback",
-          },
-        ],
-        category: ["BROWSABLE", "DEFAULT"],
-      },
-    ],
-  },
-  web: {
-    bundler: "metro",
-    output: "static",
-    favicon: "./assets/images/favicon.png",
-  },
-  plugins: [
+function selectedVariant(): AppVariant {
+  const value = process.env.APP_VARIANT ?? "production";
+  if (value === "production" || value === "preview" || value === "development") return value;
+  throw new Error(`Unsupported APP_VARIANT: ${value}`);
+}
+
+export default ({ config }: ConfigContext): ExpoConfig => {
+  const variantName = selectedVariant();
+  const variant = VARIANTS[variantName];
+  const baseIdentifier = "com.app.amala.oluyole.app";
+  const projectId = process.env.EAS_PROJECT_ID?.trim()
+    || process.env.EXPO_PUBLIC_EAS_PROJECT_ID?.trim()
+    || DEFAULT_EAS_PROJECT_ID;
+  const sentryConfigured = Boolean(process.env.SENTRY_ORG && process.env.SENTRY_PROJECT);
+  const publicSiteHost = variantName === "production" ? "amalaoluyole.com" : "staging.amalaoluyole.com";
+
+  const plugins: NonNullable<ExpoConfig["plugins"]> = [
     "expo-router",
     [
       "expo-location",
       {
-        locationAlwaysAndWhenInUsePermission: "Allow Amala Oluyole to use your location for delivery tracking.",
-        locationWhenInUsePermission: "Allow Amala Oluyole to use your location for delivery tracking.",
+        locationAlwaysAndWhenInUsePermission: `Allow ${variant.name} to use your location for delivery tracking.`,
+        locationWhenInUsePermission: `Allow ${variant.name} to use your location for delivery tracking.`,
         isAndroidBackgroundLocationEnabled: true,
       },
     ],
-    [
-      "expo-audio",
-      {
-        microphonePermission: "Allow $(PRODUCT_NAME) to access your microphone.",
-      },
-    ],
-    [
-      "expo-video",
-      {
-        supportsBackgroundPlayback: true,
-        supportsPictureInPicture: true,
-      },
-    ],
+    ["expo-audio", { microphonePermission: "Allow $(PRODUCT_NAME) to access your microphone." }],
+    ["expo-video", { supportsBackgroundPlayback: true, supportsPictureInPicture: true }],
     [
       "expo-splash-screen",
       {
-        image: "./assets/images/splash-icon.png",
+        image: variant.icon,
         imageWidth: 200,
         resizeMode: "contain",
         backgroundColor: "#ffffff",
-        dark: {
-          backgroundColor: "#000000",
-        },
+        dark: { backgroundColor: "#000000" },
       },
     ],
     [
       "expo-build-properties",
-      {
-        android: {
-          buildArchs: ["armeabi-v7a", "arm64-v8a"],
-          minSdkVersion: 24,
-        },
-      },
+      { android: { buildArchs: ["armeabi-v7a", "arm64-v8a"], minSdkVersion: 24 } },
     ],
-  ],
-  experiments: {
-    typedRoutes: true,
-    reactCompiler: true,
-  },
-};
+  ];
 
-export default config;
+  if (sentryConfigured) {
+    plugins.push([
+      "@sentry/react-native/expo",
+      {
+        organization: process.env.SENTRY_ORG,
+        project: process.env.SENTRY_PROJECT,
+        url: process.env.SENTRY_URL || "https://sentry.io/",
+      },
+    ]);
+  }
+
+  return {
+    ...config,
+    name: variant.name,
+    owner: "emmapastor",
+    slug: "amala-oluyole",
+    version: variant.appVersion,
+    description: "Order authentic Yoruba cuisine from Amala Oluyole Restaurant.",
+    orientation: "portrait",
+    icon: variant.icon,
+    scheme: variant.scheme,
+    userInterfaceStyle: "automatic",
+    newArchEnabled: true,
+    runtimeVersion: { policy: "appVersion" },
+    updates: projectId
+      ? {
+          url: `https://u.expo.dev/${projectId}`,
+          checkAutomatically: "ON_LOAD",
+          fallbackToCacheTimeout: 0,
+        }
+      : { enabled: false },
+    extra: {
+      ...config.extra,
+      appVariant: variantName,
+      environmentName: variant.environment,
+      apiEnvironment: process.env.EXPO_PUBLIC_API_ENVIRONMENT || variant.environment,
+      databaseEnvironmentLabel: process.env.EXPO_PUBLIC_DATABASE_ENVIRONMENT_LABEL || "not-configured",
+      gitCommitSha: process.env.EXPO_PUBLIC_GIT_COMMIT_SHA
+        || process.env.EAS_BUILD_GIT_COMMIT_HASH
+        || "local",
+      buildDate: process.env.EXPO_PUBLIC_BUILD_DATE
+        || (process.env.EAS_BUILD === "true" ? new Date().toISOString() : "local-development"),
+      feedbackIssueUrl: process.env.EXPO_PUBLIC_FEEDBACK_ISSUE_URL || "https://github.com/phictor/Amala-Oluyole/issues/new",
+      eas: projectId ? { projectId } : undefined,
+    },
+    ios: {
+      supportsTablet: true,
+      bundleIdentifier: `${baseIdentifier}${variant.bundleSuffix}`,
+      buildNumber: "1",
+      associatedDomains: [`applinks:${publicSiteHost}`],
+      infoPlist: {
+        ITSAppUsesNonExemptEncryption: false,
+        NSLocationWhenInUseUsageDescription: `${variant.name} uses your location to show nearby branches and track your delivery.`,
+        NSLocationAlwaysAndWhenInUseUsageDescription: `${variant.name} uses your location to track your delivery in real time.`,
+        NSCameraUsageDescription: `Allow ${variant.name} to access your camera to upload a profile photo.`,
+        NSPhotoLibraryUsageDescription: `Allow ${variant.name} to access your photos to upload a profile photo.`,
+        NSUserNotificationsUsageDescription: `${variant.name} sends order updates, promotions, and loyalty rewards via notifications.`,
+      },
+      privacyManifests: {
+        NSPrivacyAccessedAPITypes: [
+          {
+            NSPrivacyAccessedAPIType: "NSPrivacyAccessedAPICategoryUserDefaults",
+            NSPrivacyAccessedAPITypeReasons: ["CA92.1"],
+          },
+        ],
+      },
+    },
+    android: {
+      adaptiveIcon: {
+        backgroundColor: "#FFFFFF",
+        foregroundImage: variant.icon,
+      },
+      edgeToEdgeEnabled: true,
+      predictiveBackGestureEnabled: false,
+      package: `${baseIdentifier}${variant.bundleSuffix}`,
+      versionCode: 1,
+      permissions: [
+        "POST_NOTIFICATIONS",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "CAMERA",
+        "READ_MEDIA_IMAGES",
+        "VIBRATE",
+        "RECEIVE_BOOT_COMPLETED",
+      ],
+      intentFilters: [
+        {
+          action: "VIEW",
+          autoVerify: true,
+          data: [{ scheme: variant.scheme, host: "oauth", pathPrefix: "/callback" }],
+          category: ["BROWSABLE", "DEFAULT"],
+        },
+        {
+          action: "VIEW",
+          autoVerify: true,
+          data: [
+            { scheme: "https", host: publicSiteHost, pathPrefix: "/meal/custom" },
+            { scheme: "https", host: publicSiteHost, pathPrefix: "/oauth/callback" },
+          ],
+          category: ["BROWSABLE", "DEFAULT"],
+        },
+      ],
+    },
+    web: { bundler: "metro", output: "static", favicon: "./assets/images/favicon.png" },
+    plugins,
+    experiments: { typedRoutes: true, reactCompiler: true },
+  };
+};

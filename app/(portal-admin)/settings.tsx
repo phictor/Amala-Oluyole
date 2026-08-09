@@ -21,7 +21,7 @@ export default function AdminSettingsScreen() {
           onPress: async () => {
             // Temporarily store a flag so the root layout knows to show customer tabs
             await AsyncStorage.setItem('admin_preview_customer', 'true');
-            router.replace('/(tabs)' as any);
+            router.replace('/(tabs)/home' as any);
           },
         },
       ],

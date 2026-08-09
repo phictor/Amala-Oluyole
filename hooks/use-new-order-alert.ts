@@ -2,20 +2,23 @@ import { useEffect, useRef, useCallback } from 'react';
 import { Platform } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { useAudioPlayer, setAudioModeAsync } from 'expo-audio';
+import { isNewOrderAlertStatus } from '@/lib/orders/order-alert-status';
 
 const ALERT_SOUND = require('@/assets/sounds/order-alert.mp3');
 
 /**
- * Detects newly-arrived pending orders between poll cycles and fires:
+ * Detects newly-arrived, payment-confirmed orders between poll cycles and fires:
  *  - A "New Order!" audio chime (respects iOS silent mode via playsInSilentMode)
  *  - A strong haptic notification (iOS: Error pattern = three strong pulses; Android: vibration)
  *
  * @param orders   Live order array from the tRPC query
  * @param muted    When true, audio is suppressed (haptics still fire)
+ * @param triggerStatus Server status that represents a newly actionable order
  */
 export function useNewOrderAlert(
   orders: Array<{ id: number; status: string }>,
   muted: boolean,
+  triggerStatus = 'payment_confirmed',
 ) {
   // Track the set of order IDs we have already alerted on
   const seenIds = useRef<Set<number>>(new Set());
@@ -49,7 +52,7 @@ export function useNewOrderAlert(
   }, [muted, player]);
 
   useEffect(() => {
-    const pendingOrders = orders.filter(o => o.status === 'pending');
+    const pendingOrders = orders.filter((order) => isNewOrderAlertStatus(order.status, triggerStatus));
 
     if (!initialized.current) {
       // First render: seed the seen set so we don't alert on existing orders
@@ -73,5 +76,5 @@ export function useNewOrderAlert(
     seenIds.current.forEach(id => {
       if (!pendingIds.has(id)) seenIds.current.delete(id);
     });
-  }, [orders, playAlert]);
+  }, [orders, playAlert, triggerStatus]);
 }

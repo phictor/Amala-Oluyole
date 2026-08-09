@@ -1,5 +1,6 @@
 import "@/global.css";
-import { AppProvider } from "@/lib/store/app-store";
+import "@/lib/_core/monitoring";
+import { AppProvider, useAppStore } from "@/lib/store/app-store";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { router, Stack, usePathname, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -11,7 +12,6 @@ import "@/lib/_core/nativewind-pressable";
 import { ThemeProvider } from "@/lib/theme-provider";
 import * as Auth from "@/lib/_core/auth";
 import * as Api from "@/lib/_core/api";
-import { useAppStore } from "@/lib/store/app-store";
 import * as Notifications from "expo-notifications";
 import * as ScreenCapture from "expo-screen-capture";
 import {
@@ -24,6 +24,8 @@ import type { EdgeInsets, Metrics, Rect } from "react-native-safe-area-context";
 
 import { trpc, createTRPCClient } from "@/lib/trpc";
 import { initManusRuntime, subscribeSafeAreaInsets } from "@/lib/_core/manus-runtime";
+import { EnvironmentBanner } from "@/components/environment-banner";
+import { isCustomerOnlyRoute, routeForRole } from "@/lib/auth/role-routing";
 
 const DEFAULT_WEB_INSETS: EdgeInsets = { top: 0, right: 0, bottom: 0, left: 0 };
 const DEFAULT_WEB_FRAME: Rect = { x: 0, y: 0, width: 0, height: 0 };
@@ -34,16 +36,16 @@ function AuthSyncBridge() {
   const synced = useRef(false);
 
   useEffect(() => {
-    if (synced.current) return;
+    if (!state.hydrated || synced.current) return;
     synced.current = true;
     const syncAuth = async () => {
-      const token = await Auth.getSessionToken();
-      if (Platform.OS !== 'web' && !token) {
-        if (state.isAuthenticated && !state.isGuest) dispatch({ type: 'LOGOUT' });
-        return;
-      }
-      const serverUser = await Api.getMe();
-      if (serverUser) {
+      try {
+        const token = await Auth.getSessionToken();
+        if (Platform.OS !== 'web' && !token) return;
+
+        const serverUser = await Api.getMe();
+        if (!serverUser) return;
+
         const currentUser: Auth.User = { ...serverUser, lastSignedIn: new Date(serverUser.lastSignedIn) };
         await Auth.setUserInfo(currentUser);
         dispatch({
@@ -52,27 +54,19 @@ function AuthSyncBridge() {
             id: String(currentUser.id ?? ''),
             name: currentUser.name ?? 'User',
             email: currentUser.email ?? undefined,
-            phone: '',
+            phone: currentUser.phone ?? '',
             addresses: [],
             loyaltyAccount: { points: 0, tier: 'bronze', pointsToNextTier: 1000, totalEarned: 0, totalRedeemed: 0, history: [] },
             isGuest: false,
             role: currentUser.role ?? 'customer',
           },
         });
-        // Redirect staff roles away from customer tabs immediately
-        const role = currentUser.role ?? 'customer';
-        if (role === 'admin' || role === 'manager') {
-          router.replace('/(portal-admin)' as any);
-        } else if (role === 'kitchen') {
-          router.replace('/(portal-kitchen)' as any);
-        } else if (role === 'rider') {
-          router.replace('/(portal-rider)' as any);
-        }
-      } else if (state.isAuthenticated && !state.isGuest) dispatch({ type: 'LOGOUT' });
+      } finally {
+        dispatch({ type: 'SET_AUTH_RESOLVED' });
+      }
     };
-    const t = setTimeout(syncAuth, 300);
-    return () => clearTimeout(t);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    void syncAuth();
+  }, [dispatch, state.hydrated]);
   return null;
 }
 
@@ -112,23 +106,44 @@ function PushTokenRegistrar() {
 }
 
 export const unstable_settings = {
-  anchor: "(tabs)",
+  initialRouteName: "index",
 };
 
 function SensitiveScreenProtection() {
-  ScreenCapture.usePreventScreenCapture("sensitive-route");
   useEffect(() => {
-    if (Platform.OS !== "ios") return;
-    ScreenCapture.enableAppSwitcherProtectionAsync(0.9).catch(() => {});
-    return () => { ScreenCapture.disableAppSwitcherProtectionAsync().catch(() => {}); };
+    if (Platform.OS === "web") return;
+
+    ScreenCapture.preventScreenCaptureAsync("sensitive-route").catch(() => {});
+    if (Platform.OS === "ios") {
+      ScreenCapture.enableAppSwitcherProtectionAsync(0.9).catch(() => {});
+    }
+
+    return () => {
+      ScreenCapture.allowScreenCaptureAsync("sensitive-route").catch(() => {});
+      if (Platform.OS === "ios") {
+        ScreenCapture.disableAppSwitcherProtectionAsync().catch(() => {});
+      }
+    };
   }, []);
+  return null;
+}
+
+function RoleRouteProtection({ pathname }: { pathname: string }) {
+  const { state } = useAppStore();
+
+  useEffect(() => {
+    if (!state.hydrated || !state.authResolved || !state.isAuthenticated || !state.user) return;
+    if (state.user.role === "customer" || !isCustomerOnlyRoute(pathname)) return;
+    router.replace(routeForRole(state.user.role) as never);
+  }, [pathname, state.authResolved, state.hydrated, state.isAuthenticated, state.user]);
+
   return null;
 }
 
 export default function RootLayout() {
   const pathname = usePathname();
   const segments = useSegments();
-  const isSensitiveScreen = segments.some((segment) => /^\(portal-(admin|kitchen|rider)\)$/.test(segment)) ||
+  const isSensitiveScreen = segments.some((segment) => /^\(portal-(admin|finance|staff|kitchen|rider)\)$/.test(segment)) ||
     /^\/(checkout|order(?:\/|$)|admin(?:\/|$)|kitchen(?:\/|$)|rider(?:\/|$)|oauth\/callback)/.test(pathname);
   const initialInsets = initialWindowMetrics?.insets ?? DEFAULT_WEB_INSETS;
   const initialFrame = initialWindowMetrics?.frame ?? DEFAULT_WEB_FRAME;
@@ -201,14 +216,19 @@ export default function RootLayout() {
 
   const content = (
     <GestureHandlerRootView style={{ flex: 1 }}>
+      <EnvironmentBanner />
       <trpc.Provider client={trpcClient} queryClient={queryClient}>
         <QueryClientProvider client={queryClient}>
           {isSensitiveScreen && <SensitiveScreenProtection />}
+          <RoleRouteProtection pathname={pathname} />
           {/* PushTokenRegistrar must be inside tRPC provider */}
           <PushTokenRegistrar />
           <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="index" />
             <Stack.Screen name="(tabs)" />
             <Stack.Screen name="(portal-admin)" />
+            <Stack.Screen name="(portal-finance)" />
+            <Stack.Screen name="(portal-staff)" />
             <Stack.Screen name="(portal-kitchen)" />
             <Stack.Screen name="(portal-rider)" />
             <Stack.Screen name="oauth/callback" />

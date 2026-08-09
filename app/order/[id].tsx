@@ -143,7 +143,7 @@ export default function OrderDetailScreen() {
   if (error || !order) return (
     <View style={s.center}>
       <Text style={s.notFound}>Order not found</Text>
-      <TouchableOpacity onPress={() => router.replace('/(tabs)' as never)}>
+      <TouchableOpacity onPress={() => router.replace('/(tabs)/home' as never)}>
         <Text style={s.link}>Go Home</Text>
       </TouchableOpacity>
     </View>

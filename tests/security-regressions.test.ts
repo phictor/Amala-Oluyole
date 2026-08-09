@@ -104,9 +104,11 @@ describe("authorization and fail-closed boundaries", () => {
   });
 
   it("permits only exact OAuth callback shapes", () => {
-    expect(isAllowedOAuthRedirect("manusapp://oauth/callback")).toBe(true);
     expect(isAllowedOAuthRedirect("amalaoluyole://oauth/callback")).toBe(true);
-    expect(isAllowedOAuthRedirect("manusapp://oauth/callback/extra")).toBe(false);
+    expect(isAllowedOAuthRedirect("amalaoluyole-preview://oauth/callback")).toBe(true);
+    expect(isAllowedOAuthRedirect("amalaoluyole-dev://oauth/callback")).toBe(true);
+    expect(isAllowedOAuthRedirect("manusapp://oauth/callback")).toBe(false);
+    expect(isAllowedOAuthRedirect("amalaoluyole-preview://oauth/callback/extra")).toBe(false);
     expect(isAllowedOAuthRedirect("https://evil.example/oauth/callback")).toBe(false);
   });
 

@@ -1,12 +1,12 @@
 import { z } from "zod";
 import { createCateringRequest, getUserCateringRequests } from "../db";
-import { protectedProcedure, router } from "../_core/trpc";
+import { customerProcedure, router } from "../_core/trpc";
 
 export const cateringRouter = router({
-  list: protectedProcedure
+  list: customerProcedure
     .query(({ ctx }) => getUserCateringRequests(ctx.user.id)),
 
-  create: protectedProcedure
+  create: customerProcedure
     .input(z.object({
       branchId: z.number(),
       contactName: z.string().min(2),

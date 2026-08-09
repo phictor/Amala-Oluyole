@@ -9,6 +9,12 @@ import {
   SESSION_TTL_MS,
 } from "../../shared/const.js";
 import { getUserByOpenId, upsertUser } from "../db";
+import {
+  PasswordlessInputError,
+  PasswordlessVerificationError,
+  requestPasswordlessChallenge,
+  verifyPasswordlessChallenge,
+} from "../auth/passwordless";
 import { getSessionCookieOptions } from "./cookies";
 import { sdk } from "./sdk";
 import { consumeOAuthState, issueOAuthState, OAUTH_BINDING_COOKIE } from "../security/oauth-state";
@@ -47,7 +53,7 @@ async function syncUser(userInfo: {
 
 function publicUser(user: Awaited<ReturnType<typeof getUserByOpenId>>) {
   if (!user) return null;
-  return { id: user.id, name: user.name, email: user.email, loginMethod: user.loginMethod, role: user.role, lastSignedIn: user.lastSignedIn.toISOString() };
+  return { id: user.id, name: user.name, email: user.email, phone: user.phone, loginMethod: user.loginMethod, role: user.role, lastSignedIn: user.lastSignedIn.toISOString() };
 }
 
 async function createTokenPair(openId: string, name: string) {
@@ -65,6 +71,39 @@ function setWebSession(req: Request, res: Response, pair: Awaited<ReturnType<typ
 }
 
 export function registerOAuthRoutes(app: Express) {
+  app.post("/api/auth/passwordless/challenge", async (req, res) => {
+    try {
+      const result = await requestPasswordlessChallenge(req.body);
+      res.setHeader("Cache-Control", "no-store");
+      res.status(202).json(result);
+    } catch (error) {
+      res.setHeader("Cache-Control", "no-store");
+      if (error instanceof PasswordlessInputError) {
+        return void res.status(400).json({ error: "Unable to send sign-in code" });
+      }
+      res.status(503).json({ error: "Unable to send sign-in code" });
+    }
+  });
+
+  app.post("/api/auth/passwordless/verify", async (req, res) => {
+    try {
+      const user = await verifyPasswordlessChallenge(req.body);
+      const pair = await createTokenPair(user.openId, user.name || "");
+      setWebSession(req, res, pair);
+      res.setHeader("Cache-Control", "no-store");
+      res.json({ ...pair, user: publicUser(user), expiresInSeconds: SESSION_TTL_MS / 1000 });
+    } catch (error) {
+      res.setHeader("Cache-Control", "no-store");
+      if (error instanceof PasswordlessInputError) {
+        return void res.status(400).json({ error: "Invalid or expired sign-in code" });
+      }
+      if (error instanceof PasswordlessVerificationError) {
+        return void res.status(401).json({ error: "Invalid or expired sign-in code" });
+      }
+      res.status(503).json({ error: "Unable to complete sign-in" });
+    }
+  });
+
   app.get("/api/oauth/state", async (req, res) => {
     try {
       const redirectUri = query(req, "redirectUri");
