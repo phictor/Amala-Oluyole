@@ -10,7 +10,7 @@ import { createContext } from "./context";
 import { sdk } from "./sdk";
 import { getAllRiders } from "../db";
 import crypto from "crypto";
-import { getDb, createNotification } from "../db";
+import { awardLoyaltyPoints, createNotification, getDb, markOrderPaidIfPending, updateOrderStatus } from "../db";
 import { orders } from "../../drizzle/schema";
 import { eq } from "drizzle-orm";
 
@@ -80,8 +80,16 @@ async function startServer() {
     next();
   });
 
-  app.use(express.json({ limit: "50mb" }));
-  app.use(express.urlencoded({ limit: "50mb", extended: true }));
+  // Keep the Paystack payload untouched for HMAC verification. All other routes
+  // use the normal JSON and URL-encoded parsers.
+  app.use((req, res, next) => {
+    if (req.path === "/api/paystack/webhook") return next();
+    return express.json({ limit: "50mb" })(req, res, next);
+  });
+  app.use((req, res, next) => {
+    if (req.path === "/api/paystack/webhook") return next();
+    return express.urlencoded({ limit: "50mb", extended: true })(req, res, next);
+  });
 
   registerStorageProxy(app);
   registerOAuthRoutes(app);
@@ -96,32 +104,68 @@ async function startServer() {
   app.post("/api/paystack/webhook",
     express.raw({ type: "*/*" }),
     async (req, res) => {
-      const secret = process.env.PAYSTACK_SECRET_KEY ?? "";
+      const secret = process.env.PAYSTACK_SECRET_KEY;
       const sig = (req.headers["x-paystack-signature"] as string) ?? "";
       const rawBody = Buffer.isBuffer(req.body) ? req.body : Buffer.from(String(req.body));
-      // Verify signature when secret is configured
-      if (secret && sig) {
-        const expected = crypto.createHmac("sha512", secret).update(rawBody).digest("hex");
-        if (sig !== expected) { res.status(401).json({ error: "Invalid signature" }); return; }
+      if (!secret) {
+        res.status(503).json({ error: "Payment webhook is not configured" });
+        return;
+      }
+      if (!sig) {
+        res.status(401).json({ error: "Missing signature" });
+        return;
+      }
+      const expected = crypto.createHmac("sha512", secret).update(rawBody).digest("hex");
+      if (sig.length !== expected.length || !crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) {
+        res.status(401).json({ error: "Invalid signature" });
+        return;
       }
       let event: { event?: string; data?: Record<string, unknown> };
       try { event = JSON.parse(rawBody.toString()); } catch { res.sendStatus(400); return; }
-      res.sendStatus(200); // Acknowledge immediately — Paystack retries on non-200
-      if (event.event === "charge.success") {
-        const ref = (event.data?.reference as string) ?? "";
-        if (!ref) return;
-        try {
-          const db = await getDb();
-          if (!db) return;
-          const [order] = await db
-            .select({ id: orders.id, userId: orders.userId, orderNumber: orders.orderNumber, paymentStatus: orders.paymentStatus })
-            .from(orders).where(eq(orders.paymentReference, ref)).limit(1);
-          if (!order || order.paymentStatus === "paid") return;
-          await db.update(orders).set({ paymentStatus: "paid", status: "payment_confirmed" }).where(eq(orders.id, order.id));
-          if (order.userId) {
-            createNotification({ userId: order.userId, type: "order_update", title: "💳 Payment Confirmed", body: `Payment received for order #${order.orderNumber}. We'll start preparing it now.`, orderId: order.id }).catch(() => {});
-          }
-        } catch (err) { console.error("[Paystack webhook]", err); }
+      if (event.event !== "charge.success") {
+        res.sendStatus(200);
+        return;
+      }
+
+      const ref = typeof event.data?.reference === "string" ? event.data.reference : "";
+      const paidAmount = Number(event.data?.amount);
+      if (!ref || !Number.isFinite(paidAmount) || event.data?.currency !== "NGN") {
+        res.status(400).json({ error: "Invalid payment event" });
+        return;
+      }
+
+      try {
+        const db = await getDb();
+        if (!db) throw new Error("Database unavailable");
+        const [order] = await db
+          .select({ id: orders.id, userId: orders.userId, orderNumber: orders.orderNumber, paymentStatus: orders.paymentStatus, status: orders.status, total: orders.total })
+          .from(orders).where(eq(orders.paymentReference, ref)).limit(1);
+        if (!order) {
+          res.status(404).json({ error: "Order not found" });
+          return;
+        }
+        if (paidAmount !== Math.round(Number(order.total) * 100)) {
+          res.status(400).json({ error: "Payment amount does not match order" });
+          return;
+        }
+
+        const markedPaid = await markOrderPaidIfPending(order.id);
+        if (!markedPaid) {
+          res.sendStatus(200);
+          return;
+        }
+        const nextStatus = order.status === "created" || order.status === "awaiting_payment"
+          ? "payment_confirmed"
+          : order.status;
+        await updateOrderStatus(order.id, nextStatus, "Payment confirmed by Paystack webhook");
+        await awardLoyaltyPoints(order.userId, order.id, Number(order.total));
+        if (order.userId) {
+          await createNotification({ userId: order.userId, type: "order_update", title: "Payment confirmed", body: `We have received payment for order #${order.orderNumber}. The kitchen will begin shortly.`, orderId: order.id });
+        }
+        res.sendStatus(200);
+      } catch (err) {
+        console.error("[Paystack webhook]", err);
+        res.sendStatus(500);
       }
     }
   );

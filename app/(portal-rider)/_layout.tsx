@@ -1,4 +1,10 @@
 import { Stack } from 'expo-router';
+import { PortalAccessGate } from '@/components/portal-access-gate';
+
 export default function RiderPortalLayout() {
-  return <Stack screenOptions={{ headerShown: false }} />;
+  return (
+    <PortalAccessGate portal="rider">
+      <Stack screenOptions={{ headerShown: false }} />
+    </PortalAccessGate>
+  );
 }

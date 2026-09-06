@@ -53,39 +53,42 @@ function AuthSyncBridge() {
     if (synced.current) return;
     synced.current = true;
     const syncAuth = async () => {
-      const token = await Auth.getSessionToken();
-      if (!token) {
-        if (state.isAuthenticated && !state.isGuest) dispatch({ type: 'LOGOUT' });
-        return;
-      }
-      const cachedUser = await Auth.getUserInfo();
-      if (cachedUser) {
-        dispatch({
-          type: 'SET_USER',
-          payload: {
-            id: String(cachedUser.id ?? ''),
-            name: cachedUser.name ?? 'User',
-            email: cachedUser.email ?? undefined,
-            phone: '',
-            addresses: [],
-            loyaltyAccount: { points: 0, tier: 'bronze', pointsToNextTier: 1000, totalEarned: 0, totalRedeemed: 0, history: [] },
-            isGuest: false,
-            role: cachedUser.role ?? 'customer',
-          },
-        });
-      } else if (!state.isAuthenticated) {
-        dispatch({
-          type: 'SET_USER',
-          payload: {
-            id: '', name: '', email: undefined, phone: '', addresses: [],
-            loyaltyAccount: { points: 0, tier: 'bronze', pointsToNextTier: 1000, totalEarned: 0, totalRedeemed: 0, history: [] },
-            isGuest: false, role: 'customer',
-          },
-        });
+      try {
+        const token = await Auth.getSessionToken();
+        if (!token) {
+          if (state.isAuthenticated && !state.isGuest) dispatch({ type: 'LOGOUT' });
+          return;
+        }
+        const cachedUser = await Auth.getUserInfo();
+        if (cachedUser) {
+          dispatch({
+            type: 'SET_USER',
+            payload: {
+              id: String(cachedUser.id ?? ''),
+              name: cachedUser.name ?? 'User',
+              email: cachedUser.email ?? undefined,
+              phone: '',
+              addresses: [],
+              loyaltyAccount: { points: 0, tier: 'bronze', pointsToNextTier: 1000, totalEarned: 0, totalRedeemed: 0, history: [] },
+              isGuest: false,
+              role: cachedUser.role ?? 'customer',
+            },
+          });
+        } else if (!state.isAuthenticated) {
+          dispatch({
+            type: 'SET_USER',
+            payload: {
+              id: '', name: '', email: undefined, phone: '', addresses: [],
+              loyaltyAccount: { points: 0, tier: 'bronze', pointsToNextTier: 1000, totalEarned: 0, totalRedeemed: 0, history: [] },
+              isGuest: false, role: 'customer',
+            },
+          });
+        }
+      } finally {
+        dispatch({ type: 'SET_AUTH_CHECKED', payload: true });
       }
     };
-    const t = setTimeout(syncAuth, 300);
-    return () => clearTimeout(t);
+    void syncAuth();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   return null;
 }

@@ -81,6 +81,22 @@ export async function upsertUser(user: InsertUser): Promise<void> {
   if (!values.lastSignedIn) values.lastSignedIn = new Date();
   if (Object.keys(updateSet).length === 0) updateSet.lastSignedIn = new Date();
 
+  // Admin-created staff accounts receive a temporary openId. On their first OAuth
+  // sign-in, match the verified email and claim that staff account without losing its role.
+  if (user.email) {
+    const [invitedStaff] = await db.select({ id: users.id })
+      .from(users)
+      .where(and(eq(users.email, user.email), like(users.openId, "staff_rider_%")))
+      .limit(1);
+    if (invitedStaff) {
+      await db.update(users).set({ ...updateSet, openId: user.openId, updatedAt: new Date() })
+        .where(eq(users.id, invitedStaff.id));
+      await db.insert(loyaltyAccounts).values({ userId: invitedStaff.id, points: 0 })
+        .onDuplicateKeyUpdate({ set: { updatedAt: new Date() } });
+      return;
+    }
+  }
+
   await db.insert(users).values(values).onDuplicateKeyUpdate({ set: updateSet });
 
   // Auto-create loyalty account for new users
@@ -301,6 +317,16 @@ export async function updateOrderStatus(orderId: number, status: Order["status"]
   }
   await db.update(orders).set(updateFields).where(eq(orders.id, orderId));
   await db.insert(orderStatusHistory).values({ orderId, status, note: note || null, changedBy: changedBy || null });
+}
+
+/** Marks an order paid exactly once so webhook and client verification cannot duplicate side effects. */
+export async function markOrderPaidIfPending(orderId: number): Promise<boolean> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const [result] = await db.update(orders)
+    .set({ paymentStatus: "paid", updatedAt: new Date() })
+    .where(and(eq(orders.id, orderId), eq(orders.paymentStatus, "pending")));
+  return Number((result as { affectedRows?: number }).affectedRows ?? 0) === 1;
 }
 
 export async function cancelOrder(orderId: number, userId: number, reason: string) {

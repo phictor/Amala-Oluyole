@@ -5,13 +5,18 @@ import { AdminMenu } from '@/components/admin-menu';
 import { trpc } from '@/lib/trpc';
 
 const ROLES = ['customer', 'kitchen', 'rider', 'manager', 'admin'];
-const VEHICLES = ['motorcycle', 'bicycle', 'car'];
+const VEHICLES = ['motorcycle', 'bicycle', 'car'] as const;
 
 export default function AdminStaffScreen() {
   const { data: staff, refetch, isRefetching } = trpc.admin.allStaff.useQuery();
   const setRole = trpc.admin.setUserRole.useMutation({ onSuccess: () => refetch() });
   const createRider = trpc.admin.createRider.useMutation({
-    onSuccess: () => { setShowForm(false); refetch(); Alert.alert('Done', 'Rider account created.'); },
+    onSuccess: () => {
+      setShowForm(false);
+      setForm({ name: '', phone: '', email: '', address: '', vehicleType: 'motorcycle', plateNumber: '', branchId: 1 });
+      refetch();
+      Alert.alert('Rider account created', 'Ask the rider to sign in with this same email address. Their Rider portal will open automatically.');
+    },
     onError: (e) => Alert.alert('Error', e.message),
   });
   const { data: orders } = trpc.admin.activeOrders.useQuery(undefined, { refetchInterval: 10000 });
@@ -19,7 +24,7 @@ export default function AdminStaffScreen() {
   const kitchenCount = orders?.filter((o: { status: string }) => ['accepted','preparing'].includes(o.status)).length ?? 0;
 
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ name: '', phone: '', email: '', address: '', vehicleType: 'motorcycle', plateNumber: '', branchId: 1 });
+  const [form, setForm] = useState<{ name: string; phone: string; email: string; address: string; vehicleType: typeof VEHICLES[number]; plateNumber: string; branchId: number }>({ name: '', phone: '', email: '', address: '', vehicleType: 'motorcycle', plateNumber: '', branchId: 1 });
 
   const ROLE_COLORS: Record<string, string> = { admin: '#201060', manager: '#5B2D8E', kitchen: '#D02010', rider: '#1A5C2A', customer: '#6B6490' };
 
@@ -65,7 +70,7 @@ export default function AdminStaffScreen() {
               {[
                 { key: 'name', label: 'Full Name *', placeholder: 'e.g. Tunde Adeyemi' },
                 { key: 'phone', label: 'Phone Number *', placeholder: '+2348012345678', keyboardType: 'phone-pad' },
-                { key: 'email', label: 'Email (optional)', placeholder: 'rider@email.com', keyboardType: 'email-address' },
+                { key: 'email', label: 'Email *', placeholder: 'rider@email.com', keyboardType: 'email-address' },
                 { key: 'address', label: 'Home Address', placeholder: '12 Oluyole Estate, Ibadan' },
                 { key: 'plateNumber', label: 'Plate Number', placeholder: 'OY 123 ABC' },
               ].map(f => (
@@ -92,8 +97,8 @@ export default function AdminStaffScreen() {
               <TouchableOpacity
                 style={styles.submitBtn}
                 onPress={() => {
-                  if (!form.name || !form.phone) { Alert.alert('Required', 'Name and phone are required.'); return; }
-                  createRider.mutate({ name: form.name, phone: form.phone, email: form.email || undefined, address: form.address || undefined, vehicleType: form.vehicleType, plateNumber: form.plateNumber || undefined, branchId: form.branchId });
+                  if (!form.name || !form.phone || !form.email) { Alert.alert('Required', 'Name, phone number, and email are required.'); return; }
+                  createRider.mutate({ name: form.name, phone: form.phone, email: form.email, address: form.address || undefined, vehicleType: form.vehicleType, plateNumber: form.plateNumber || undefined, branchId: form.branchId });
                 }}
               >
                 <Text style={styles.submitText}>{createRider.isPending ? 'Creating...' : 'Register Rider'}</Text>

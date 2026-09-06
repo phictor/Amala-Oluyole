@@ -8,8 +8,9 @@ import { PaystackProvider, usePaystack } from 'react-native-paystack-webview';
 import { useCart, useAppStore } from '@/lib/store/app-store';
 import { trpc } from '@/lib/trpc';
 
-// ── Paystack public key — replace with live key before publishing
-const PAYSTACK_PUBLIC_KEY = 'pk_test_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx';
+// Expo only exposes variables prefixed with EXPO_PUBLIC_ to the customer app.
+const PAYSTACK_PUBLIC_KEY = process.env.EXPO_PUBLIC_PAYSTACK_PUBLIC_KEY ?? '';
+const HAS_PAYSTACK_KEY = /^pk_(test|live)_/.test(PAYSTACK_PUBLIC_KEY);
 
 const PAYMENT_METHODS = [
   { id: 'card', label: 'Debit/Credit Card (Paystack)', icon: '💳', requiresPaystack: true },
@@ -22,7 +23,7 @@ const PAYMENT_METHODS = [
 // ── Inner component that uses the Paystack hook (must be inside PaystackProvider)
 function CheckoutInner() {
   const params = useLocalSearchParams<{ orderType?: string }>();
-  const orderType = (params.orderType || 'delivery') as 'delivery' | 'pickup';
+  const orderType = (params.orderType || 'delivery') as 'delivery' | 'pickup' | 'dine_in';
   const { items, subtotal, deliveryFee, serviceFee, discount, total, dispatch: cartDispatch } = useCart();
   const { state } = useAppStore();
   const { popup } = usePaystack();
@@ -33,18 +34,12 @@ function CheckoutInner() {
   const [scheduledTime, setScheduledTime] = useState<'now' | 'later'>('now');
   const [loading, setLoading] = useState(false);
 
-  const grandTotal = orderType === 'pickup' ? total - deliveryFee : total;
+  const grandTotal = orderType === 'delivery' ? total : total - deliveryFee;
   const amountInKobo = Math.round(grandTotal * 100);
   const userEmail = state.user?.email || 'guest@amalaoluyole.com';
   const userName = state.user?.name || 'Guest';
 
   const placeOrderMutation = trpc.orders.place.useMutation({
-    onSuccess: (data: unknown) => {
-      const d = data as { id?: number; orderNumber?: string };
-      cartDispatch({ type: 'CLEAR_CART' });
-      setLoading(false);
-      router.replace({ pathname: '/order/[id]' as never, params: { id: String(d?.id ?? 0), isNew: 'true' } });
-    },
     onError: (err: { message?: string }) => {
       setLoading(false);
       Alert.alert('Order Failed', err.message || 'Could not place your order. Please try again.');
@@ -103,18 +98,23 @@ function CheckoutInner() {
     const proceedToPayment = () => {
       const selectedMethod = PAYMENT_METHODS.find(m => m.id === paymentMethod);
       if (selectedMethod?.requiresPaystack) {
-        popup.checkout({
-          email: userEmail,
-          amount: amountInKobo,
-          reference: generateRef(),
-          metadata: { name: userName, orderType },
-          onSuccess: (res) => {
-            setLoading(true);
-            placeOrderMutation.mutate(buildOrderPayload(res.reference), {
-              onSuccess: (orderData: unknown) => {
-                const order = orderData as { id?: number; orderNumber?: string };
+        if (!HAS_PAYSTACK_KEY) {
+          Alert.alert('Payments unavailable', 'Secure card payments are not configured yet. Please choose another method or contact the restaurant.');
+          return;
+        }
+        const paymentReference = generateRef();
+        setLoading(true);
+        placeOrderMutation.mutate(buildOrderPayload(paymentReference), {
+          onSuccess: (orderData: unknown) => {
+            const order = orderData as { id?: number; orderNumber?: string };
+            popup.checkout({
+              email: userEmail,
+              amount: amountInKobo,
+              reference: paymentReference,
+              metadata: { name: userName, orderType, orderId: order.id },
+              onSuccess: (res) => {
                 verifyPaymentMutation.mutate(
-                  { orderId: order.id ?? 0, paymentReference: res.reference, expectedAmount: grandTotal },
+                  { orderId: order.id ?? 0, paymentReference: res.reference },
                   {
                     onSuccess: () => {
                       cartDispatch({ type: 'CLEAR_CART' });
@@ -124,15 +124,23 @@ function CheckoutInner() {
                   }
                 );
               },
+              onCancel: () => {
+                setLoading(false);
+                Alert.alert('Payment Cancelled', 'No payment was taken. Your basket is still ready when you are.');
+              },
             });
-          },
-          onCancel: () => {
-            Alert.alert('Payment Cancelled', 'Your payment was cancelled. You can try again.');
           },
         });
       } else {
         setLoading(true);
-        placeOrderMutation.mutate(buildOrderPayload());
+        placeOrderMutation.mutate(buildOrderPayload(), {
+          onSuccess: (orderData: unknown) => {
+            const order = orderData as { id?: number };
+            cartDispatch({ type: 'CLEAR_CART' });
+            setLoading(false);
+            router.replace({ pathname: '/order/[id]' as never, params: { id: String(order.id ?? 0), isNew: 'true' } });
+          },
+        });
       }
     };
 
@@ -330,7 +338,7 @@ function CheckoutInner() {
 // ── Outer wrapper that provides the Paystack context
 export default function CheckoutScreen() {
   return (
-    <PaystackProvider publicKey={PAYSTACK_PUBLIC_KEY} currency="NGN">
+      <PaystackProvider publicKey={PAYSTACK_PUBLIC_KEY || 'pk_test_disabled'} currency="NGN">
       <CheckoutInner />
     </PaystackProvider>
   );

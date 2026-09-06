@@ -32,8 +32,6 @@ function fmtTime(d: Date | string | null | undefined): string {
 
 export default function RiderTracking() {
   const { allowed, loading: roleLoading } = useRequireRole(["admin"]);
-  if (roleLoading) return <LoadingState fullScreen message="Checking access..." />;
-  if (!allowed) return null;
 
   const [selectedRiderId, setSelectedRiderId] = useState<number | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -63,6 +61,9 @@ export default function RiderTracking() {
   const onlineRiders = riderList.filter(r => r.rider.isOnline);
   const offlineRiders = riderList.filter(r => !r.rider.isOnline);
   const selectedEntry = riderList.find(r => r.rider.id === selectedRiderId);
+
+  if (roleLoading) return <LoadingState fullScreen message="Checking access..." />;
+  if (!allowed) return null;
 
   return (
     <ScreenContainer>
@@ -268,4 +269,3 @@ const s = StyleSheet.create({
   riderDeliveries: { fontSize: 11, color: "#9B94C4" },
   riderLocation: { fontSize: 12, color: "#6B6490", marginTop: 2 },
 });
-

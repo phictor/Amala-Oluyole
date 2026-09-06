@@ -11,6 +11,8 @@ import { useAppStore } from '@/lib/store/app-store';
 import { MEALS, PROMOTIONS, CATEGORIES } from '@/lib/data/mock-data';
 import { trpc } from '@/lib/trpc';
 import { toMealCard, type MealCard } from '@/lib/utils';
+import { resolveMenuImageUri } from '@/lib/menu-image';
+import { getApiBaseUrl } from '@/constants/oauth';
 const LOGO_CHEF = require('@/assets/images/logo-chef.png');
 
 const { width: W } = Dimensions.get('window');
@@ -259,7 +261,7 @@ export default function HomeScreen() {
                 onPress={() => router.push({ pathname: '/meal/[id]', params: { id: meal.id } } as never)}
               >
                 <View style={styles.mealCardImgWrap}>
-                  <Image source={{ uri: meal.imageUrl ?? undefined }} style={styles.mealCardImg} contentFit="cover" />
+                  <Image source={{ uri: resolveMenuImageUri(meal.imageUrl, getApiBaseUrl()) }} style={styles.mealCardImg} contentFit="cover" />
                   <LinearGradient colors={['transparent', 'rgba(0,0,0,0.55)']} style={styles.mealCardImgGrad} />
                   {(meal.labels?.includes('popular') || meal.labels?.includes('best_seller')) && (
                     <View style={[styles.mealBadge, meal.labels?.includes('best_seller') && styles.mealBadgeBest]}>
@@ -300,7 +302,7 @@ export default function HomeScreen() {
               style={styles.listCard}
               onPress={() => router.push({ pathname: '/meal/[id]', params: { id: meal.id } } as never)}
             >
-              <Image source={{ uri: meal.imageUrl ?? undefined }} style={styles.listCardImg} contentFit="cover" />
+              <Image source={{ uri: resolveMenuImageUri(meal.imageUrl, getApiBaseUrl()) }} style={styles.listCardImg} contentFit="cover" />
               <View style={styles.listCardBody}>
                 <View style={styles.listCardTop}>
                   <Text style={styles.listCardName} numberOfLines={1}>{meal.name}</Text>

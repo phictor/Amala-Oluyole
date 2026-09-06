@@ -4,8 +4,11 @@ import {
   ScrollView, TextInput, Alert, Platform, useWindowDimensions, FlatList,
 } from 'react-native';
 import { Image } from 'expo-image';
+import * as ImagePicker from 'expo-image-picker';
 import { PortalLayout } from '@/components/portal-layout';
 import { trpc } from '@/lib/trpc';
+import { resolveMenuImageUri } from '@/lib/menu-image';
+import { getApiBaseUrl } from '@/constants/oauth';
 import { useRouter } from 'expo-router';
 
 type Meal = {
@@ -78,6 +81,7 @@ function MealCard({
   isDesktop,
   onToggle,
   onPriceSave,
+  onPhotoUpdate,
   onEdit,
   onDelete,
 }: {
@@ -85,24 +89,35 @@ function MealCard({
   isDesktop: boolean;
   onToggle: (id: number, branchId: number, val: boolean) => void;
   onPriceSave: (id: number, price: number) => void;
+  onPhotoUpdate: (meal: Meal) => void;
   onEdit: (id: number) => void;
   onDelete: (id: number, name: string) => void;
 }) {
+  const photoUri = resolveMenuImageUri(meal.imageUrl, getApiBaseUrl());
+
   return (
     <View style={[styles.mealCard, !meal.isAvailable && styles.mealCardUnavailable]}>
-      {/* Meal image */}
-      {meal.imageUrl ? (
-        <Image
-          source={{ uri: meal.imageUrl }}
-          style={styles.mealImage}
-          contentFit="cover"
-          transition={200}
-        />
-      ) : (
-        <View style={[styles.mealImage, styles.mealImagePlaceholder]}>
-          <Text style={styles.mealImageEmoji}>🍽️</Text>
+      <TouchableOpacity
+        style={styles.photoArea}
+        onPress={() => onPhotoUpdate(meal)}
+        accessibilityLabel={`Update photo for ${meal.name}`}
+      >
+        {photoUri ? (
+          <Image
+            source={{ uri: photoUri }}
+            style={styles.mealImage}
+            contentFit="cover"
+            transition={200}
+          />
+        ) : (
+          <View style={[styles.mealImage, styles.mealImagePlaceholder]}>
+            <Text style={styles.mealImageEmoji}>🍽️</Text>
+          </View>
+        )}
+        <View style={styles.photoButton}>
+          <Text style={styles.photoButtonText}>📷 Update photo</Text>
         </View>
-      )}
+      </TouchableOpacity>
 
       {/* Content */}
       <View style={styles.mealContent}>
@@ -164,6 +179,10 @@ export default function AdminMealsScreen() {
   const { data: categories } = trpc.menu.categories.useQuery();
   const toggleAvail = trpc.kitchen.toggleMealAvailability.useMutation({ onSuccess: () => refetch() });
   const updateMeal = trpc.admin.updateMeal.useMutation({ onSuccess: () => refetch() });
+  const uploadMealPhoto = trpc.admin.uploadMealPhoto.useMutation({
+    onSuccess: () => refetch(),
+    onError: (error) => Alert.alert('Photo could not be saved', error.message),
+  });
   const deleteMeal = trpc.admin.deleteMeal.useMutation({ onSuccess: () => refetch() });
 
   const handlePriceSave = useCallback((id: number, price: number) => {
@@ -188,6 +207,26 @@ export default function AdminMealsScreen() {
   const handleEdit = useCallback((id: number) => {
     router.push({ pathname: '/admin/add-meal', params: { mealId: id } } as never);
   }, [router]);
+
+  const handlePhotoUpdate = useCallback(async (meal: Meal) => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: false,
+        quality: 0.8,
+        base64: true,
+      });
+      if (result.canceled || !result.assets[0]?.base64) return;
+
+      const asset = result.assets[0];
+      const mimeType: 'image/jpeg' | 'image/png' | 'image/webp' = asset.mimeType === 'image/png' || asset.mimeType === 'image/webp'
+        ? asset.mimeType
+        : 'image/jpeg';
+      uploadMealPhoto.mutate({ mealId: meal.id, base64: asset.base64!, mimeType });
+    } catch {
+      Alert.alert('Photo could not be selected', 'Please choose a photo smaller than 5 MB and try again.');
+    }
+  }, [uploadMealPhoto]);
 
   // Filter meals
   const filtered = (allMeals ?? []).filter((m: Meal) => {
@@ -316,6 +355,7 @@ export default function AdminMealsScreen() {
                   isDesktop={isDesktop}
                   onToggle={handleToggle}
                   onPriceSave={handlePriceSave}
+                  onPhotoUpdate={handlePhotoUpdate}
                   onEdit={handleEdit}
                   onDelete={handleDelete}
                 />
@@ -383,9 +423,12 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   mealCardUnavailable: { opacity: 0.65 },
+  photoArea: { position: 'relative' },
   mealImage: { width: '100%', height: 140 },
   mealImagePlaceholder: { backgroundColor: '#F4F3FB', alignItems: 'center', justifyContent: 'center' },
   mealImageEmoji: { fontSize: 40 },
+  photoButton: { position: 'absolute', right: 10, bottom: 10, backgroundColor: 'rgba(32,16,96,0.9)', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 7 },
+  photoButtonText: { color: '#FFFFFF', fontSize: 11, fontWeight: '700' },
   mealContent: { padding: 14 },
   mealTopRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10, gap: 8 },
   mealName: { flex: 1, fontSize: 15, fontWeight: '700', color: '#201060' },

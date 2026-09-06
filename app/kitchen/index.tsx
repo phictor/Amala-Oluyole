@@ -18,8 +18,6 @@ const MONTH_NAMES = [
 
 export default function KitchenPortal() {
   const { allowed, loading: roleLoading } = useRequireRole(["kitchen", "admin"]);
-  if (roleLoading) return <LoadingState fullScreen message="Checking access..." />;
-  if (!allowed) return null;
 
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<KitchenTab>('orders');
@@ -64,6 +62,9 @@ export default function KitchenPortal() {
     await Promise.all([ordersQ.refetch(), mealsQ.refetch(), stockQ.refetch()]);
     setRefreshing(false);
   };
+
+  if (roleLoading) return <LoadingState fullScreen message="Checking access..." />;
+  if (!allowed) return null;
 
   if (profileLoading) {
     return (

@@ -9,6 +9,8 @@ import { useAppStore } from '@/lib/store/app-store';
 import { trpc } from '@/lib/trpc';
 import { ActivityIndicator } from 'react-native';
 import type { CartItem } from '@/lib/data/types';
+import { resolveMenuImageUri } from '@/lib/menu-image';
+import { getApiBaseUrl } from '@/constants/oauth';
 
 export default function MealDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -83,7 +85,7 @@ export default function MealDetailScreen() {
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Hero Image */}
         <View style={styles.imageContainer}>
-          <Image source={meal.imageUrl ? { uri: meal.imageUrl } : undefined} style={styles.heroImage} />
+          <Image source={{ uri: resolveMenuImageUri(meal.imageUrl, getApiBaseUrl()) }} style={styles.heroImage} />
           <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
             <Text style={styles.backBtnText}>←</Text>
           </TouchableOpacity>

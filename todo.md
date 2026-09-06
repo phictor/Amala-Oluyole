@@ -213,3 +213,17 @@
 - [x] Meal cards show photo, badges (Popular/Best Seller/Chef Special), prep time
 - [x] Search bar to filter meals by name
 - [x] 2-column grid on desktop, single column on mobile
+
+### Final Launch Preparation
+- [x] Complete production release-readiness audit and identify external launch blockers
+- [x] Identify and catalogue all supplied restaurant dish photographs
+- [x] Verify Nigerian dish names and category assignments for the supplied photos
+- [x] Upload approved restaurant food photography and link it to the live menu
+- [ ] Complete remaining App Store, Play Store, payment, domain, and operations details
+- [x] Validate customer, rider, kitchen, and admin workflows before release
+
+### Pre-Launch Debugging
+- [x] Audit production logs, configuration, and launch-critical risks before entering live payment keys
+- [x] Run static checks, automated tests, endpoint checks, and a production web build
+- [x] Fix confirmed runtime, payment-flow, and release-configuration issues
+- [x] Complete and document the final pre-launch validation pass

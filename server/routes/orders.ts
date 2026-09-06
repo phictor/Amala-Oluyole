@@ -2,7 +2,7 @@ import { z } from "zod";
 import {
   awardLoyaltyPoints, cancelOrder, createNotification, createOrder,
   getOrderById, getOrderWithItems, getUserOrders, rateOrder,
-  updateOrderStatus, validatePromoCode,
+  markOrderPaidIfPending, updateOrderStatus, validatePromoCode,
 } from "../db";
 import { protectedProcedure, router } from "../_core/trpc";
 import https from "https";
@@ -63,8 +63,9 @@ export const ordersRouter = router({
   place: protectedProcedure
     .input(z.object({
      branchId: z.number(),
-     orderType: z.enum(["delivery", "pickup"]),
+     orderType: z.enum(["delivery", "pickup", "dine_in"]),
      paymentMethod: z.enum(["card", "transfer", "cash_on_delivery", "wallet", "loyalty_points"]),
+     paymentReference: z.string().min(6).max(100).optional(),
       subtotal: z.number().positive("Subtotal must be greater than 0"),
       deliveryFee: z.number().min(0, "Delivery fee cannot be negative").default(0),
       discount: z.number().min(0, "Discount cannot be negative").default(0),
@@ -129,7 +130,7 @@ export const ordersRouter = router({
 
   /** FR-041: Server-side Paystack verification before confirming payment */
   verifyPayment: protectedProcedure
-    .input(z.object({ orderId: z.number(), paymentReference: z.string(), expectedAmount: z.number() }))
+    .input(z.object({ orderId: z.number(), paymentReference: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const order = await getOrderById(input.orderId);
       if (!order || order.userId !== ctx.user.id) throw new Error("Order not found");
@@ -138,19 +139,24 @@ export const ordersRouter = router({
       const secretKey = process.env.PAYSTACK_SECRET_KEY ?? "";
       if (!secretKey) throw new Error("Paystack secret key not configured on server");
 
+      if (order.paymentReference !== input.paymentReference) {
+        throw new Error("Payment reference does not match this order");
+      }
+
       const result = await paystackVerify(input.paymentReference, secretKey);
-      if (!result.status || result.data?.status !== "success") {
+      if (!result.status || result.data?.status !== "success" || result.data.currency !== "NGN") {
         throw new Error(`Payment verification failed: ${result.data?.status ?? "unknown"}`);
       }
 
-      // Verify amount matches (Paystack amounts are in kobo)
+      // Verify against the server's stored total, never an amount supplied by the client.
       const paidKobo = result.data.amount;
-      const expectedKobo = Math.round(input.expectedAmount * 100);
-      if (paidKobo < expectedKobo) {
-        throw new Error(`Amount mismatch: paid ₦${paidKobo / 100} but expected ₦${input.expectedAmount}`);
+      const expectedKobo = Math.round(Number(order.total) * 100);
+      if (paidKobo !== expectedKobo) {
+        throw new Error("Payment amount does not match the order total");
       }
 
-      // Store the verified reference on the order
+      const markedPaid = await markOrderPaidIfPending(input.orderId);
+      if (!markedPaid) return { success: true, alreadyConfirmed: true };
       await updateOrderStatus(input.orderId, "payment_confirmed", "Payment verified via Paystack");
       await awardLoyaltyPoints(ctx.user.id, input.orderId, Number(order.total));
       await createNotification({
@@ -166,21 +172,8 @@ export const ordersRouter = router({
 
   confirmPayment: protectedProcedure
     .input(z.object({ orderId: z.number(), paymentReference: z.string() }))
-    .mutation(async ({ ctx, input }) => {
-      const order = await getOrderById(input.orderId);
-      if (!order || order.userId !== ctx.user.id) throw new Error("Order not found");
-      await updateOrderStatus(input.orderId, "payment_confirmed", "Payment confirmed");
-      // Award loyalty points
-      await awardLoyaltyPoints(ctx.user.id, input.orderId, Number(order.total));
-      await createNotification({
-        userId: ctx.user.id,
-        orderId: input.orderId,
-        type: "order_update",
-        title: "Payment Confirmed ✅",
-        body: `Payment received for order #${order.orderNumber}. Your food is being prepared!`,
-        data: { orderId: order.id },
-      });
-      return { success: true };
+    .mutation(() => {
+      throw new Error("Payment confirmation must be verified by Paystack or an authorised staff member");
     }),
 
   cancel: protectedProcedure

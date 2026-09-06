@@ -12,8 +12,6 @@ const LABELS = ['Popular', 'New', 'Best Seller', "Chef's Special", 'Spicy', 'Glu
 
 export default function AddEditMealScreen() {
   const { allowed, loading: roleLoading } = useRequireRole(["admin"]);
-  if (roleLoading) return <LoadingState fullScreen message="Checking access..." />;
-  if (!allowed) return null;
 
   const router = useRouter();
   const params = useLocalSearchParams<{ id?: string }>();
@@ -115,6 +113,9 @@ export default function AddEditMealScreen() {
       prev.includes(label) ? prev.filter(l => l !== label) : [...prev, label]
     );
   };
+
+  if (roleLoading) return <LoadingState fullScreen message="Checking access..." />;
+  if (!allowed) return null;
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>

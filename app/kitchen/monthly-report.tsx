@@ -117,8 +117,6 @@ async function exportMonthlyPDF(
 
 export default function KitchenMonthlyReport() {
   const { allowed, loading: roleLoading } = useRequireRole(["kitchen", "admin"]);
-  if (roleLoading) return <LoadingState fullScreen message="Checking access..." />;
-  if (!allowed) return null;
 
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
@@ -161,6 +159,9 @@ export default function KitchenMonthlyReport() {
   const completionRate = summary && Number(summary.totalOrders) > 0
     ? Math.round((Number(summary.completedOrders) / Number(summary.totalOrders)) * 100)
     : 0;
+
+  if (roleLoading) return <LoadingState fullScreen message="Checking access..." />;
+  if (!allowed) return null;
 
   return (
     <ScreenContainer>

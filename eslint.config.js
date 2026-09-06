@@ -7,4 +7,12 @@ export default defineConfig([
   {
     ignores: ["dist/*"],
   },
+  {
+    files: ["**/*.{ts,tsx}"],
+    rules: {
+      // This rule is intended for HTML entities in React DOM. Apostrophes and
+      // quotation marks are valid text content in React Native and Expo web.
+      "react/no-unescaped-entities": "off",
+    },
+  },
 ]);

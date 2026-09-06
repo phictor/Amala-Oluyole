@@ -54,8 +54,8 @@ const config: ExpoConfig = {
       ITSAppUsesNonExemptEncryption: false,
       NSLocationWhenInUseUsageDescription: "Amala Oluyole uses your location to show nearby branches and track your delivery.",
       NSLocationAlwaysAndWhenInUseUsageDescription: "Amala Oluyole uses your location to track your delivery in real time.",
-      NSCameraUsageDescription: "Allow Amala Oluyole to access your camera to upload a profile photo.",
-      NSPhotoLibraryUsageDescription: "Allow Amala Oluyole to access your photos to upload a profile photo.",
+      NSCameraUsageDescription: "Allow Amala Oluyole staff to take meal photos for the menu.",
+      NSPhotoLibraryUsageDescription: "Allow Amala Oluyole staff to choose meal photos for the menu.",
       NSUserNotificationsUsageDescription: "Amala Oluyole sends order updates, promotions, and loyalty rewards via notifications.",
     },
     privacyManifests: {
@@ -120,6 +120,13 @@ const config: ExpoConfig = {
   },
   plugins: [
     "expo-router",
+    [
+      "expo-image-picker",
+      {
+        photosPermission: "Allow Amala Oluyole staff to choose meal photos for the menu.",
+        cameraPermission: "Allow Amala Oluyole staff to take meal photos for the menu.",
+      },
+    ],
     [
       "expo-location",
       {

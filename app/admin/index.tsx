@@ -94,8 +94,6 @@ const STATUS_LABEL: Record<string, string> = {
 
 export default function AdminDashboard() {
   const { allowed, loading: roleLoading } = useRequireRole(["admin"]);
-  if (roleLoading) return <LoadingState fullScreen message="Checking access..." />;
-  if (!allowed) return null;
 
   const [activeTab, setActiveTab] = useState<DashTab>('overview');
   const [refreshing, setRefreshing] = useState(false);
@@ -192,6 +190,9 @@ export default function AdminDashboard() {
   const filteredMeals = (allMeals ?? []).filter(m =>
     !mealSearch || m.name.toLowerCase().includes(mealSearch.toLowerCase())
   );
+
+  if (roleLoading) return <LoadingState fullScreen message="Checking access..." />;
+  if (!allowed) return null;
 
   // Show loading while checking role
   if (profileLoading) {

@@ -11,6 +11,8 @@ import { useAppStore } from '@/lib/store/app-store';
 import { MEALS, CATEGORIES } from '@/lib/data/mock-data';
 import { trpc } from '@/lib/trpc';
 import { toMealCard, type MealCard } from '@/lib/utils';
+import { resolveMenuImageUri } from '@/lib/menu-image';
+import { getApiBaseUrl } from '@/constants/oauth';
 
 // Category icon mapping for DB categories
 const CAT_ICONS: Record<string, string> = {
@@ -174,6 +176,7 @@ export default function MenuScreen() {
         renderItem={({ item: meal }) => {
           const isFav = state.favouriteMealIds.includes(String(meal.id));
           const isAvailable = meal.isAvailable !== false;
+          const imageUri = resolveMenuImageUri(meal.imageUrl, getApiBaseUrl());
           return (
             <TouchableOpacity
               style={styles.card}
@@ -181,10 +184,10 @@ export default function MenuScreen() {
             >
               <View style={styles.cardImgWrap}>
                 <Image
-                  source={{ uri: meal.imageUrl ?? undefined }}
+                  source={{ uri: imageUri }}
                   style={styles.cardImg}
                   contentFit="cover"
-                  placeholder={{ uri: 'https://via.placeholder.com/400x200/FDF8F3/C0392B?text=Amala+Oluyole' }}
+                  transition={180}
                 />
                 {!isAvailable && (
                   <View style={styles.unavailableOverlay}>

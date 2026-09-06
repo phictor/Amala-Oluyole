@@ -10,6 +10,8 @@ interface AppState {
   user: User | null;
   isGuest: boolean;
   isAuthenticated: boolean;
+  hydrated: boolean;
+  authChecked: boolean;
   // Branch
   selectedBranch: Branch | null;
   // Cart
@@ -30,6 +32,7 @@ interface AppState {
 type AppAction =
   | { type: 'SET_USER'; payload: User | null }
   | { type: 'SET_GUEST'; payload: boolean }
+  | { type: 'SET_AUTH_CHECKED'; payload: boolean }
   | { type: 'SET_BRANCH'; payload: Branch }
   | { type: 'ADD_TO_CART'; payload: CartItem }
   | { type: 'REMOVE_FROM_CART'; payload: string }
@@ -50,6 +53,8 @@ const initialState: AppState = {
   user: null,
   isGuest: false,
   isAuthenticated: false,
+  hydrated: false,
+  authChecked: false,
   selectedBranch: null,
   cartItems: [],
   promoCode: '',
@@ -67,6 +72,8 @@ function appReducer(state: AppState, action: AppAction): AppState {
       return { ...state, user: action.payload, isAuthenticated: action.payload !== null };
     case 'SET_GUEST':
       return { ...state, isGuest: action.payload, isAuthenticated: action.payload };
+    case 'SET_AUTH_CHECKED':
+      return { ...state, authChecked: action.payload };
     case 'SET_BRANCH':
       return { ...state, selectedBranch: action.payload };
     case 'ADD_TO_CART': {
@@ -139,9 +146,9 @@ function appReducer(state: AppState, action: AppAction): AppState {
     case 'SET_ONBOARDING_SEEN':
       return { ...state, hasSeenOnboarding: true };
     case 'LOGOUT':
-      return { ...initialState, hasSeenOnboarding: state.hasSeenOnboarding };
+      return { ...initialState, hasSeenOnboarding: state.hasSeenOnboarding, hydrated: true, authChecked: true };
     case 'HYDRATE':
-      return { ...state, ...action.payload };
+      return { ...state, ...action.payload, hydrated: true };
     default:
       return state;
   }
@@ -170,12 +177,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Hydrate from AsyncStorage on mount
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEY).then(raw => {
+      let saved: Partial<AppState> = {};
       if (raw) {
         try {
-          const saved = JSON.parse(raw);
-          dispatch({ type: 'HYDRATE', payload: saved });
+          saved = JSON.parse(raw) as Partial<AppState>;
         } catch {}
       }
+      dispatch({ type: 'HYDRATE', payload: saved });
     });
   }, []);
 

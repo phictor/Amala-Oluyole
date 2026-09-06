@@ -7,8 +7,10 @@ import { createNotification } from "../db";
 import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
 import { TRPCError } from "@trpc/server";
 import { getDb } from "../db";
-import { meals, mealCategories, orders, users, riders, branches, promoCodes } from "../../drizzle/schema";
+import { meals, mealCategories, orders, users, riders, branches, promoCodes, customerAddresses } from "../../drizzle/schema";
 import { eq, desc, count, and, gte, lte, sql } from "drizzle-orm";
+import { storagePut } from "../storage";
+import { randomUUID } from "crypto";
 
 // Admin-only middleware
 const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
@@ -218,6 +220,30 @@ export const adminRouter = router({
       if (price !== undefined) updateData.price = String(price);
       await db.update(meals).set(updateData).where(eq(meals.id, id));
       return { success: true };
+    }),
+
+  uploadMealPhoto: adminProcedure
+    .input(z.object({
+      mealId: z.number(),
+      base64: z.string().min(32).max(7_000_000),
+      mimeType: z.enum(["image/jpeg", "image/png", "image/webp"]).default("image/jpeg"),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+
+      const [meal] = await db.select({ id: meals.id }).from(meals).where(eq(meals.id, input.mealId)).limit(1);
+      if (!meal) throw new TRPCError({ code: "NOT_FOUND", message: "Meal not found" });
+
+      const imageData = Buffer.from(input.base64, "base64");
+      if (imageData.length === 0 || imageData.length > 5 * 1024 * 1024) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Use an image smaller than 5 MB" });
+      }
+
+      const extension = input.mimeType === "image/png" ? "png" : input.mimeType === "image/webp" ? "webp" : "jpg";
+      const { url } = await storagePut(`menu/meals/meal-${input.mealId}.${extension}`, imageData, input.mimeType);
+      await db.update(meals).set({ imageUrl: url, updatedAt: new Date() }).where(eq(meals.id, input.mealId));
+      return { success: true, imageUrl: url };
     }),
 
  deleteMeal: adminProcedure
@@ -432,32 +458,51 @@ export const adminRouter = router({
     .input(z.object({
       name: z.string().min(2),
       phone: z.string().min(7),
-      email: z.string().email().optional(),
+      email: z.string().email(),
       address: z.string().optional(),
-      vehicleType: z.string().default('motorcycle'),
+      vehicleType: z.enum(['motorcycle', 'bicycle', 'car']).default('motorcycle'),
       plateNumber: z.string().optional(),
       branchId: z.number().default(1),
     }))
     .mutation(async ({ input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR' });
-      // Create user account
-      const [newUser] = await db.insert(users).values({
-        name: input.name,
-        email: input.email ?? ('rider_' + Date.now() + '@amalaoluyole.internal'),
-        phone: input.phone,
-        role: 'rider' as const,
-      } as never);
-      const userId = (newUser as { insertId?: number }).insertId;
-      if (!userId) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Failed to create user' });
-      // Create rider profile
-      await db.insert(riders).values({
-        userId,
-        branchId: input.branchId,
-        vehicleType: input.vehicleType,
-        vehiclePlate: input.plateNumber ?? null,
-        isOnline: false,
-      } as never);
-      return { success: true, userId };
+      const duplicate = await db.select({ id: users.id }).from(users)
+        .where(sql`${users.email} = ${input.email} OR ${users.phone} = ${input.phone}`)
+        .limit(1);
+      if (duplicate.length) {
+        throw new TRPCError({ code: 'CONFLICT', message: 'A staff account already uses this email address or phone number.' });
+      }
+
+      const result = await db.transaction(async (tx) => {
+        const [newUser] = await tx.insert(users).values({
+          openId: `staff_rider_${randomUUID().replace(/-/g, '')}`,
+          name: input.name,
+          email: input.email.toLowerCase(),
+          phone: input.phone,
+          loginMethod: 'staff_invite',
+          role: 'rider',
+        }).$returningId();
+        const userId = newUser.id;
+        await tx.insert(riders).values({
+          userId,
+          branchId: input.branchId,
+          vehicleType: input.vehicleType,
+          vehiclePlate: input.plateNumber ?? null,
+          isOnline: false,
+          isAvailable: true,
+          isActive: true,
+        });
+        if (input.address?.trim()) {
+          await tx.insert(customerAddresses).values({
+            userId,
+            label: 'Home',
+            fullAddress: input.address.trim(),
+            isDefault: true,
+          });
+        }
+        return { userId };
+      });
+      return { success: true, userId: result.userId };
     }),
 });

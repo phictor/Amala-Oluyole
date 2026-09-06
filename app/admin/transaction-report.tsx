@@ -149,8 +149,6 @@ async function exportPDF(
 // ── Main Screen ───────────────────────────────────────────────────────────────
 export default function TransactionReport() {
   const { allowed, loading: roleLoading } = useRequireRole(["admin"]);
-  if (roleLoading) return <LoadingState fullScreen message="Checking access..." />;
-  if (!allowed) return null;
 
   const now = new Date();
   const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -175,6 +173,9 @@ export default function TransactionReport() {
 
   const rows = data?.rows ?? [];
   const summary = data?.summary;
+
+  if (roleLoading) return <LoadingState fullScreen message="Checking access..." />;
+  if (!allowed) return null;
 
   return (
     <ScreenContainer>
