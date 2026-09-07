@@ -162,6 +162,7 @@ export default function RootLayout() {
             <Stack.Screen name="(portal-admin)" />
             <Stack.Screen name="(portal-kitchen)" />
             <Stack.Screen name="(portal-rider)" />
+            <Stack.Screen name="staff/kitchen" />
             <Stack.Screen name="admin" />
             <Stack.Screen name="kitchen" />
             <Stack.Screen name="rider" />

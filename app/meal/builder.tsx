@@ -11,8 +11,8 @@ import type {
   SwallowOption, SoupOption, ProteinOption, ExtraOption, CartItem, CustomMeal,
 } from '@/lib/data/types';
 
-const STEPS = ['Swallow', 'Soup', 'Protein', 'Extras'];
-const BASE_PRICE = 1500;
+const STEPS = ['Swallow', 'Accompaniment', 'Protein', 'Extras'];
+const BASE_PRICE = 0;
 
 // ─── Deep-link helpers ───────────────────────────────────────────────────────
 
@@ -52,7 +52,7 @@ function buildShareMessage(
   return (
     `🍲 Check out my custom Amala Oluyole meal!\n\n` +
     `🫓 Swallow: ${swallow.name}\n` +
-    `🥣 Soup: ${soup.name}\n` +
+    `🥣 Accompaniment: ${soup.name}\n` +
     `🍗 Protein: ${proteinList}${extrasList}\n` +
     `💰 Total: ₦${price.toLocaleString()}\n\n` +
     `Build yours at Amala Oluyole 👇\n${link}`
@@ -102,6 +102,14 @@ export default function MealBuilderScreen() {
   const [instructions, setInstructions] = useState('');
   const [linkCopied, setLinkCopied] = useState(false);
   const [loadedFromLink, setLoadedFromLink] = useState(false);
+
+  // Gbegiri is part of every Amala serving. Ewedu is available for customers
+  // who prefer it, but neither accompaniment is sold as a standalone item.
+  useEffect(() => {
+    if (!builderOpts || selectedSoup) return;
+    const includedGbegiri = SOUP_OPTIONS.find((option) => normalise(option.name).includes('gbegiri'));
+    if (includedGbegiri) setSelectedSoup(includedGbegiri);
+  }, [builderOpts, selectedSoup, SOUP_OPTIONS]);
 
   // ── Pre-populate from deep-link params once builder options are loaded ──────
   useEffect(() => {
@@ -173,7 +181,7 @@ export default function MealBuilderScreen() {
 
   const handleAddToCart = () => {
     if (!selectedSwallow || !selectedSoup || selectedProteins.length === 0) {
-      Alert.alert('Incomplete', 'Please select swallow, soup, and at least one protein.');
+      Alert.alert('Incomplete', 'Please select a swallow and at least one protein.');
       return;
     }
     const customMeal: CustomMeal = {
@@ -211,7 +219,7 @@ export default function MealBuilderScreen() {
 
   const handleShare = async () => {
     if (!selectedSwallow || !selectedSoup || selectedProteins.length === 0) {
-      Alert.alert('Almost there!', 'Complete swallow, soup & protein before sharing.');
+      Alert.alert('Almost there!', 'Complete your swallow and protein choices before sharing.');
       return;
     }
     const message = buildShareMessage(selectedSwallow, selectedSoup, selectedProteins, selectedExtras, totalPrice);
@@ -226,7 +234,7 @@ export default function MealBuilderScreen() {
 
   const handleCopyLink = async () => {
     if (!selectedSwallow || !selectedSoup || selectedProteins.length === 0) {
-      Alert.alert('Almost there!', 'Complete swallow, soup & protein before copying a link.');
+      Alert.alert('Almost there!', 'Complete your swallow and protein choices before copying a link.');
       return;
     }
     const link = buildShareLink(selectedSwallow, selectedSoup, selectedProteins, selectedExtras, totalPrice);
@@ -300,7 +308,7 @@ export default function MealBuilderScreen() {
         {step === 0 && (
           <View>
             <Text style={styles.stepTitle}>Choose Your Swallow</Text>
-            <Text style={styles.stepSubtitle}>Base price: ₦{BASE_PRICE.toLocaleString()}</Text>
+            <Text style={styles.stepSubtitle}>Choose a wrap. Gbegiri comes with your Amala serving.</Text>
             {SWALLOW_OPTIONS.map(option => (
               <TouchableOpacity
                 key={option.id}
@@ -325,10 +333,11 @@ export default function MealBuilderScreen() {
           </View>
         )}
 
-        {/* ── Step 2: Soup ── */}
+        {/* ── Step 2: Amala accompaniment ── */}
         {step === 1 && (
           <View>
-            <Text style={styles.stepTitle}>Choose Your Soup</Text>
+            <Text style={styles.stepTitle}>Choose Your Accompaniment</Text>
+            <Text style={styles.stepSubtitle}>Gbegiri is included. Choose Ewedu only if you prefer it.</Text>
             {SOUP_OPTIONS.map(option => (
               <TouchableOpacity
                 key={option.id}

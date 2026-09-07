@@ -45,7 +45,7 @@ const NAV_MAP: Record<PortalType, NavItem[]> = {
 
 const PORTAL_TITLES: Record<PortalType, string> = {
   admin: 'Finance & Operations',
-  kitchen: 'Kitchen Portal',
+  kitchen: 'Oluyole Kitchen',
   rider: 'Rider Portal',
 };
 

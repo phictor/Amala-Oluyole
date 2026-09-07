@@ -100,7 +100,7 @@ export default function KitchenOrdersScreen() {
   const { width } = useWindowDimensions();
   const isDesktop = Platform.OS === 'web' && width >= 900;
   const { data: orders, refetch, isRefetching } = trpc.admin.activeOrders.useQuery(
-    undefined, { refetchInterval: 10000 }
+    { branchId: 1 }, { refetchInterval: 10000 }
   );
   const updateStatus = trpc.admin.updateOrderStatus.useMutation({ onSuccess: () => refetch() });
   const prevCountRef = useRef(0);
@@ -123,7 +123,7 @@ export default function KitchenOrdersScreen() {
   const pendingCount = orders?.filter((o: { status: string }) => o.status === 'pending').length ?? 0;
 
   return (
-    <PortalLayout portal="kitchen" title="Kitchen" badges={{ index: pendingCount }}>
+    <PortalLayout portal="kitchen" title="Oluyole Kitchen" badges={{ index: pendingCount }}>
       {alertMsg ? (
         <View style={styles.alertBanner}>
           <Text style={styles.alertText}>🔔 {alertMsg}</Text>

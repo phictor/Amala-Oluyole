@@ -73,9 +73,8 @@ export const kitchenRouter = router({
       type: z.enum(["restock","usage","waste","adjustment"]),
       quantity: z.number(), // positive = add, negative = remove
       note: z.string().optional(),
-      recordedBy: z.number(),
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) throw new Error("DB unavailable");
       // Record the transaction
@@ -85,7 +84,7 @@ export const kitchenRouter = router({
         type: input.type,
         quantity: String(input.quantity),
         note: input.note,
-        recordedBy: input.recordedBy,
+        recordedBy: ctx.user.id,
       });
       // Update current stock
       const item = await db.select().from(inventory).where(eq(inventory.id, input.inventoryId)).limit(1);

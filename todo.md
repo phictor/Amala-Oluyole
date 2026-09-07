@@ -245,3 +245,10 @@
 - [x] Archive all menu items not included in the supplied restaurant list
 - [x] Keep Gbegiri, Ewedu, and Okro unavailable until the restaurant confirms their prices
 - [x] Validate the revised customer and staff menu views
+
+### Dedicated Kitchen Web Portal
+- [x] Confirm Oluyole Town Planning as the active kitchen branch and approve Gbegiri by default with optional Ewedu for Amala
+- [x] Configure amalaoluyole@gmail.com as the primary Admin / Manager account at first sign-in
+- [x] Create a separate staff-only kitchen web entry point with role-based access and no customer navigation
+- [x] Apply Gbegiri-by-default with optional Ewedu and remove standalone Gbegiri, Ewedu, and Okro sales
+- [x] Validate kitchen, manager, rider, and customer access paths and document staff sign-in

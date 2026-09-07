@@ -60,7 +60,11 @@ export const menuRouter = router({
 
     return {
       swallows: menuItems.filter((meal) => categoryById.get(meal.categoryId) === "swallow").map(toOption),
-      soups: menuItems.filter((meal) => categoryById.get(meal.categoryId) === "soup").map(toOption),
+      // These accompaniments are part of an Amala serving, not standalone products.
+      soups: [
+        { id: "included-gbegiri", name: "Gbegiri (included)", price: 0, isAvailable: true },
+        { id: "optional-ewedu", name: "Ewedu (optional)", price: 0, isAvailable: true },
+      ],
       proteins: menuItems
         .filter((meal) => categoryById.get(meal.categoryId) === "protein")
         .map((meal) => ({ ...toOption(meal), isPremium: Number(meal.price) >= 5000 })),

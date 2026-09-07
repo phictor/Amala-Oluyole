@@ -28,7 +28,6 @@ export default function KitchenPortal() {
   const { data: myProfile, isLoading: profileLoading } = trpc.profile.me.useQuery(undefined, { staleTime: 60_000 });
   const ALLOWED_ROLES = ['admin', 'manager', 'kitchen'];
   const liveRole = (myProfile as { role?: string } | undefined)?.role ?? '';
-  const myProfileId = (myProfile as { id?: number } | undefined)?.id ?? 0;
 
   // Report state
   const now = new Date();
@@ -296,7 +295,7 @@ export default function KitchenPortal() {
                   if (!updateForm.quantity) return Alert.alert('Error', 'Quantity is required');
                   const qty = parseFloat(updateForm.quantity);
                   const finalQty = updateForm.type === 'restock' ? Math.abs(qty) : -Math.abs(qty);
-                  updateStock.mutate({ inventoryId: selectedItem.id, branchId, type: updateForm.type, quantity: finalQty, note: updateForm.note || undefined, recordedBy: myProfileId });
+                  updateStock.mutate({ inventoryId: selectedItem.id, branchId, type: updateForm.type, quantity: finalQty, note: updateForm.note || undefined });
                 }}>
                   <Text style={s.btnTxt}>{updateStock.isPending ? 'Saving...' : 'Save'}</Text>
                 </TouchableOpacity>

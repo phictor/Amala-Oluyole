@@ -8,11 +8,11 @@ The customer menu now contains only the current core restaurant list: **Swallow,
 | Main Dish and Sides | Per portion | Keep the listed price per portion. |
 | Soup and Protein | Per portion | Keep the listed price per portion. |
 
-## Pending soup prices
+## Amala accompaniments
 
-**Gbegiri, Ewedu, and Okro are intentionally unavailable.** The restaurant did not provide their prices. They do not appear for purchase, including in **Build Your Swallow**, so no customer can accidentally place a ₦0 order.
+**Gbegiri, Ewedu, and Okro are not standalone sale items.** They must not be activated as separate customer menu products or given individual menu prices.
 
-When the manager confirms a price, open **Menu**, select the soup, enter the confirmed amount, then set it to available. Build Your Swallow reads these options from the live menu, so the revised amount will be used everywhere without a code change.
+For **Build Your Meal**, **Gbegiri is included by default** with every Amala serving. **Ewedu is an optional alternative** for customers who prefer it. Staff should follow the customer’s selected accompaniment and use the order notes for any additional preparation instruction.
 
 ## Photo rule
 
