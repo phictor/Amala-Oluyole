@@ -227,3 +227,9 @@
 - [x] Run static checks, automated tests, endpoint checks, and a production web build
 - [x] Fix confirmed runtime, payment-flow, and release-configuration issues
 - [x] Complete and document the final pre-launch validation pass
+
+### Final Production Release Gate
+- [x] Re-audit production configuration, deployment health, error logs, and outstanding external dependencies
+- [x] Test customer and staff access paths, payment failure handling, API protection, and data safeguards
+- [x] Resolve every confirmed release-blocking defect and improve customer-facing error messages
+- [x] Repeat validation and record a final evidence-based go/no-go decision

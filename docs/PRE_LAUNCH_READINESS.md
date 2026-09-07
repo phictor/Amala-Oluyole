@@ -1,11 +1,13 @@
 # Amala Oluyole — Pre-Launch Readiness
 
-**Validation date:** 6 September 2026  
+**Validation date:** 7 September 2026  
 **Scope:** Mobile customer/rider application, browser-based staff portals, API server, menu database, and Paystack payment hand-off.
 
 ## Current Status
 
 The application is **technically ready for controlled staff acceptance testing**. The web build, TypeScript check, lint check, server build, API health check, role-guard check, and automated regression suite all pass. A total of **141 automated tests pass** and one intentional authentication logout test remains skipped.
+
+The final release gate also updated the direct runtime dependencies identified by the security audit: Axios, Drizzle ORM, MySQL2, Expo, and Expo SDK modules are now on patched, SDK-compatible versions. A subsequent production dependency audit found **no critical advisory** in the resolved production tree. Remaining advisory reports are transitive Expo tooling dependencies rather than application server code; they must continue to be reviewed with every Expo SDK update.
 
 The application is **not yet ready to accept public card payments** until the restaurant enters its real Paystack keys through the secure project settings and completes one small live payment test. The checkout now handles this safely: where a valid Paystack public key is absent, card payment is unavailable instead of presenting a non-functional checkout.
 
@@ -21,6 +23,8 @@ The application is **not yet ready to accept public card payments** until the re
 | Unsigned payment webhook | Passed | Rejected with HTTP 401 as expected. |
 | Staff portal access control | Passed | An unauthenticated desktop visitor is redirected to sign-in instead of seeing a staff portal. |
 | Restaurant meal photos | Completed | Approved supplied photographs are optimised, uploaded, mapped to the menu, and documented in `MENU_PHOTO_CATALOG.md`. |
+| Expo SDK compatibility | Passed | Expo SDK 54 dependencies match the compatibility manifest. |
+| Production dependency audit | Passed with residual monitoring | No critical advisory remains; direct runtime dependencies flagged earlier were upgraded. |
 
 ## Important Corrections Completed
 
@@ -36,6 +40,7 @@ The following defects were found and corrected during the pre-launch pass.
 | Payment total could rely on a client amount | The server verifies the Paystack amount against the order total stored in the database. |
 | Webhook/client verification could repeat side effects | Payment status changes are now idempotent: only the first successful confirmation can advance the order and award loyalty points. |
 | Schema did not include the existing dine-in type | The code schema now matches the database’s `dine_in` order type. |
+| Direct application dependencies carried known advisories | Axios, Drizzle ORM, MySQL2, and Expo SDK packages were upgraded to patched, compatible releases. |
 
 ## Final External Steps Before Public Launch
 
