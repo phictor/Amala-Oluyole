@@ -239,3 +239,9 @@
 - [x] Re-identify each supplied restaurant photograph and verify uncertain dish names
 - [x] Correct menu names, categories, and photo links; remove unverified mappings
 - [x] Validate the corrected customer and staff menu screens
+
+### Supplied Core Menu Replacement
+- [x] Replace the live menu with the supplied Swallow, Main Dish, Sides, Soup, and Protein catalogue only
+- [x] Archive all menu items not included in the supplied restaurant list
+- [x] Keep Gbegiri, Ewedu, and Okro unavailable until the restaurant confirms their prices
+- [x] Validate the revised customer and staff menu views

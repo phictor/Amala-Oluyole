@@ -8,7 +8,7 @@ import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
 import { TRPCError } from "@trpc/server";
 import { getDb } from "../db";
 import { meals, mealCategories, orders, users, riders, branches, promoCodes, customerAddresses } from "../../drizzle/schema";
-import { eq, desc, count, and, gte, lte, sql } from "drizzle-orm";
+import { eq, desc, count, and, gte, lte, sql, inArray } from "drizzle-orm";
 import { storagePut } from "../storage";
 import { randomUUID } from "crypto";
 
@@ -166,7 +166,13 @@ export const adminRouter = router({
   allMeals: adminProcedure.query(async () => {
     const db = await getDb();
     if (!db) return [];
-    return db.select().from(meals).orderBy(meals.categoryId, meals.sortOrder, meals.name);
+    const activeCategories = await db.select({ id: mealCategories.id })
+      .from(mealCategories)
+      .where(eq(mealCategories.isActive, true));
+    if (!activeCategories.length) return [];
+    return db.select().from(meals)
+      .where(inArray(meals.categoryId, activeCategories.map((category) => category.id)))
+      .orderBy(meals.categoryId, meals.sortOrder, meals.name);
   }),
 
   createMeal: adminProcedure

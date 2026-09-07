@@ -16,6 +16,11 @@ import { getApiBaseUrl } from '@/constants/oauth';
 
 // Category icon mapping for DB categories
 const CAT_ICONS: Record<string, string> = {
+  'Swallow': '🍲',
+  'Main Dish': '🍛',
+  'Sides': '🍌',
+  'Soup': '🥘',
+  'Protein': '🍖',
   'Amala & Swallows': '🍲',
   'Soups & Stews': '🥘',
   'Rice Dishes': '🍚',
@@ -281,8 +286,8 @@ const styles = StyleSheet.create({
   searchInput: { flex: 1, fontSize: 15, color: '#201060' },
   clearIcon: { fontSize: 15, color: '#6B6490', paddingHorizontal: 4 },
 
-  catScroll: { maxHeight: 72 },
-  catList: { paddingHorizontal: 16, paddingVertical: 8, gap: 8 },
+  catScroll: { minHeight: 56, maxHeight: 72 },
+  catList: { paddingHorizontal: 16, paddingVertical: 8, gap: 8, alignItems: 'center' },
   catTab: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     paddingHorizontal: 14, paddingVertical: 8,
