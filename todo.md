@@ -233,3 +233,9 @@
 - [x] Test customer and staff access paths, payment failure handling, API protection, and data safeguards
 - [x] Resolve every confirmed release-blocking defect and improve customer-facing error messages
 - [x] Repeat validation and record a final evidence-based go/no-go decision
+
+### Menu Photo Accuracy Correction
+- [x] Audit all existing live meal-photo assignments against the supplied restaurant photographs
+- [x] Re-identify each supplied restaurant photograph and verify uncertain dish names
+- [x] Correct menu names, categories, and photo links; remove unverified mappings
+- [x] Validate the corrected customer and staff menu screens

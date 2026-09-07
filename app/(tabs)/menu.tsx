@@ -182,33 +182,35 @@ export default function MenuScreen() {
               style={styles.card}
               onPress={() => router.push({ pathname: '/meal/[id]', params: { id: String(meal.id) } } as never)}
             >
-              <View style={styles.cardImgWrap}>
-                <Image
-                  source={{ uri: imageUri }}
-                  style={styles.cardImg}
-                  contentFit="cover"
-                  transition={180}
-                />
-                {!isAvailable && (
-                  <View style={styles.unavailableOverlay}>
-                    <Text style={styles.unavailableText}>Unavailable</Text>
-                  </View>
-                )}
-                {meal.labels && meal.labels.length > 0 && (
-                  <View style={[
-                    styles.labelBadge,
-                    meal.labels.includes('best_seller') ? styles.labelGold :
-                    meal.labels.includes('chefs_choice') ? styles.labelOrange :
-                    styles.labelRed,
-                  ]}>
-                    <Text style={styles.labelText}>
-                      {meal.labels.includes('best_seller') ? '🏆 Best Seller' :
-                       meal.labels.includes('chefs_choice') ? "👨‍🍳 Chef's" :
-                       meal.labels.includes('new') ? '✨ New' : '🔥 Popular'}
-                    </Text>
-                  </View>
-                )}
-              </View>
+              {imageUri ? (
+                <View style={styles.cardImgWrap}>
+                  <Image
+                    source={{ uri: imageUri }}
+                    style={styles.cardImg}
+                    contentFit="cover"
+                    transition={180}
+                  />
+                  {!isAvailable && (
+                    <View style={styles.unavailableOverlay}>
+                      <Text style={styles.unavailableText}>Unavailable</Text>
+                    </View>
+                  )}
+                  {meal.labels && meal.labels.length > 0 && (
+                    <View style={[
+                      styles.labelBadge,
+                      meal.labels.includes('best_seller') ? styles.labelGold :
+                      meal.labels.includes('chefs_choice') ? styles.labelOrange :
+                      styles.labelRed,
+                    ]}>
+                      <Text style={styles.labelText}>
+                        {meal.labels.includes('best_seller') ? '🏆 Best Seller' :
+                         meal.labels.includes('chefs_choice') ? "👨‍🍳 Chef's" :
+                         meal.labels.includes('new') ? '✨ New' : '🔥 Popular'}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              ) : null}
               <View style={styles.cardBody}>
                 <View style={styles.cardTop}>
                   <Text style={styles.cardName} numberOfLines={1}>{meal.name}</Text>
