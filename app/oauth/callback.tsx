@@ -1,7 +1,6 @@
 import { ThemedView } from "@/components/themed-view";
 import * as Api from "@/lib/_core/api";
 import * as Auth from "@/lib/_core/auth";
-import { clearKitchenEntryIntent, hasKitchenEntryIntent } from "@/lib/kitchen-entry-intent";
 import * as Linking from "expo-linking";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
@@ -19,11 +18,6 @@ export default function OAuthCallback() {
   }>();
   const [status, setStatus] = useState<"processing" | "success" | "error">("processing");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const redirectAfterAuth = () => {
-    const destination = hasKitchenEntryIntent() ? "/(portal-kitchen)/" : "/(tabs)";
-    clearKitchenEntryIntent();
-    router.replace(destination as never);
-  };
 
   useEffect(() => {
     const handleCallback = async () => {
@@ -69,7 +63,7 @@ export default function OAuthCallback() {
           setStatus("success");
           console.log("[OAuth] Web authentication successful, redirecting to home...");
           setTimeout(() => {
-            redirectAfterAuth();
+            router.replace("/(tabs)");
           }, 1000);
           return;
         }
@@ -166,7 +160,7 @@ export default function OAuthCallback() {
           setStatus("success");
           console.log("[OAuth] Redirecting to home...");
           setTimeout(() => {
-            redirectAfterAuth();
+            router.replace("/(tabs)");
           }, 1000);
           return;
         }
@@ -223,7 +217,7 @@ export default function OAuthCallback() {
           // Redirect to home after a short delay
           setTimeout(() => {
             console.log("[OAuth] Executing redirect...");
-            redirectAfterAuth();
+            router.replace("/(tabs)");
           }, 1000);
         } else {
           console.error("[OAuth] No session token in result:", result);

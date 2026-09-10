@@ -1,7 +1,7 @@
 import "@/global.css";
 import { AppProvider } from "@/lib/store/app-store";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Stack, usePathname } from "expo-router";
+import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -22,7 +22,6 @@ import type { EdgeInsets, Metrics, Rect } from "react-native-safe-area-context";
 import { trpc, createTRPCClient } from "@/lib/trpc";
 import { useRouter } from "expo-router";
 import { initManusRuntime, subscribeSafeAreaInsets } from "@/lib/_core/manus-runtime";
-import { clearKitchenEntryIntent, hasKitchenEntryIntent } from "@/lib/kitchen-entry-intent";
 
 const DEFAULT_WEB_INSETS: EdgeInsets = { top: 0, right: 0, bottom: 0, left: 0 };
 const DEFAULT_WEB_FRAME: Rect = { x: 0, y: 0, width: 0, height: 0 };
@@ -32,27 +31,23 @@ function AuthSyncBridge() {
   const { state, dispatch } = useAppStore();
   const synced = useRef(false);
   const router = useRouter();
-  const pathname = usePathname();
   const redirected = useRef(false);
 
   // Role-based redirect: fires once after auth is confirmed
   useEffect(() => {
     if (!state.isAuthenticated || state.isGuest || redirected.current) return;
     const role = (state as { user?: { role?: string } }).user?.role ?? 'customer';
-    const enteredFromKitchen = pathname.startsWith('/staff/kitchen') || hasKitchenEntryIntent();
     if (role === 'admin' || role === 'manager') {
       redirected.current = true;
-      router.replace((enteredFromKitchen ? '/(portal-kitchen)/' : '/(portal-admin)/') as never);
-      if (enteredFromKitchen) clearKitchenEntryIntent();
+      router.replace('/(portal-admin)/' as never);
     } else if (role === 'kitchen') {
       redirected.current = true;
       router.replace('/(portal-kitchen)/' as never);
-      if (enteredFromKitchen) clearKitchenEntryIntent();
     } else if (role === 'rider') {
       redirected.current = true;
       router.replace('/(portal-rider)/' as never);
     }
-  }, [state.isAuthenticated, pathname]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [state.isAuthenticated]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (synced.current) return;
