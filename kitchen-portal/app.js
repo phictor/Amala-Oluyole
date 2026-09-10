@@ -7,6 +7,11 @@ const state = {
   report: null,
   sound: false,
   seenNew: new Set(),
+  orderSnapshots: new Map(),
+  connection: "connecting",
+  lastUpdatedAt: null,
+  liveStream: null,
+  statusActionInFlight: null,
   ingredientEdit: null,
   purchaseEdit: null,
   ingredientDraft: null,
@@ -81,13 +86,36 @@ function login() {
 }
 
 function shell() {
-  app.innerHTML = `<div class="shell"><aside class="sidebar"><div class="brand-lockup"><img src="/kitchen-portal/logo.png" alt="Àmàlà Olúyòlé logo" /><div class="brand">Àmàlà Olúyòlé<small>OLUYOLE KITCHEN</small></div></div><nav class="nav"><button data-tab="orders">Orders</button><button data-tab="ingredients">Ingredients & purchases</button><button data-tab="report">Monthly report</button></nav><button class="signout" id="signout">Sign out</button></aside><section class="content"><header class="top"><div><h1 id="title">Kitchen Orders</h1><p id="subtitle">Live paid orders for Oluyole Town Planning</p></div><div class="user" id="user"></div></header><div id="notice" class="notice hidden" role="status"></div><main id="view"></main></section></div>`;
+  app.innerHTML = `<div class="shell"><aside class="sidebar"><div class="brand-lockup"><img src="/kitchen-portal/logo.png" alt="Àmàlà Olúyòlé logo" /><div class="brand">Àmàlà Olúyòlé<small>OLUYOLE KITCHEN</small></div></div><nav class="nav"><button data-tab="orders">Orders</button><button data-tab="ingredients">Ingredients & purchases</button><button data-tab="report">Monthly report</button></nav><button class="signout" id="signout">Sign out</button></aside><section class="content"><header class="top"><div><h1 id="title">Kitchen Orders</h1><p id="subtitle">Live paid orders for Oluyole Town Planning</p></div><div class="top-meta"><div class="operations-status" id="operations-status"></div><div class="user" id="user"></div></div></header><div id="notice" class="notice hidden" role="status"></div><main id="view"></main></section></div>`;
   document.querySelectorAll("[data-tab]").forEach((button) => button.onclick = () => {
     state.tab = button.dataset.tab;
     state.formDirty = false;
     render();
   });
   document.querySelector("#signout").onclick = async () => { await fetch("/api/kitchen-portal/logout", { method: "POST", credentials: "include" }); location.reload(); };
+}
+
+function connectionLabel() {
+  const labels = { connected: "Connected", reconnecting: "Reconnecting", offline: "Offline", connecting: "Connecting" };
+  return labels[state.connection] || "Reconnecting";
+}
+
+function isLiveConnection() {
+  return state.connection === "connected";
+}
+
+function refreshOperationsStatus() {
+  const target = document.querySelector("#operations-status");
+  if (!target) return;
+  const updated = state.lastUpdatedAt ? `Updated ${new Date(state.lastUpdatedAt).toLocaleTimeString("en-NG", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}` : "Waiting for live data";
+  target.innerHTML = `<span class="connection ${esc(state.connection)}"><i></i>${connectionLabel()}</span><span class="status-divider">·</span><span>${state.sound ? "Sound on" : "Sound off"}</span><span class="status-divider">·</span><span>${esc(updated)}</span>`;
+}
+
+function setConnection(next) {
+  if (state.connection === next) return;
+  state.connection = next;
+  refreshOperationsStatus();
+  if (state.tab === "orders") render();
 }
 
 function notify(message, tone = "info") {
@@ -105,6 +133,7 @@ function enableSound() {
   state.sound = true;
   state.audio = context;
   notify("Kitchen sound alerts are enabled.", "success");
+  refreshOperationsStatus();
   render();
 }
 
@@ -118,14 +147,37 @@ function chime() {
   oscillator.connect(gain); gain.connect(state.audio.destination); oscillator.start(); oscillator.stop(state.audio.currentTime + 0.42);
 }
 
+function mealPackDetails(item) {
+  const config = item.customMealConfig || {};
+  const parts = [
+    config.swallow,
+    config.soup,
+    ...(Array.isArray(config.proteins) ? config.proteins : []),
+    ...(Array.isArray(config.extras) ? config.extras : []),
+  ].filter(Boolean);
+  return parts.length ? parts.join(" · ") : item.isCustomMeal ? "Custom meal choices were not recorded" : "Standard meal";
+}
+
+function orderTiming(order) {
+  const promised = order.promisedReadyAt ? new Date(order.promisedReadyAt) : null;
+  const overdue = promised && promised.getTime() < Date.now() && !["ready", "rider_assigned", "out_for_delivery"].includes(order.status);
+  const promiseText = promised ? promised.toLocaleTimeString("en-NG", { hour: "2-digit", minute: "2-digit" }) : "—";
+  const startedText = order.preparingAt ? new Date(order.preparingAt).toLocaleTimeString("en-NG", { hour: "2-digit", minute: "2-digit" }) : "Not started";
+  return { overdue, promiseText, startedText };
+}
+
 function orderCard(order) {
-  const next = { payment_confirmed: ["Accept order", "accepted"], accepted: ["Start preparing", "preparing"], preparing: ["Mark ready", "ready"] }[order.status];
-  return `<article class="card"><div class="card-head"><div><div class="order-id">#${esc(order.orderNumber)}</div><span class="order-type">${esc(order.orderType.replace("_", " "))}</span></div><span class="time">${elapsed(order.createdAt)}</span></div><div class="items">${(order.items || []).map((item) => `<div class="line-item"><span><b>${esc(item.quantity)}×</b> ${esc(item.mealName)}</span></div>${item.specialInstructions ? `<div class="note">${esc(item.specialInstructions)}</div>` : ""}`).join("") || "<div class=\"muted\">No items recorded</div>"}</div>${next ? `<button class="action" data-order="${order.id}" data-status="${next[1]}">${next[0]}</button>` : ""}</article>`;
+  const next = { payment_confirmed: ["Accept for kitchen", "accepted"], accepted: ["Start preparation", "preparing"], preparing: ["Mark ready for packing", "ready"] }[order.status];
+  const timing = orderTiming(order);
+  const actionDisabled = !isLiveConnection() || state.statusActionInFlight === order.id;
+  return `<article class="card ${timing.overdue ? "overdue" : ""}"><div class="card-head"><div><div class="order-id">#${esc(order.orderNumber)}</div><span class="order-type">${esc(order.orderType.replace("_", " "))}</span></div><span class="time">${elapsed(order.createdAt)}</span></div><div class="ticket-timing"><span>Received ${new Date(order.createdAt).toLocaleTimeString("en-NG", { hour: "2-digit", minute: "2-digit" })}</span><span>Started ${esc(timing.startedText)}</span><span class="${timing.overdue ? "late" : ""}">Target ${esc(timing.promiseText)} · ${esc(order.preparationTargetMinutes || 20)} min</span></div><div class="items">${(order.items || []).map((item, index) => `<div class="pack"><div class="line-item"><span><b>Pack ${index + 1} · ${esc(item.quantity)}×</b> ${esc(item.mealName)}</span></div><div class="pack-details">${esc(mealPackDetails(item))}</div>${item.specialInstructions ? `<div class="note"><b>Kitchen instruction:</b> ${esc(item.specialInstructions)}</div>` : ""}</div>`).join("") || "<div class=\"muted\">No item detail recorded — contact the Manager before preparing.</div>"}</div>${next ? `<button class="action" data-order="${order.id}" data-status="${next[1]}" ${actionDisabled ? "disabled" : ""}>${actionDisabled && state.statusActionInFlight === order.id ? "Saving…" : next[0]}</button>` : ""}${order.status === "ready" ? `<button class="recall" data-recall-order="${order.id}" ${actionDisabled ? "disabled" : ""}>Recall to preparation</button><p class="handover-note">Kitchen ready for packing. Pickup verification or rider handover happens outside this kitchen action.</p>` : ""}${timing.overdue ? "<div class=\"late-tag\">Overdue — tell the Manager if assistance is needed.</div>" : ""}</article>`;
 }
 
 function ordersView() {
-  const groups = [["New orders", ["payment_confirmed"]], ["In progress", ["accepted", "preparing"]], ["Ready", ["ready"]]];
-  return `<div class="toolbar"><span class="muted">Orders refresh every 10 seconds.</span><button class="movement" id="sound">${state.sound ? "Sound on" : "Enable sound"}</button></div><section class="board">${groups.map(([name, statuses]) => `<div class="column"><h2>${name} (${state.orders.filter((order) => statuses.includes(order.status)).length})</h2>${state.orders.filter((order) => statuses.includes(order.status)).map(orderCard).join("") || "<div class=\"empty\">No orders here.</div>"}</div>`).join("")}</section>`;
+  const awaitingAcceptance = state.orders.filter((order) => order.status === "payment_confirmed");
+  const groups = [["To prepare", ["accepted"]], ["Preparing", ["preparing"]], ["Ready for packing", ["ready"]]];
+  const connectionNotice = isLiveConnection() ? "" : `<div class="connection-warning"><b>${esc(connectionLabel())}.</b> Actions are paused until the Kitchen Portal reconnects. The displayed queue may not be current.</div>`;
+  return `<div class="toolbar"><span class="muted">Live queue for Oluyole Town Planning. The board reconciles automatically after reconnection.</span><button class="movement" id="sound">${state.sound ? "Sound on" : "Enable sound"}</button></div>${connectionNotice}${awaitingAcceptance.length ? `<section class="awaiting"><div><b>Awaiting branch acceptance (${awaitingAcceptance.length})</b><span>These paid tickets are separate from the cook’s preparation board until accepted.</span></div>${awaitingAcceptance.map(orderCard).join("")}</section>` : ""}<section class="board">${groups.map(([name, statuses]) => `<div class="column"><h2>${name} (${state.orders.filter((order) => statuses.includes(order.status)).length})</h2>${state.orders.filter((order) => statuses.includes(order.status)).map(orderCard).join("") || "<div class=\"empty\">No orders here.</div>"}</div>`).join("")}</section>`;
 }
 
 function ingredientTable() {
@@ -172,12 +224,56 @@ function reportView() {
 async function load({ forceRender = false } = {}) {
   try {
     const [orders, inventory, report, purchases] = await Promise.all([api("/orders"), api("/inventory"), api("/report"), api("/purchases")]);
-    const fresh = orders.filter((order) => order.status === "payment_confirmed" && !state.seenNew.has(order.id));
-    if (state.seenNew.size && fresh.length) { notify(`${fresh.length} new order${fresh.length > 1 ? "s" : ""} received.`, "success"); chime(); }
+    const previous = state.orderSnapshots;
+    const fresh = orders.filter((order) => order.status === "payment_confirmed" && !previous.has(order.id));
+    if (previous.size && fresh.length) {
+      notify(`${fresh.length} new paid order${fresh.length > 1 ? "s" : ""} received for branch acceptance.`, "success");
+      chime();
+    }
+    const changed = orders.find((order) => previous.has(order.id) && previous.get(order.id).status !== order.status);
+    if (changed) {
+      notify(`Order #${changed.orderNumber} changed to ${changed.status.replaceAll("_", " ")}. Check the ticket before continuing.`, "warning");
+      chime();
+    }
+    const removed = [...previous.values()].find((order) => !orders.some((next) => next.id === order.id));
+    if (removed) notify(`Order #${removed.orderNumber} changed or was removed from the kitchen queue. The board is reconciled with the server.`, "warning");
+    state.orderSnapshots = new Map(orders.map((order) => [order.id, { id: order.id, orderNumber: order.orderNumber, status: order.status, updatedAt: order.updatedAt }]));
     orders.forEach((order) => state.seenNew.add(order.id));
     state.orders = orders; state.inventory = inventory; state.report = report; state.purchases = purchases;
+    state.lastUpdatedAt = Date.now();
+    if (navigator.onLine) state.connection = "connected";
+    refreshOperationsStatus();
     if (forceRender || state.tab !== "ingredients" || !state.formDirty) render();
-  } catch (error) { notify(error.message, "warning"); }
+  } catch (error) {
+    state.connection = navigator.onLine ? "reconnecting" : "offline";
+    refreshOperationsStatus();
+    if (state.tab === "orders") render();
+    notify(`${error.message}. ${navigator.onLine ? "Reconnecting to the kitchen service." : "Actions are paused until the device is online."}`, "warning");
+  }
+}
+
+function connectLiveUpdates() {
+  state.liveStream?.close();
+  if (!window.EventSource) {
+    setConnection("reconnecting");
+    notify("Live stream is not supported by this browser. The portal will continue using the timed refresh.", "warning");
+    return;
+  }
+  const live = new EventSource("/api/kitchen-portal/live");
+  state.liveStream = live;
+  live.addEventListener("connected", async () => {
+    setConnection("connected");
+    await load({ forceRender: true });
+  });
+  live.addEventListener("heartbeat", async () => {
+    setConnection("connected");
+    await load();
+  });
+  live.addEventListener("order_changed", async () => {
+    setConnection("connected");
+    await load({ forceRender: true });
+  });
+  live.onerror = () => setConnection(navigator.onLine ? "reconnecting" : "offline");
 }
 
 async function submitIngredient(event) {
@@ -331,6 +427,7 @@ function bindPurchaseForm(form) {
 function render() {
   if (!state.user) return;
   document.querySelector("#user").textContent = `${state.user.name || state.user.email}\n${state.user.role}`;
+  refreshOperationsStatus();
   document.querySelectorAll("[data-tab]").forEach((button) => button.classList.toggle("active", button.dataset.tab === state.tab));
   const titles = {
     orders: ["Kitchen Orders", "Live paid orders for Oluyole Town Planning"],
@@ -343,9 +440,33 @@ function render() {
   view.innerHTML = state.tab === "orders" ? ordersView() : state.tab === "ingredients" ? ingredientsView() : reportView();
   const sound = document.querySelector("#sound"); if (sound) sound.onclick = enableSound;
   document.querySelectorAll("[data-order]").forEach((button) => button.onclick = async () => {
+    if (!isLiveConnection() || state.statusActionInFlight) {
+      notify("This action is paused until the Kitchen Portal is connected.", "warning");
+      return;
+    }
+    const orderId = Number(button.dataset.order);
+    state.statusActionInFlight = orderId;
     button.disabled = true;
-    try { await api(`/orders/${button.dataset.order}/status`, { method: "POST", body: JSON.stringify({ status: button.dataset.status }) }); await load({ forceRender: true }); }
-    catch (error) { notify(error.message, "warning"); button.disabled = false; }
+    try { await api(`/orders/${orderId}/status`, { method: "POST", body: JSON.stringify({ status: button.dataset.status }) }); await load({ forceRender: true }); }
+    catch (error) { notify(error.message, "warning"); }
+    finally { state.statusActionInFlight = null; render(); }
+  });
+  document.querySelectorAll("[data-recall-order]").forEach((button) => button.onclick = async () => {
+    if (!isLiveConnection() || state.statusActionInFlight) {
+      notify("This action is paused until the Kitchen Portal is connected.", "warning");
+      return;
+    }
+    const reason = window.prompt("Why is this ready order being recalled to preparation? This reason is saved in the order history.");
+    if (!reason?.trim()) return;
+    const orderId = Number(button.dataset.recallOrder);
+    state.statusActionInFlight = orderId;
+    button.disabled = true;
+    try {
+      await api(`/orders/${orderId}/recall`, { method: "POST", body: JSON.stringify({ reason: reason.trim() }) });
+      notify("Order recalled to preparation. The correction is in the order history.", "success");
+      await load({ forceRender: true });
+    } catch (error) { notify(error.message, "warning"); }
+    finally { state.statusActionInFlight = null; render(); }
   });
   bindIngredientForm(document.querySelector("#ingredient-form"));
   bindPurchaseForm(document.querySelector("#purchase-form"));
@@ -360,6 +481,13 @@ async function bootstrap() {
     state.user = me.user;
     shell();
     await load({ forceRender: true });
+    connectLiveUpdates();
+    window.addEventListener("offline", () => setConnection("offline"));
+    window.addEventListener("online", () => {
+      setConnection("reconnecting");
+      connectLiveUpdates();
+      load({ forceRender: true });
+    });
     setInterval(() => state.user && load(), 10000);
   } catch { login(); }
 }

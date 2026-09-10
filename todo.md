@@ -294,3 +294,17 @@
 - [x] Add automatic purchase-cost and unit-cost calculations while staff complete forms
 - [x] Refresh stock movements and ingredient reports immediately after a saved change
 - [x] Correct the standalone Kitchen Portal layout and ensure the approved Àmàlà Olúyòlé logo is prominent
+
+### Kitchen Portal Daily Operations Hardening
+- [ ] Improve ticket accuracy with complete per-pack customisation and preparation instructions
+- [ ] Add preparation targets, promised-ready timing, overdue alerts, and explicit sound/connection status
+- [ ] Add safe status recovery, item or pack completion, packing checks, and kitchen issue reporting
+- [ ] Separate kitchen-ready, packing, pickup, and delivery handover states without expanding kitchen financial permissions
+- [ ] Add clear synchronisation recovery behavior, branch-only server enforcement, and acceptance-test coverage
+- [x] Show saved per-pack meal configurations and instructions directly on the preparation ticket
+- [x] Add calculated preparation targets, received/start timestamps, overdue warnings, sound status, connection state, and last-update visibility
+- [x] Make status requests idempotent, retain auditable old-to-new status records, and add controlled ready-order recall
+- [x] Reconcile the live queue using authenticated updates, prevent stale queue actions, and enforce Oluyole-only order actions on the standalone server
+- [x] Document manager-led daily-use acceptance tests for ticket accuracy, duplicate taps, recovery, connection interruption, role boundaries, and handover
+- [ ] Add persistent pack-level completion, final packing checks, and manager issue reporting
+- [ ] Add distinct kitchen-to-packing and verified customer/rider handover states after the daily preparation workflow is accepted

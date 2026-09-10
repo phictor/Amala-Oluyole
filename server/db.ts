@@ -316,6 +316,12 @@ export async function updateOrderStatus(orderId: number, status: Order["status"]
     .from(orders).where(eq(orders.id, orderId)).limit(1);
   if (!currentOrder) throw new Error("Order not found");
 
+  // A repeated tap or retried request must never create a duplicate lifecycle
+  // event. Returning the current state makes the write idempotent for clients.
+  if (currentOrder.status === status) {
+    return { changed: false, status: currentOrder.status };
+  }
+
   const permittedNextStatuses: Record<string, string[]> = {
     payment_confirmed: ["accepted", "rejected", "refunded"],
     accepted: ["preparing", "rejected", "refunded"],
@@ -337,7 +343,34 @@ export async function updateOrderStatus(orderId: number, status: Order["status"]
     }
   }
   await db.update(orders).set(updateFields).where(eq(orders.id, orderId));
-  await db.insert(orderStatusHistory).values({ orderId, status, note: note || null, changedBy: changedBy || null });
+  const auditNote = [
+    `Status changed from ${currentOrder.status} to ${status}.`,
+    note?.trim(),
+  ].filter(Boolean).join(" ");
+  await db.insert(orderStatusHistory).values({ orderId, status, note: auditNote, changedBy: changedBy || null });
+  return { changed: true, status };
+}
+
+/** Controlled kitchen-only recovery for a ticket accidentally marked ready. */
+export async function recallKitchenOrder(orderId: number, reason: string, changedBy: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const [currentOrder] = await db.select({ status: orders.status, branchId: orders.branchId })
+    .from(orders).where(eq(orders.id, orderId)).limit(1);
+  if (!currentOrder) throw new Error("Order not found");
+  if (currentOrder.status !== "ready") {
+    throw new Error("Only an order currently marked ready can be recalled to preparation");
+  }
+  await db.transaction(async (tx) => {
+    await tx.update(orders).set({ status: "preparing", updatedAt: new Date() }).where(eq(orders.id, orderId));
+    await tx.insert(orderStatusHistory).values({
+      orderId,
+      status: "preparing",
+      note: `Status changed from ready to preparing. Recall reason: ${reason.trim()}`,
+      changedBy,
+    });
+  });
+  return { changed: true, status: "preparing" as const };
 }
 
 /** Marks an order paid exactly once so webhook and client verification cannot duplicate side effects. */
@@ -475,15 +508,40 @@ export async function getActiveOrders(branchId?: number) {
   const items = await db.select({
     orderId: orderItems.orderId,
     mealName: orderItems.name,
+    mealId: orderItems.mealId,
+    isCustomMeal: orderItems.isCustomMeal,
+    customMealConfig: orderItems.customMealConfig,
     quantity: orderItems.quantity,
     specialInstructions: orderItems.specialInstructions,
   })
     .from(orderItems)
     .where(inArray(orderItems.orderId, activeOrders.map((order) => order.id)));
 
+  const mealIds = [...new Set(items.map((item) => item.mealId).filter((id): id is number => id !== null))];
+  const mealTargets = mealIds.length
+    ? await db.select({ id: meals.id, preparationTime: meals.preparationTime }).from(meals).where(inArray(meals.id, mealIds))
+    : [];
+  const targetByMealId = new Map(mealTargets.map((meal) => [meal.id, Number(meal.preparationTime) || 20]));
+
+  const histories = await db.select({
+    orderId: orderStatusHistory.orderId,
+    status: orderStatusHistory.status,
+    createdAt: orderStatusHistory.createdAt,
+  })
+    .from(orderStatusHistory)
+    .where(inArray(orderStatusHistory.orderId, activeOrders.map((order) => order.id)))
+    .orderBy(orderStatusHistory.createdAt);
+  const historyByOrder = new Map<number, typeof histories>();
+  for (const entry of histories) {
+    const current = historyByOrder.get(entry.orderId) ?? [];
+    current.push(entry);
+    historyByOrder.set(entry.orderId, current);
+  }
+
   const kitchenItems = items.map((item) => ({
     ...item,
     specialInstructions: item.specialInstructions ?? undefined,
+    preparationTargetMinutes: item.mealId ? targetByMealId.get(item.mealId) ?? 20 : 20,
   }));
   const itemsByOrder = new Map<number, typeof kitchenItems>();
   for (const item of kitchenItems) {
@@ -492,10 +550,22 @@ export async function getActiveOrders(branchId?: number) {
     itemsByOrder.set(item.orderId, current);
   }
 
-  return activeOrders.map((order) => ({
-    ...order,
-    items: itemsByOrder.get(order.id) ?? [],
-  }));
+  return activeOrders.map((order) => {
+    const orderItemsForKitchen = itemsByOrder.get(order.id) ?? [];
+    const targetMinutes = Math.max(15, ...orderItemsForKitchen.map((item) => item.preparationTargetMinutes));
+    const lifecycle = historyByOrder.get(order.id) ?? [];
+    const acceptedAt = lifecycle.find((entry) => entry.status === "accepted")?.createdAt ?? null;
+    const preparingAt = lifecycle.find((entry) => entry.status === "preparing")?.createdAt ?? null;
+    const targetStart = preparingAt ?? acceptedAt ?? order.createdAt;
+    return {
+      ...order,
+      items: orderItemsForKitchen,
+      acceptedAt,
+      preparingAt,
+      preparationTargetMinutes: targetMinutes,
+      promisedReadyAt: new Date(new Date(targetStart).getTime() + targetMinutes * 60_000),
+    };
+  });
 }
 
 export async function getOrderStats(branchId?: number, fromDate?: Date, toDate?: Date) {

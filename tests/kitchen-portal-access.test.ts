@@ -68,4 +68,33 @@ describe("Standalone Kitchen Portal access code", () => {
     expect(ingredientResponse.status).toBe(401);
     expect(purchaseResponse.status).toBe(401);
   });
+
+  it("keeps live updates and controlled ready-order recall staff-only", async () => {
+    const liveResponse = await fetch("http://127.0.0.1:3000/api/kitchen-portal/live");
+    const recallResponse = await fetch("http://127.0.0.1:3000/api/kitchen-portal/orders/1/recall", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reason: "Unauthorised attempt" }),
+    });
+
+    expect(liveResponse.status).toBe(401);
+    expect(recallResponse.status).toBe(401);
+  });
+
+  it("does not expose an unknown order through the Oluyole Kitchen Portal", async () => {
+    const accessCode = process.env.KITCHEN_PORTAL_ACCESS_CODE;
+    const login = await fetch("http://127.0.0.1:3000/api/kitchen-portal/session", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: "amalaoluyole@gmail.com", accessCode }),
+    });
+    const cookie = login.headers.get("set-cookie")!.split(";")[0];
+    const response = await fetch("http://127.0.0.1:3000/api/kitchen-portal/orders/999999/status", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Cookie: cookie },
+      body: JSON.stringify({ status: "accepted" }),
+    });
+
+    expect(response.status).toBe(404);
+  });
 });

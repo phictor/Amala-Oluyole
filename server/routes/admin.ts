@@ -119,7 +119,8 @@ export const adminRouter = router({
       note: z.string().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
-      await updateOrderStatus(input.orderId, input.status, input.note, ctx.user.id);
+      const result = await updateOrderStatus(input.orderId, input.status, input.note, ctx.user.id);
+      if (!result.changed) return { success: true, changed: false };
       // ── Customer push notification on status change ────────────────────────
       const db = await getDb();
       if (db) {
@@ -145,7 +146,7 @@ export const adminRouter = router({
           }
         }
       }
-      return { success: true };
+      return { success: true, changed: true };
     }),
 
   // Rider management

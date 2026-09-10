@@ -12,7 +12,7 @@ import { sdk } from "./sdk";
 import { getSessionCookieOptions } from "./cookies";
 import { getAllRiders } from "../db";
 import crypto from "crypto";
-import { awardLoyaltyPoints, createNotification, getDb, markOrderPaidIfPending, updateOrderStatus } from "../db";
+import { awardLoyaltyPoints, createNotification, getDb, markOrderPaidIfPending, recallKitchenOrder, updateOrderStatus } from "../db";
 import { orders, users } from "../../drizzle/schema";
 import { eq } from "drizzle-orm";
 
@@ -21,6 +21,7 @@ import { eq } from "drizzle-orm";
 // "riderLocations" events every 3 seconds.
 type SseClient = { res: import("express").Response; userId: number };
 const sseClients = new Set<SseClient>();
+const kitchenPortalLiveClients = new Set<import("express").Response>();
 const KITCHEN_PORTAL_SESSION_MS = 8 * 60 * 60 * 1000;
 const KITCHEN_PORTAL_MAX_ATTEMPTS = 5;
 const KITCHEN_PORTAL_LOCKOUT_MS = 15 * 60 * 1000;
@@ -39,6 +40,13 @@ function broadcastRiderLocations(data: unknown) {
   }
 }
 
+function broadcastKitchenPortalUpdate(type: "order_changed" | "heartbeat", data: Record<string, unknown> = {}) {
+  const payload = `event: ${type}\ndata: ${JSON.stringify({ type, ts: Date.now(), ...data })}\n\n`;
+  for (const response of kitchenPortalLiveClients) {
+    try { response.write(payload); } catch { kitchenPortalLiveClients.delete(response); }
+  }
+}
+
 // Poll DB every 3 s and push to all connected SSE clients
 setInterval(async () => {
   if (sseClients.size === 0) return;
@@ -47,6 +55,10 @@ setInterval(async () => {
     broadcastRiderLocations({ type: "riderLocations", riders, ts: Date.now() });
   } catch { /* ignore DB errors during poll */ }
 }, 3000);
+
+setInterval(() => {
+  if (kitchenPortalLiveClients.size > 0) broadcastKitchenPortalUpdate("heartbeat");
+}, 5000);
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise((resolve) => {
@@ -123,6 +135,20 @@ async function startServer() {
     }
   };
 
+  const requireOluyoleKitchenOrder = async (orderId: number, res: express.Response) => {
+    const db = await getDb();
+    if (!db) {
+      res.status(503).json({ error: "Kitchen Portal is temporarily unavailable. Please try again." });
+      return false;
+    }
+    const [order] = await db.select({ branchId: orders.branchId }).from(orders).where(eq(orders.id, orderId)).limit(1);
+    if (!order || order.branchId !== 1) {
+      res.status(404).json({ error: "This order is not available to the Oluyole Kitchen Portal." });
+      return false;
+    }
+    return true;
+  };
+
   app.post("/api/kitchen-portal/session", async (req, res) => {
     const email = typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : "";
     const accessCode = typeof req.body?.accessCode === "string" ? req.body.accessCode.trim() : "";
@@ -186,6 +212,20 @@ async function startServer() {
     const caller = appRouter.createCaller({ req, res, user });
     res.json(await caller.admin.activeOrders({ branchId: 1 }));
   });
+  app.get("/api/kitchen-portal/live", async (req, res) => {
+    const user = await getKitchenPortalUser(req, res);
+    if (!user) return;
+    res.set({
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache, no-transform",
+      Connection: "keep-alive",
+      "X-Accel-Buffering": "no",
+    });
+    res.flushHeaders();
+    kitchenPortalLiveClients.add(res);
+    res.write(`event: connected\ndata: ${JSON.stringify({ type: "connected", ts: Date.now(), branchId: 1 })}\n\n`);
+    req.on("close", () => kitchenPortalLiveClients.delete(res));
+  });
   app.post("/api/kitchen-portal/orders/:orderId/status", async (req, res) => {
     const user = await getKitchenPortalUser(req, res);
     if (!user) return;
@@ -195,11 +235,32 @@ async function startServer() {
       res.status(400).json({ error: "Valid order and status are required" });
       return;
     }
+    if (!await requireOluyoleKitchenOrder(orderId, res)) return;
     try {
       const caller = appRouter.createCaller({ req, res, user });
-      res.json(await caller.admin.updateOrderStatus({ orderId, status: status as any }));
+      const result = await caller.admin.updateOrderStatus({ orderId, status: status as any });
+      if (result.changed) broadcastKitchenPortalUpdate("order_changed", { orderId, status });
+      res.json(result);
     } catch (error) {
       res.status(400).json({ error: error instanceof Error ? error.message : "Could not update order" });
+    }
+  });
+  app.post("/api/kitchen-portal/orders/:orderId/recall", async (req, res) => {
+    const user = await getKitchenPortalUser(req, res);
+    if (!user) return;
+    const orderId = Number(req.params.orderId);
+    const reason = typeof req.body?.reason === "string" ? req.body.reason.trim() : "";
+    if (!Number.isInteger(orderId) || reason.length < 3 || reason.length > 500) {
+      res.status(400).json({ error: "Enter a short reason for recalling this ready order." });
+      return;
+    }
+    if (!await requireOluyoleKitchenOrder(orderId, res)) return;
+    try {
+      const result = await recallKitchenOrder(orderId, reason, user.id);
+      broadcastKitchenPortalUpdate("order_changed", { orderId, status: "preparing", recalled: true });
+      res.json(result);
+    } catch (error) {
+      res.status(400).json({ error: error instanceof Error ? error.message : "Could not recall the order" });
     }
   });
   app.get("/api/kitchen-portal/inventory", async (req, res) => {
