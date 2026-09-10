@@ -28,11 +28,12 @@ The primary Admin / Manager email is **amalaoluyole@gmail.com**. On its first ve
 2. In **Orders**, select **Enable sound** once at the beginning of service. The browser requires this single interaction before it can play a sound for a new order.
 3. Move every paid order through the fixed sequence: **New Order → Accept Order → Start Preparing → Mark Ready**. The system prevents skipped or reversed preparation states.
 4. Read the dish list and special instructions before preparing an order. The dish names shown are the item snapshots captured when the customer checked out.
-5. Open **Ingredients & purchases** to add every item used in food preparation, including cow/beef, goat meat, fish, chicken, palm oil, peppers, vegetables, yam flour, packaging, and drinks.
-6. When supplies arrive, use **Record a purchase**. Select the ingredient, enter the usable stock received and the **total amount paid**. Add the supplier and receipt number whenever available.
+5. Open **Ingredients & purchases** to add every item used in food preparation. For protein, choose a prepared option such as **Cow Meat / Beef**, **Goat Meat**, **Chicken**, **Turkey**, **Croaker Fish**, **Tilapia**, **Titus Fish**, **Butterfish / Owere**, **Ponmo**, **Bokoto**, or **Assorted Meat**. Choose **Other protein** to type a different protein name.
+6. When supplies arrive, use **Record a purchase**. Select the ingredient, enter the usable stock received and the **total amount paid**. The portal calculates the purchase cost per stock unit while the form is being completed, and shows the estimated new average cost before the record is saved.
 7. For a whole animal or grouped item, record both its source and its yield. For example: select *Beef*; enter `1` as bought quantity; choose *whole cow*; add the number of pieces/quarters; enter the usable kilograms received after cutting; then enter the total purchase cost. This keeps the original purchase and the kitchen's usable stock clear.
 8. Record **Kitchen use**, **Wastage**, or a verified **Stock adjustment** whenever stock leaves the store. Every movement records the signed-in staff member automatically.
-9. Use **Monthly report** to review monthly orders, daily production, ingredient purchases, current stock value, top meals, and low-stock items.
+9. Use **Edit** beside an ingredient or a saved purchase to correct any value. Saving an ingredient stock change adds an attributable adjustment; saving a purchase correction updates the connected stock balance and ingredient cost. The purchase can also be reassigned to the correct saved ingredient where a wrong ingredient was selected.
+10. Use **Monthly report** to review monthly orders, daily production, ingredient purchases, current stock value, top meals, and low-stock items. The report refreshes after each saved purchasing change.
 
 ## If something does not look right
 
@@ -40,8 +41,9 @@ The primary Admin / Manager email is **amalaoluyole@gmail.com**. On its first ve
 |---|---|
 | A new order has no dish list | Refresh the Orders page once. If it remains empty, do not prepare it; contact the manager with the order number. |
 | A meal is out of stock | Tell the manager to mark the meal unavailable from the Menu page immediately. |
-| Stock quantity was entered incorrectly | Open **Ingredients & purchases**, select **Stock adjustment**, and add a note explaining the correction. |
+| Ingredient details or opening stock were entered incorrectly | Select **Edit** next to the ingredient, correct the field, and save. A changed stock figure is recorded as an adjustment with your staff account. |
 | A market purchase has not been recorded | Use **Record a purchase** immediately. Enter the actual amount paid and usable stock received; do not use a stock adjustment for a real purchase. |
+| A saved purchase has an error | Select **Edit** next to that purchase, correct the ingredient, quantities, cost, supplier, receipt, date, or note, then save. The stock and cost summary update together. |
 | An animal has been cut into portions | Keep the original purchase detail in **Bought quantity**, **Bought as**, and **Number of pieces**. Record only the usable quantity received into stock. |
 | No sound is heard | Select **Enable sound** again and ensure the computer/tab is not muted. The visual banner and new-order column still update. |
 | Staff cannot sign in | Confirm that the Manager has assigned the person the **Kitchen** role, that the work email is exact, and that they are using the current private kitchen access code. |

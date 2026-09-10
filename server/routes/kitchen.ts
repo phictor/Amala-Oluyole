@@ -46,8 +46,10 @@ export const kitchenRouter = router({
       return db
         .select({
           id: inventoryPurchases.id,
+          inventoryId: inventoryPurchases.inventoryId,
           ingredientName: inventory.name,
           category: inventory.category,
+          stockUnit: inventory.unit,
           stockQuantity: inventoryPurchases.stockQuantity,
           sourceQuantity: inventoryPurchases.sourceQuantity,
           sourceUnit: inventoryPurchases.sourceUnit,
@@ -92,6 +94,60 @@ export const kitchenRouter = router({
         notes: input.notes,
       });
       return { success: true };
+    }),
+
+  updateInventoryItem: kitchenProcedure
+    .input(z.object({
+      id: z.number().int().positive(),
+      branchId: z.number().int().positive(),
+      name: z.string().trim().min(1).max(128).optional(),
+      category: z.enum(["swallow", "soup", "protein", "spice", "vegetable", "drink", "packaging", "other"]).optional(),
+      unit: z.string().trim().min(1).max(32).optional(),
+      currentStock: z.number().min(0).optional(),
+      minimumStock: z.number().min(0).optional(),
+      costPerUnit: z.number().min(0).optional(),
+      supplier: z.string().trim().max(128).nullable().optional(),
+      notes: z.string().trim().max(1000).nullable().optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database unavailable");
+      const [ingredient] = await db
+        .select()
+        .from(inventory)
+        .where(and(eq(inventory.id, input.id), eq(inventory.branchId, input.branchId), eq(inventory.isActive, true)))
+        .limit(1);
+      if (!ingredient) throw new Error("Ingredient is not available for this kitchen branch");
+
+      const oldStock = Number(ingredient.currentStock) || 0;
+      const nextStock = input.currentStock ?? oldStock;
+      const stockDifference = nextStock - oldStock;
+
+      await db.transaction(async (tx) => {
+        await tx.update(inventory)
+          .set({
+            name: input.name ?? ingredient.name,
+            category: input.category ?? ingredient.category,
+            unit: input.unit ?? ingredient.unit,
+            currentStock: String(nextStock),
+            minimumStock: String(input.minimumStock ?? Number(ingredient.minimumStock)),
+            costPerUnit: String(input.costPerUnit ?? Number(ingredient.costPerUnit)),
+            supplier: input.supplier === undefined ? ingredient.supplier : input.supplier,
+            notes: input.notes === undefined ? ingredient.notes : input.notes,
+          })
+          .where(eq(inventory.id, ingredient.id));
+        if (stockDifference !== 0) {
+          await tx.insert(inventoryTransactions).values({
+            inventoryId: ingredient.id,
+            branchId: input.branchId,
+            type: "adjustment",
+            quantity: String(stockDifference),
+            note: "Stock adjusted while editing ingredient details",
+            recordedBy: ctx.user.id,
+          });
+        }
+      });
+      return { success: true, currentStock: nextStock, stockDifference };
     }),
 
   recordIngredientPurchase: kitchenProcedure
@@ -157,6 +213,147 @@ export const kitchenRouter = router({
           .where(eq(inventory.id, input.inventoryId));
       });
       return { success: true, newStock, weightedUnitCost };
+    }),
+
+  updateIngredientPurchase: kitchenProcedure
+    .input(z.object({
+      purchaseId: z.number().int().positive(),
+      branchId: z.number().int().positive(),
+      inventoryId: z.number().int().positive(),
+      stockQuantity: z.number().positive(),
+      sourceQuantity: z.number().positive().nullable().optional(),
+      sourceUnit: z.string().trim().min(1).max(32).nullable().optional(),
+      pieceCount: z.number().int().positive().nullable().optional(),
+      totalCost: z.number().positive(),
+      supplier: z.string().trim().min(1).max(128).nullable().optional(),
+      receiptReference: z.string().trim().min(1).max(64).nullable().optional(),
+      notes: z.string().trim().max(1000).nullable().optional(),
+      purchasedAt: z.coerce.date().optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database unavailable");
+      const [purchase] = await db
+        .select()
+        .from(inventoryPurchases)
+        .where(and(eq(inventoryPurchases.id, input.purchaseId), eq(inventoryPurchases.branchId, input.branchId)))
+        .limit(1);
+      if (!purchase) throw new Error("Purchase record is not available for this kitchen branch");
+
+      const [ingredient] = await db
+        .select()
+        .from(inventory)
+        .where(and(eq(inventory.id, purchase.inventoryId), eq(inventory.branchId, input.branchId), eq(inventory.isActive, true)))
+        .limit(1);
+      if (!ingredient) throw new Error("The linked ingredient is no longer available");
+
+      const [targetIngredient] = input.inventoryId === purchase.inventoryId
+        ? [ingredient]
+        : await db
+          .select()
+          .from(inventory)
+          .where(and(eq(inventory.id, input.inventoryId), eq(inventory.branchId, input.branchId), eq(inventory.isActive, true)))
+          .limit(1);
+      if (!targetIngredient) throw new Error("Choose an active ingredient for this purchase");
+
+      const oldPurchaseQuantity = Number(purchase.stockQuantity) || 0;
+      const isMovingIngredient = targetIngredient.id !== ingredient.id;
+      const stockDifference = input.stockQuantity - oldPurchaseQuantity;
+      const originalNextStock = isMovingIngredient
+        ? (Number(ingredient.currentStock) || 0) - oldPurchaseQuantity
+        : (Number(ingredient.currentStock) || 0) + stockDifference;
+      const targetNextStock = isMovingIngredient
+        ? (Number(targetIngredient.currentStock) || 0) + input.stockQuantity
+        : originalNextStock;
+      if (originalNextStock < 0) {
+        throw new Error("This edit would make the original ingredient stock negative. Record a stock adjustment after confirming the physical count.");
+      }
+
+      const updatedPurchaseDate = input.purchasedAt ?? purchase.purchasedAt;
+      const updatedSupplier = input.supplier === undefined ? purchase.supplier : input.supplier;
+      await db.transaction(async (tx) => {
+        const purchases = await tx
+          .select({ id: inventoryPurchases.id, inventoryId: inventoryPurchases.inventoryId, stockQuantity: inventoryPurchases.stockQuantity, totalCost: inventoryPurchases.totalCost })
+          .from(inventoryPurchases)
+          .where(sql`${inventoryPurchases.inventoryId} IN (${ingredient.id}, ${targetIngredient.id})`);
+        const effectivePurchases = purchases.map((item) => item.id === purchase.id
+          ? { ...item, inventoryId: targetIngredient.id, stockQuantity: String(input.stockQuantity), totalCost: String(input.totalCost) }
+          : item);
+        const weightedCost = (inventoryId: number, fallback: number) => {
+          const totals = effectivePurchases
+            .filter((item) => item.inventoryId === inventoryId)
+            .reduce((sum, item) => ({ quantity: sum.quantity + (Number(item.stockQuantity) || 0), cost: sum.cost + (Number(item.totalCost) || 0) }), { quantity: 0, cost: 0 });
+          return totals.quantity > 0 ? totals.cost / totals.quantity : fallback;
+        };
+        const originalWeightedCost = weightedCost(ingredient.id, Number(ingredient.costPerUnit) || 0);
+        const targetWeightedCost = weightedCost(targetIngredient.id, Number(targetIngredient.costPerUnit) || 0);
+
+        await tx.update(inventoryPurchases)
+          .set({
+            inventoryId: targetIngredient.id,
+            stockQuantity: String(input.stockQuantity),
+            sourceQuantity: input.sourceQuantity === undefined ? purchase.sourceQuantity : input.sourceQuantity === null ? null : String(input.sourceQuantity),
+            sourceUnit: input.sourceUnit === undefined ? purchase.sourceUnit : input.sourceUnit,
+            pieceCount: input.pieceCount === undefined ? purchase.pieceCount : input.pieceCount,
+            totalCost: String(input.totalCost),
+            supplier: updatedSupplier,
+            receiptReference: input.receiptReference === undefined ? purchase.receiptReference : input.receiptReference,
+            notes: input.notes === undefined ? purchase.notes : input.notes,
+            purchasedAt: updatedPurchaseDate,
+          })
+          .where(eq(inventoryPurchases.id, purchase.id));
+        await tx.update(inventory)
+          .set({
+            currentStock: String(originalNextStock),
+            costPerUnit: String(originalWeightedCost),
+          })
+          .where(eq(inventory.id, ingredient.id));
+        if (isMovingIngredient) {
+          await tx.update(inventory)
+            .set({
+              currentStock: String(targetNextStock),
+              costPerUnit: String(targetWeightedCost),
+              supplier: updatedSupplier ?? targetIngredient.supplier,
+              lastRestockedAt: updatedPurchaseDate,
+            })
+            .where(eq(inventory.id, targetIngredient.id));
+          await tx.insert(inventoryTransactions).values([
+            {
+              inventoryId: ingredient.id,
+              branchId: input.branchId,
+              type: "adjustment",
+              quantity: String(-oldPurchaseQuantity),
+              note: `Purchase record #${purchase.id} moved to ${targetIngredient.name}`,
+              recordedBy: ctx.user.id,
+            },
+            {
+              inventoryId: targetIngredient.id,
+              branchId: input.branchId,
+              type: "adjustment",
+              quantity: String(input.stockQuantity),
+              note: `Purchase record #${purchase.id} reassigned from ${ingredient.name}`,
+              recordedBy: ctx.user.id,
+            },
+          ]);
+        } else if (stockDifference !== 0) {
+          await tx.update(inventory)
+            .set({ supplier: updatedSupplier ?? ingredient.supplier, lastRestockedAt: updatedPurchaseDate })
+            .where(eq(inventory.id, ingredient.id));
+          await tx.insert(inventoryTransactions).values({
+            inventoryId: ingredient.id,
+            branchId: input.branchId,
+            type: "adjustment",
+            quantity: String(stockDifference),
+            note: `Purchase record #${purchase.id} corrected`,
+            recordedBy: ctx.user.id,
+          });
+        } else {
+          await tx.update(inventory)
+            .set({ supplier: updatedSupplier ?? ingredient.supplier, lastRestockedAt: updatedPurchaseDate })
+            .where(eq(inventory.id, ingredient.id));
+        }
+      });
+      return { success: true, inventoryId: targetIngredient.id, currentStock: targetNextStock, stockDifference };
     }),
 
   updateStock: kitchenProcedure

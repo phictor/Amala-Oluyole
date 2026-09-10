@@ -40,5 +40,32 @@ describe("Standalone Kitchen Portal access code", () => {
     const workspace = await workspaceResponse.json();
     expect(workspaceResponse.status).toBe(200);
     expect(workspace.user.role).toBe("admin");
+
+    const inventoryResponse = await fetch("http://127.0.0.1:3000/api/kitchen-portal/inventory", {
+      headers: { Cookie: setCookie!.split(";")[0] },
+    });
+    const purchasesResponse = await fetch("http://127.0.0.1:3000/api/kitchen-portal/purchases", {
+      headers: { Cookie: setCookie!.split(";")[0] },
+    });
+    expect(inventoryResponse.status).toBe(200);
+    expect(purchasesResponse.status).toBe(200);
+    expect(Array.isArray(await inventoryResponse.json())).toBe(true);
+    expect(Array.isArray(await purchasesResponse.json())).toBe(true);
+  });
+
+  it("keeps editable ingredient and purchase routes staff-only", async () => {
+    const ingredientResponse = await fetch("http://127.0.0.1:3000/api/kitchen-portal/ingredients/1", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "Unauthorised change" }),
+    });
+    const purchaseResponse = await fetch("http://127.0.0.1:3000/api/kitchen-portal/purchases/1", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ inventoryId: 1, stockQuantity: 1, totalCost: 1 }),
+    });
+
+    expect(ingredientResponse.status).toBe(401);
+    expect(purchaseResponse.status).toBe(401);
   });
 });

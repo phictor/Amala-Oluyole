@@ -213,9 +213,24 @@ async function startServer() {
     if (!user) return;
     try {
       const caller = appRouter.createCaller({ req, res, user });
-      res.json(await caller.kitchen.addInventoryItem({ branchId: 1, ...req.body }));
+      res.json(await caller.kitchen.addInventoryItem({ ...req.body, branchId: 1 }));
     } catch (error) {
       res.status(400).json({ error: error instanceof Error ? error.message : "Could not add ingredient" });
+    }
+  });
+  app.patch("/api/kitchen-portal/ingredients/:inventoryId", async (req, res) => {
+    const user = await getKitchenPortalUser(req, res);
+    if (!user) return;
+    const inventoryId = Number(req.params.inventoryId);
+    if (!Number.isInteger(inventoryId)) {
+      res.status(400).json({ error: "A valid ingredient is required" });
+      return;
+    }
+    try {
+      const caller = appRouter.createCaller({ req, res, user });
+      res.json(await caller.kitchen.updateInventoryItem({ ...req.body, id: inventoryId, branchId: 1 }));
+    } catch (error) {
+      res.status(400).json({ error: error instanceof Error ? error.message : "Could not update ingredient" });
     }
   });
   app.get("/api/kitchen-portal/purchases", async (req, res) => {
@@ -229,9 +244,24 @@ async function startServer() {
     if (!user) return;
     try {
       const caller = appRouter.createCaller({ req, res, user });
-      res.json(await caller.kitchen.recordIngredientPurchase({ branchId: 1, ...req.body }));
+      res.json(await caller.kitchen.recordIngredientPurchase({ ...req.body, branchId: 1 }));
     } catch (error) {
       res.status(400).json({ error: error instanceof Error ? error.message : "Could not record ingredient purchase" });
+    }
+  });
+  app.patch("/api/kitchen-portal/purchases/:purchaseId", async (req, res) => {
+    const user = await getKitchenPortalUser(req, res);
+    if (!user) return;
+    const purchaseId = Number(req.params.purchaseId);
+    if (!Number.isInteger(purchaseId)) {
+      res.status(400).json({ error: "A valid purchase is required" });
+      return;
+    }
+    try {
+      const caller = appRouter.createCaller({ req, res, user });
+      res.json(await caller.kitchen.updateIngredientPurchase({ ...req.body, purchaseId, branchId: 1 }));
+    } catch (error) {
+      res.status(400).json({ error: error instanceof Error ? error.message : "Could not update purchase" });
     }
   });
   app.post("/api/kitchen-portal/inventory/:inventoryId/movement", async (req, res) => {

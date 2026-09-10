@@ -287,3 +287,10 @@
 ### Standalone Kitchen Portal Access Code
 - [x] Replace the temporary OAuth callback with a staff email and private access-code sign-in for the standalone portal
 - [x] Protect access-code sign-in with expiring sessions, role checks, and failed-attempt limits
+
+### Kitchen Portal Operational Editing and Persistence
+- [x] Add prefilled protein ingredient choices with an Other option for custom entries
+- [x] Make ingredient and purchase records editable with persistent saved values
+- [x] Add automatic purchase-cost and unit-cost calculations while staff complete forms
+- [x] Refresh stock movements and ingredient reports immediately after a saved change
+- [x] Correct the standalone Kitchen Portal layout and ensure the approved Àmàlà Olúyòlé logo is prominent
