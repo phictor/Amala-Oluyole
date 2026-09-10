@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, RefreshControl,
   ScrollView, Platform, useWindowDimensions,
@@ -8,24 +8,24 @@ import { trpc } from '@/lib/trpc';
 import * as Haptics from 'expo-haptics';
 
 const STATUS_NEXT: Record<string, string> = {
-  pending: 'accepted',
+  payment_confirmed: 'accepted',
   accepted: 'preparing',
   preparing: 'ready',
 };
 const STATUS_LABEL: Record<string, string> = {
-  pending: 'Accept',
+  payment_confirmed: 'Accept Order',
   accepted: 'Start Preparing',
   preparing: 'Mark Ready',
 };
 const STATUS_COLOR: Record<string, string> = {
-  pending: '#F59E0B',
+  payment_confirmed: '#F59E0B',
   accepted: '#201060',
   preparing: '#3D2FA0',
   ready: '#22C55E',
 };
 
 const GROUPS = [
-  { label: 'New Orders', statuses: ['pending'], color: '#F59E0B', icon: '🔔' },
+  { label: 'New Orders', statuses: ['payment_confirmed'], color: '#F59E0B', icon: '🔔' },
   { label: 'In Progress', statuses: ['accepted', 'preparing'], color: '#201060', icon: '🍲' },
   { label: 'Ready', statuses: ['ready'], color: '#22C55E', icon: '✅' },
 ];
@@ -102,28 +102,81 @@ export default function KitchenOrdersScreen() {
   const { data: orders, refetch, isRefetching } = trpc.admin.activeOrders.useQuery(
     { branchId: 1 }, { refetchInterval: 10000 }
   );
-  const updateStatus = trpc.admin.updateOrderStatus.useMutation({ onSuccess: () => refetch() });
+  const updateStatus = trpc.admin.updateOrderStatus.useMutation({
+    onSuccess: () => refetch(),
+    onError: () => setAlertMsg('Order was not updated. Refresh the board and try again.'),
+  });
   const prevCountRef = useRef(0);
+  const initialOrdersLoaded = useRef(false);
+  const webAudioContext = useRef<any>(null);
   const [alertMsg, setAlertMsg] = useState('');
+  const [soundEnabled, setSoundEnabled] = useState(false);
+
+  const enableSound = async () => {
+    if (Platform.OS !== 'web') return;
+    const AudioContextConstructor = (globalThis as unknown as { AudioContext?: new () => any; webkitAudioContext?: new () => any }).AudioContext
+      ?? (globalThis as unknown as { webkitAudioContext?: new () => any }).webkitAudioContext;
+    if (!AudioContextConstructor) {
+      setAlertMsg('Browser sound is not supported here. Keep this page visible for new-order alerts.');
+      return;
+    }
+    const context = webAudioContext.current ?? new AudioContextConstructor();
+    webAudioContext.current = context;
+    await context.resume?.();
+    setSoundEnabled(true);
+    setAlertMsg('Kitchen sound alerts are on.');
+  };
+
+  const playWebChime = () => {
+    const context = webAudioContext.current;
+    if (!context || !soundEnabled) return;
+    try {
+      const oscillator = context.createOscillator();
+      const gain = context.createGain();
+      oscillator.frequency.setValueAtTime(880, context.currentTime);
+      gain.gain.setValueAtTime(0.12, context.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, context.currentTime + 0.45);
+      oscillator.connect(gain);
+      gain.connect(context.destination);
+      oscillator.start();
+      oscillator.stop(context.currentTime + 0.45);
+    } catch {
+      // Browser alert sound is optional; the visual banner remains available.
+    }
+  };
 
   useEffect(() => {
-    const pending = orders?.filter((o: { status: string }) => o.status === 'pending').length ?? 0;
-    if (pending > prevCountRef.current && prevCountRef.current >= 0) {
+    const pending = orders?.filter((o: { status: string }) => o.status === 'payment_confirmed').length ?? 0;
+    if (!initialOrdersLoaded.current && orders) {
+      initialOrdersLoaded.current = true;
+      prevCountRef.current = pending;
+      return;
+    }
+    if (pending > prevCountRef.current) {
       setAlertMsg('New order received!');
       if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      else playWebChime();
       setTimeout(() => setAlertMsg(''), 4000);
     }
     prevCountRef.current = pending;
-  }, [orders]);
+  }, [orders, soundEnabled]);
 
   const handleAction = (orderId: number, status: string) => {
     updateStatus.mutate({ orderId, status: status as never });
   };
 
-  const pendingCount = orders?.filter((o: { status: string }) => o.status === 'pending').length ?? 0;
+  const pendingCount = orders?.filter((o: { status: string }) => o.status === 'payment_confirmed').length ?? 0;
 
   return (
     <PortalLayout portal="kitchen" title="Oluyole Kitchen" badges={{ index: pendingCount }}>
+      {Platform.OS === 'web' ? (
+        <View style={styles.soundBar}>
+          <Text style={styles.soundHint}>{soundEnabled ? 'Kitchen sound alerts are on' : 'Turn on sound alerts before service starts'}</Text>
+          <TouchableOpacity style={[styles.soundButton, soundEnabled && styles.soundButtonOn]} onPress={enableSound}>
+            <Text style={styles.soundButtonText}>{soundEnabled ? 'Sound on' : 'Enable sound'}</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
       {alertMsg ? (
         <View style={styles.alertBanner}>
           <Text style={styles.alertText}>🔔 {alertMsg}</Text>
@@ -200,6 +253,11 @@ export default function KitchenOrdersScreen() {
 }
 
 const styles = StyleSheet.create({
+  soundBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#F4F3FB', paddingVertical: 9, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#E8E4F8' },
+  soundHint: { color: '#6B6490', fontSize: 12, fontWeight: '600' },
+  soundButton: { borderWidth: 1, borderColor: '#201060', borderRadius: 7, paddingHorizontal: 10, paddingVertical: 6 },
+  soundButtonOn: { backgroundColor: '#201060' },
+  soundButtonText: { color: '#201060', fontSize: 12, fontWeight: '800' },
   alertBanner: {
     backgroundColor: '#F0C000', paddingVertical: 10, paddingHorizontal: 16,
     flexDirection: 'row', alignItems: 'center',

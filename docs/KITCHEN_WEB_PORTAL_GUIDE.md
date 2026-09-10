@@ -23,10 +23,21 @@ The primary Admin / Manager email is **amalaoluyole@gmail.com**. On its first ve
 ## Daily kitchen workflow
 
 1. Open the portal before service and sign in.
-2. Use **Orders** to move each order through: **New Order → In Progress → Ready**.
-3. Read the dish list and special instructions before preparing an order.
-4. Use **Inventory** to record restocks and ingredient usage. Every stock movement records the signed-in staff member automatically.
-5. Use **Report** to review the current month’s order volume, revenue, and most-ordered meals.
+2. In **Orders**, select **Enable sound** once at the beginning of service. The browser requires this single interaction before it can play a sound for a new order.
+3. Move every paid order through the fixed sequence: **New Order → Accept Order → Start Preparing → Mark Ready**. The system prevents skipped or reversed preparation states.
+4. Read the dish list and special instructions before preparing an order. The dish names shown are the item snapshots captured when the customer checked out.
+5. Use **Inventory** to add ingredients, record restocks, usage, waste, or adjustments, and respond to the low-stock warning. Every stock movement records the signed-in staff member automatically.
+6. Use **Report** to review monthly orders, daily production, order mix, top meals, and low-stock items. Use **Export PDF** for the manager’s record.
+
+## If something does not look right
+
+| Situation | Kitchen action |
+|---|---|
+| A new order has no dish list | Refresh the Orders page once. If it remains empty, do not prepare it; contact the manager with the order number. |
+| A meal is out of stock | Tell the manager to mark the meal unavailable from the Menu page immediately. |
+| Stock quantity was entered incorrectly | Use **Record** on the item and select **Adjustment**, with a note explaining the correction. |
+| No sound is heard | Select **Enable sound** again and ensure the computer/tab is not muted. The visual banner and new-order column still update. |
+| Staff cannot sign in | Confirm that the manager has assigned the person the **Kitchen** role, then have them sign in with the same work email. |
 
 ## Important menu rule
 

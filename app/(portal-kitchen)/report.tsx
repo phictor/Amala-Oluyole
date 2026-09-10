@@ -3,6 +3,7 @@ import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'rea
 
 import { PortalLayout } from '@/components/portal-layout';
 import { trpc } from '@/lib/trpc';
+import { generatePdf, type PdfSection } from '@/lib/pdf-generator';
 
 const OLUYOLE_BRANCH_ID = 1;
 
@@ -17,6 +18,47 @@ export default function KitchenReportScreen() {
     setMonth(next.getMonth() + 1);
     setYear(next.getFullYear());
   };
+  const exportReport = async () => {
+    if (!data) return;
+    const sections: PdfSection[] = [
+      {
+        type: 'stats',
+        stats: [
+          { label: 'Orders', value: data.summary?.totalOrders ?? 0 },
+          { label: 'Revenue', value: `₦${Number(data.summary?.totalRevenue ?? 0).toLocaleString()}` },
+          { label: 'Completed', value: data.summary?.completedOrders ?? 0 },
+          { label: 'Cancelled', value: data.summary?.cancelledOrders ?? 0 },
+        ],
+      },
+      {
+        type: 'table',
+        title: 'Daily production',
+        headers: ['Date', 'Orders', 'Revenue'],
+        rows: (data.dailyOrders ?? []).map((day: { day: string; count: number | string; revenue: number | string }) => [
+          new Date(day.day).toLocaleDateString('en-NG', { day: '2-digit', month: 'short' }),
+          day.count,
+          `₦${Number(day.revenue ?? 0).toLocaleString()}`,
+        ]),
+      },
+      {
+        type: 'table',
+        title: 'Most ordered meals',
+        headers: ['Meal', 'Portions', 'Revenue'],
+        rows: (data.topMeals ?? []).map((meal: { mealName: string; totalQuantity: number | string; totalRevenue: number | string }) => [
+          meal.mealName,
+          meal.totalQuantity,
+          `₦${Number(meal.totalRevenue ?? 0).toLocaleString()}`,
+        ]),
+      },
+    ];
+    await generatePdf({
+      title: 'Oluyole Kitchen Monthly Report',
+      subtitle: 'Oluyole Town Planning',
+      dateRange: monthName,
+      filename: `oluyole-kitchen-${year}-${String(month).padStart(2, '0')}`,
+      sections,
+    });
+  };
 
   return (
     <PortalLayout portal="kitchen" title="Oluyole Kitchen Report">
@@ -26,9 +68,14 @@ export default function KitchenReportScreen() {
             <Text style={styles.heading}>Kitchen monthly report</Text>
             <Text style={styles.subheading}>Oluyole Town Planning branch</Text>
           </View>
-          <TouchableOpacity style={styles.refreshButton} onPress={() => refetch()} disabled={isRefetching}>
-            <Text style={styles.refreshText}>{isRefetching ? 'Refreshing…' : 'Refresh'}</Text>
-          </TouchableOpacity>
+          <View style={styles.headerActions}>
+            <TouchableOpacity style={styles.refreshButton} onPress={() => refetch()} disabled={isRefetching}>
+              <Text style={styles.refreshText}>{isRefetching ? 'Refreshing…' : 'Refresh'}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.exportButton} onPress={exportReport} disabled={!data}>
+              <Text style={styles.exportText}>Export PDF</Text>
+            </TouchableOpacity>
+          </View>
         </View>
         <View style={styles.monthControl}>
           <TouchableOpacity style={styles.monthButton} onPress={() => moveMonth(-1)}><Text style={styles.monthArrow}>‹</Text></TouchableOpacity>
@@ -54,6 +101,38 @@ export default function KitchenReportScreen() {
               ))}
               {!data?.topMeals?.length && <Text style={styles.empty}>No completed meal data for this month yet.</Text>}
             </View>
+            <View style={styles.twoColumn}>
+              <View style={[styles.card, styles.halfCard]}>
+                <Text style={styles.sectionTitle}>Daily production</Text>
+                {(data?.dailyOrders ?? []).slice(-7).map((day: { day: string; count: number | string; revenue: number | string }) => (
+                  <View key={day.day} style={styles.compactRow}>
+                    <Text style={styles.rowName}>{new Date(day.day).toLocaleDateString('en-NG', { day: 'numeric', month: 'short' })}</Text>
+                    <Text style={styles.rowValue}>{day.count} orders · ₦{Number(day.revenue ?? 0).toLocaleString()}</Text>
+                  </View>
+                ))}
+                {!data?.dailyOrders?.length && <Text style={styles.empty}>No orders recorded for this month yet.</Text>}
+              </View>
+              <View style={[styles.card, styles.halfCard]}>
+                <Text style={styles.sectionTitle}>Order mix</Text>
+                {(data?.orderTypeBreakdown ?? []).map((row: { orderType: string; count: number | string }) => (
+                  <View key={row.orderType} style={styles.compactRow}>
+                    <Text style={styles.rowName}>{row.orderType.replace('_', ' ')}</Text>
+                    <Text style={styles.rowValue}>{row.count} orders</Text>
+                  </View>
+                ))}
+                {!data?.orderTypeBreakdown?.length && <Text style={styles.empty}>No order type data for this month yet.</Text>}
+              </View>
+            </View>
+            <View style={[styles.card, data?.lowStockItems?.length ? styles.lowStockCard : undefined]}>
+              <Text style={styles.sectionTitle}>Low-stock watch</Text>
+              {(data?.lowStockItems ?? []).map((item: { id: number; name: string; currentStock: number | string; minimumStock: number | string; unit: string }) => (
+                <View key={item.id} style={styles.compactRow}>
+                  <Text style={styles.rowName}>{item.name}</Text>
+                  <Text style={styles.lowValue}>{item.currentStock} {item.unit} · minimum {item.minimumStock}</Text>
+                </View>
+              ))}
+              {!data?.lowStockItems?.length && <Text style={styles.stockGood}>All listed stock is above its warning level.</Text>}
+            </View>
           </>
         )}
       </View>
@@ -72,6 +151,9 @@ const styles = StyleSheet.create({
   subheading: { color: '#6B6490', fontSize: 13, marginTop: 4 },
   refreshButton: { borderWidth: 1, borderColor: '#201060', borderRadius: 8, paddingHorizontal: 14, paddingVertical: 10 },
   refreshText: { color: '#201060', fontSize: 13, fontWeight: '700' },
+  headerActions: { flexDirection: 'row', gap: 8, alignItems: 'center' },
+  exportButton: { backgroundColor: '#D02010', borderRadius: 8, paddingHorizontal: 14, paddingVertical: 10 },
+  exportText: { color: '#FFFFFF', fontSize: 13, fontWeight: '800' },
   monthControl: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: '#FFFFFF', borderRadius: 9, borderWidth: 1, borderColor: '#E8E4F8', padding: 6 },
   monthButton: { paddingHorizontal: 9, paddingVertical: 4 }, monthArrow: { color: '#201060', fontSize: 22, fontWeight: '800' },
   monthText: { color: '#201060', fontSize: 14, fontWeight: '700', minWidth: 155, textAlign: 'center' },
@@ -80,8 +162,16 @@ const styles = StyleSheet.create({
   metricLabel: { color: '#C9C4E0', fontSize: 12, fontWeight: '700', textTransform: 'uppercase' },
   metricValue: { color: '#FFFFFF', fontSize: 22, fontWeight: '800', marginTop: 8 },
   card: { backgroundColor: '#FFFFFF', borderRadius: 12, borderWidth: 1, borderColor: '#E8E4F8', padding: 18 },
+  twoColumn: { flexDirection: 'row', flexWrap: 'wrap', gap: 16 },
+  halfCard: { flexGrow: 1, flexBasis: 290 },
   sectionTitle: { color: '#201060', fontSize: 16, fontWeight: '800', marginBottom: 8 },
   mealRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F0EEF8' },
   rank: { color: '#D02010', fontSize: 14, fontWeight: '800', width: 32 }, mealName: { color: '#201060', fontSize: 14, fontWeight: '600', flex: 1 }, mealQty: { color: '#6B6490', fontSize: 13, fontWeight: '700' },
   empty: { color: '#6B6490', fontSize: 14, paddingVertical: 24, textAlign: 'center' },
+  compactRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: '#F0EEF8', gap: 12 },
+  rowName: { color: '#201060', fontSize: 13, fontWeight: '700', textTransform: 'capitalize', flex: 1 },
+  rowValue: { color: '#6B6490', fontSize: 12, fontWeight: '700' },
+  lowStockCard: { borderColor: '#F0C000', backgroundColor: '#FFFDF3' },
+  lowValue: { color: '#D02010', fontSize: 12, fontWeight: '800' },
+  stockGood: { color: '#16803A', fontSize: 13, fontWeight: '700', paddingVertical: 12 },
 });

@@ -311,12 +311,28 @@ export async function getUserOrders(userId: number, limit = 20, offset = 0): Pro
 
 export async function updateOrderStatus(orderId: number, status: Order["status"], note?: string, changedBy?: number) {
   const db = await getDb();
-  if (!db) return;
+  if (!db) throw new Error("Database not available");
+  const [currentOrder] = await db.select({ status: orders.status, orderType: orders.orderType, pickupCode: orders.pickupCode })
+    .from(orders).where(eq(orders.id, orderId)).limit(1);
+  if (!currentOrder) throw new Error("Order not found");
+
+  const permittedNextStatuses: Record<string, string[]> = {
+    payment_confirmed: ["accepted", "rejected", "refunded"],
+    accepted: ["preparing", "rejected", "refunded"],
+    preparing: ["ready", "rejected", "refunded"],
+    ready: ["rider_assigned", "completed", "refunded"],
+    rider_assigned: ["out_for_delivery", "refunded"],
+    out_for_delivery: ["delivered", "refunded"],
+    delivered: ["completed", "refunded"],
+  };
+  if (currentOrder.status !== status && !permittedNextStatuses[currentOrder.status]?.includes(status)) {
+    throw new Error(`Invalid order workflow transition from ${currentOrder.status} to ${status}`);
+  }
+
   // FR-065/066: auto-generate 4-digit pickup code when a pickup order becomes ready
   const updateFields: Record<string, unknown> = { status, updatedAt: new Date() };
   if (status === 'ready') {
-    const [orderRow] = await db.select({ orderType: orders.orderType, pickupCode: orders.pickupCode }).from(orders).where(eq(orders.id, orderId)).limit(1);
-    if (orderRow?.orderType === 'pickup' && !orderRow.pickupCode) {
+    if (currentOrder.orderType === 'pickup' && !currentOrder.pickupCode) {
       updateFields.pickupCode = String(Math.floor(1000 + Math.random() * 9000));
     }
   }
@@ -451,7 +467,35 @@ export async function getActiveOrders(branchId?: number) {
   const activeStatuses = ["payment_confirmed", "accepted", "preparing", "ready", "rider_assigned", "out_for_delivery"];
   const conditions = [inArray(orders.status, activeStatuses as Order["status"][])];
   if (branchId) conditions.push(eq(orders.branchId, branchId));
-  return db.select().from(orders).where(and(...conditions)).orderBy(desc(orders.createdAt));
+  const activeOrders = await db.select().from(orders).where(and(...conditions)).orderBy(desc(orders.createdAt));
+  if (!activeOrders.length) return [];
+
+  // One batched query keeps the kitchen board fast while ensuring every card
+  // has the exact dish snapshot and instruction captured at checkout.
+  const items = await db.select({
+    orderId: orderItems.orderId,
+    mealName: orderItems.name,
+    quantity: orderItems.quantity,
+    specialInstructions: orderItems.specialInstructions,
+  })
+    .from(orderItems)
+    .where(inArray(orderItems.orderId, activeOrders.map((order) => order.id)));
+
+  const kitchenItems = items.map((item) => ({
+    ...item,
+    specialInstructions: item.specialInstructions ?? undefined,
+  }));
+  const itemsByOrder = new Map<number, typeof kitchenItems>();
+  for (const item of kitchenItems) {
+    const current = itemsByOrder.get(item.orderId) ?? [];
+    current.push(item);
+    itemsByOrder.set(item.orderId, current);
+  }
+
+  return activeOrders.map((order) => ({
+    ...order,
+    items: itemsByOrder.get(order.id) ?? [],
+  }));
 }
 
 export async function getOrderStats(branchId?: number, fromDate?: Date, toDate?: Date) {

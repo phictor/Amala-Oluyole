@@ -252,3 +252,10 @@
 - [x] Create a separate staff-only kitchen web entry point with role-based access and no customer navigation
 - [x] Apply Gbegiri-by-default with optional Ewedu and remove standalone Gbegiri, Ewedu, and Okro sales
 - [x] Validate kitchen, manager, rider, and customer access paths and document staff sign-in
+
+### Kitchen Portal Completion
+- [x] Audit the full Oluyole kitchen workflow against the agreed operational requirements
+- [x] Complete order board states, alerts, preparation actions, and branch safeguards
+- [x] Complete stock controls, low-stock handling, staff attribution, and monthly reporting
+- [x] Validate staff-only access and customer-to-kitchen order handoff on desktop and tablet layouts
+- [x] Update kitchen handover documentation and complete final kitchen release checks
