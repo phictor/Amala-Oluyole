@@ -3,6 +3,7 @@ import { ActivityIndicator, Platform, StyleSheet, Text, TouchableOpacity, View }
 import { router } from "expo-router";
 
 import { useAppStore } from "@/lib/store/app-store";
+import { setKitchenEntryIntent } from "@/lib/kitchen-entry-intent";
 
 const KITCHEN_ROLES = ["kitchen", "admin", "manager"];
 
@@ -39,7 +40,13 @@ export default function KitchenWebEntry() {
         <Text style={styles.description}>
           For Oluyole Town Planning kitchen staff. Sign in with your work account to view and prepare live orders.
         </Text>
-        <TouchableOpacity style={styles.primaryButton} onPress={() => router.push("/auth/login" as never)}>
+        <TouchableOpacity
+          style={styles.primaryButton}
+          onPress={() => {
+            setKitchenEntryIntent();
+            router.push("/auth/login" as never);
+          }}
+        >
           <Text style={styles.primaryButtonText}>Kitchen Staff Sign In</Text>
         </TouchableOpacity>
         {Platform.OS === "web" && <Text style={styles.hint}>Keep this page bookmarked on the kitchen computer.</Text>}
@@ -56,10 +63,11 @@ export default function KitchenWebEntry() {
       </Text>
       <TouchableOpacity
         style={styles.secondaryButton}
-        onPress={() => {
-          dispatch({ type: "LOGOUT" });
-          router.replace("/auth/login" as never);
-        }}
+          onPress={() => {
+            dispatch({ type: "LOGOUT" });
+            setKitchenEntryIntent();
+            router.replace("/auth/login" as never);
+          }}
       >
         <Text style={styles.secondaryButtonText}>Use a different account</Text>
       </TouchableOpacity>
