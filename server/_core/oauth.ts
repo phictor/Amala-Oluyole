@@ -2,6 +2,7 @@ import { COOKIE_NAME, ONE_YEAR_MS } from "../../shared/const.js";
 import type { Express, Request, Response } from "express";
 import { getUserByOpenId, upsertUser } from "../db";
 import { getSessionCookieOptions } from "./cookies";
+import { ENV } from "./env";
 import { sdk } from "./sdk";
 
 function getQueryParam(req: Request, key: string): string | undefined {
@@ -84,12 +85,12 @@ export function registerOAuthRoutes(app: Express) {
   app.get("/api/kitchen-portal/login", (req: Request, res: Response) => {
     const origin = getRequestOrigin(req);
     const returnTo = getSameOriginReturnTo(req, `${origin}/kitchen-portal/`);
-    const restaurantWebUrl =
-      process.env.EXPO_WEB_PREVIEW_URL ||
-      process.env.EXPO_PACKAGER_PROXY_URL ||
-      "http://localhost:8081";
-    const loginUrl = new URL("/auth/login", restaurantWebUrl);
-    loginUrl.searchParams.set("returnTo", returnTo);
+    const callbackUrl = `${origin}/api/oauth/callback?returnTo=${encodeURIComponent(returnTo)}`;
+    const loginUrl = new URL("/app-auth", ENV.oAuthPortalUrl || "https://manus.im");
+    loginUrl.searchParams.set("appId", ENV.appId);
+    loginUrl.searchParams.set("redirectUri", callbackUrl);
+    loginUrl.searchParams.set("state", Buffer.from(callbackUrl).toString("base64"));
+    loginUrl.searchParams.set("type", "signIn");
     res.redirect(302, loginUrl.toString());
   });
 

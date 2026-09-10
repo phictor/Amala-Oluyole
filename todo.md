@@ -266,3 +266,9 @@
 - [x] Create a standalone kitchen web application with staff-only sign-in and Oluyole operations screens
 - [x] Deploy a temporary standalone Kitchen Portal URL for manager review
 - [ ] Prepare the completed portal for kitchen.amalaoluyole.com after the domain is available
+
+### Standalone Kitchen Portal Correction
+- [x] Remove the incorrect customer-app redirect from the standalone Kitchen Portal sign-in flow
+- [x] Implement independent secure staff sign-in for the standalone Kitchen Portal
+- [x] Replace the incorrect portal logo with the approved Àmàlà Olúyòlé logo asset
+- [x] Verify standalone access, branding, and protected API behaviour before returning the review link
