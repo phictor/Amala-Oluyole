@@ -4,20 +4,23 @@ import {
   StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { Image as ExpoImage } from 'expo-image';
 import { useAppStore } from '@/lib/store/app-store';
 import { startOAuthLogin } from '@/constants/oauth';
+import { setPostAuthReturn } from '@/lib/post-auth-return';
 
 const LOGO_CHEF = require('@/assets/images/logo-chef.png');
 
 export default function LoginScreen() {
   const { dispatch } = useAppStore();
+  const params = useLocalSearchParams<{ returnTo?: string }>();
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
     try {
       setLoading(true);
+      setPostAuthReturn(typeof params.returnTo === 'string' ? params.returnTo : undefined);
       await startOAuthLogin();
       // OAuth flow opens browser; callback handled by app/oauth/callback.tsx
       // On return, the callback sets session token and redirects to /(tabs)

@@ -2,6 +2,7 @@ import "dotenv/config";
 import express from "express";
 import { createServer } from "http";
 import net from "net";
+import path from "path";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { registerOAuthRoutes } from "./oauth";
 import { registerStorageProxy } from "./storageProxy";
@@ -93,6 +94,85 @@ async function startServer() {
 
   registerStorageProxy(app);
   registerOAuthRoutes(app);
+
+  const kitchenPortalDir = path.resolve(process.cwd(), "kitchen-portal");
+  app.use("/kitchen-portal", express.static(kitchenPortalDir));
+
+  const getKitchenPortalUser = async (req: express.Request, res: express.Response) => {
+    try {
+      const user = await sdk.authenticateRequest(req);
+      if (!user || !["kitchen", "admin", "manager"].includes(user.role)) {
+        res.status(403).json({ error: "Kitchen access required" });
+        return null;
+      }
+      return user;
+    } catch {
+      res.status(401).json({ error: "Sign in required" });
+      return null;
+    }
+  };
+
+  // Standalone Kitchen Portal API. It delegates to the same tRPC procedures as
+  // the restaurant application, so orders, inventory, and reports share one DB.
+  app.get("/api/kitchen-portal/me", async (req, res) => {
+    const user = await getKitchenPortalUser(req, res);
+    if (!user) return;
+    res.json({ user: { id: user.id, name: user.name, email: user.email, role: user.role } });
+  });
+  app.get("/api/kitchen-portal/orders", async (req, res) => {
+    const user = await getKitchenPortalUser(req, res);
+    if (!user) return;
+    const caller = appRouter.createCaller({ req, res, user });
+    res.json(await caller.admin.activeOrders({ branchId: 1 }));
+  });
+  app.post("/api/kitchen-portal/orders/:orderId/status", async (req, res) => {
+    const user = await getKitchenPortalUser(req, res);
+    if (!user) return;
+    const orderId = Number(req.params.orderId);
+    const status = typeof req.body?.status === "string" ? req.body.status : "";
+    if (!Number.isInteger(orderId) || !status) {
+      res.status(400).json({ error: "Valid order and status are required" });
+      return;
+    }
+    try {
+      const caller = appRouter.createCaller({ req, res, user });
+      res.json(await caller.admin.updateOrderStatus({ orderId, status: status as any }));
+    } catch (error) {
+      res.status(400).json({ error: error instanceof Error ? error.message : "Could not update order" });
+    }
+  });
+  app.get("/api/kitchen-portal/inventory", async (req, res) => {
+    const user = await getKitchenPortalUser(req, res);
+    if (!user) return;
+    const caller = appRouter.createCaller({ req, res, user });
+    res.json(await caller.kitchen.allInventory({ branchId: 1 }));
+  });
+  app.post("/api/kitchen-portal/inventory/:inventoryId/movement", async (req, res) => {
+    const user = await getKitchenPortalUser(req, res);
+    if (!user) return;
+    const inventoryId = Number(req.params.inventoryId);
+    const quantity = Number(req.body?.quantity);
+    const type = typeof req.body?.type === "string" ? req.body.type : "";
+    if (!Number.isInteger(inventoryId) || !Number.isFinite(quantity) || quantity === 0 || !type) {
+      res.status(400).json({ error: "A valid stock movement is required" });
+      return;
+    }
+    try {
+      const caller = appRouter.createCaller({ req, res, user });
+      res.json(await caller.kitchen.updateStock({ inventoryId, branchId: 1, quantity, type: type as any, note: typeof req.body?.note === "string" ? req.body.note : undefined }));
+    } catch (error) {
+      res.status(400).json({ error: error instanceof Error ? error.message : "Could not record stock movement" });
+    }
+  });
+  app.get("/api/kitchen-portal/report", async (req, res) => {
+    const user = await getKitchenPortalUser(req, res);
+    if (!user) return;
+    const now = new Date();
+    const year = Number(req.query.year) || now.getFullYear();
+    const month = Number(req.query.month) || now.getMonth() + 1;
+    const caller = appRouter.createCaller({ req, res, user });
+    res.json(await caller.kitchen.monthlyReport({ branchId: 1, year, month }));
+  });
 
   app.get("/api/health", (_req, res) => {
     res.json({ ok: true, timestamp: Date.now() });

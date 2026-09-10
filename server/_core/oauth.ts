@@ -9,6 +9,24 @@ function getQueryParam(req: Request, key: string): string | undefined {
   return typeof value === "string" ? value : undefined;
 }
 
+function getRequestOrigin(req: Request): string {
+  const forwarded = req.headers["x-forwarded-proto"];
+  const protocol = typeof forwarded === "string" ? forwarded.split(",")[0].trim() : req.protocol;
+  return `${protocol}://${req.get("host")}`;
+}
+
+function getSameOriginReturnTo(req: Request, fallback: string): string {
+  const requested = getQueryParam(req, "returnTo");
+  if (!requested) return fallback;
+  try {
+    const requestOrigin = getRequestOrigin(req);
+    const candidate = new URL(requested);
+    return candidate.origin === requestOrigin ? candidate.toString() : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 async function syncUser(userInfo: {
   openId?: string | null;
   name?: string | null;
@@ -63,6 +81,18 @@ function buildUserResponse(
 }
 
 export function registerOAuthRoutes(app: Express) {
+  app.get("/api/kitchen-portal/login", (req: Request, res: Response) => {
+    const origin = getRequestOrigin(req);
+    const returnTo = getSameOriginReturnTo(req, `${origin}/kitchen-portal/`);
+    const restaurantWebUrl =
+      process.env.EXPO_WEB_PREVIEW_URL ||
+      process.env.EXPO_PACKAGER_PROXY_URL ||
+      "http://localhost:8081";
+    const loginUrl = new URL("/auth/login", restaurantWebUrl);
+    loginUrl.searchParams.set("returnTo", returnTo);
+    res.redirect(302, loginUrl.toString());
+  });
+
   app.get("/api/oauth/callback", async (req: Request, res: Response) => {
     const code = getQueryParam(req, "code");
     const state = getQueryParam(req, "state");
@@ -86,10 +116,12 @@ export function registerOAuthRoutes(app: Express) {
 
       // Redirect to the frontend URL (Expo web on port 8081)
       // Cookie is set with parent domain so it works across both 3000 and 8081 subdomains
-      const frontendUrl =
+      const frontendUrl = getSameOriginReturnTo(
+        req,
         process.env.EXPO_WEB_PREVIEW_URL ||
-        process.env.EXPO_PACKAGER_PROXY_URL ||
-        "http://localhost:8081";
+          process.env.EXPO_PACKAGER_PROXY_URL ||
+          "http://localhost:8081",
+      );
       res.redirect(302, frontendUrl);
     } catch (error) {
       console.error("[OAuth] Callback failed", error);

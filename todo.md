@@ -259,3 +259,10 @@
 - [x] Complete stock controls, low-stock handling, staff attribution, and monthly reporting
 - [x] Validate staff-only access and customer-to-kitchen order handoff on desktop and tablet layouts
 - [x] Update kitchen handover documentation and complete final kitchen release checks
+
+### Standalone Kitchen Web Portal
+- [x] Roll back the temporary route-based kitchen sign-in update
+- [x] Confirm a separate hosted Kitchen Portal that shares the restaurant backend and database
+- [x] Create a standalone kitchen web application with staff-only sign-in and Oluyole operations screens
+- [x] Deploy a temporary standalone Kitchen Portal URL for manager review
+- [ ] Prepare the completed portal for kitchen.amalaoluyole.com after the domain is available

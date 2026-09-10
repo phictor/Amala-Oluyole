@@ -1,6 +1,7 @@
 import { ThemedView } from "@/components/themed-view";
 import * as Api from "@/lib/_core/api";
 import * as Auth from "@/lib/_core/auth";
+import { consumePostAuthReturn } from "@/lib/post-auth-return";
 import * as Linking from "expo-linking";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
@@ -19,6 +20,17 @@ export default function OAuthCallback() {
   const [status, setStatus] = useState<"processing" | "success" | "error">("processing");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  const redirectAfterAuth = (sessionToken: string) => {
+    const returnTo = consumePostAuthReturn();
+    if (returnTo && typeof window !== "undefined") {
+      const destination = new URL(returnTo);
+      destination.hash = `sessionToken=${encodeURIComponent(sessionToken)}`;
+      window.location.assign(destination.toString());
+      return;
+    }
+    router.replace("/(tabs)");
+  };
+
   useEffect(() => {
     const handleCallback = async () => {
       console.log("[OAuth] Callback handler triggered");
@@ -32,8 +44,9 @@ export default function OAuthCallback() {
       try {
         // Check for sessionToken in params first (web OAuth callback from server redirect)
         if (params.sessionToken) {
+          const webSessionToken = params.sessionToken;
           console.log("[OAuth] Session token found in params (web callback)");
-          await Auth.setSessionToken(params.sessionToken);
+          await Auth.setSessionToken(webSessionToken);
 
           // Decode and store user info if available
           if (params.user) {
@@ -63,7 +76,7 @@ export default function OAuthCallback() {
           setStatus("success");
           console.log("[OAuth] Web authentication successful, redirecting to home...");
           setTimeout(() => {
-            router.replace("/(tabs)");
+            redirectAfterAuth(webSessionToken);
           }, 1000);
           return;
         }
@@ -152,15 +165,16 @@ export default function OAuthCallback() {
 
         // If we have sessionToken directly from URL, use it
         if (sessionToken) {
+          const directSessionToken = sessionToken;
           console.log("[OAuth] Session token found in URL, storing...");
-          await Auth.setSessionToken(sessionToken);
+          await Auth.setSessionToken(directSessionToken);
           console.log("[OAuth] Session token stored successfully");
           // User info is already in the OAuth callback response
           // No need to fetch from API
           setStatus("success");
           console.log("[OAuth] Redirecting to home...");
           setTimeout(() => {
-            router.replace("/(tabs)");
+            redirectAfterAuth(directSessionToken);
           }, 1000);
           return;
         }
@@ -217,7 +231,7 @@ export default function OAuthCallback() {
           // Redirect to home after a short delay
           setTimeout(() => {
             console.log("[OAuth] Executing redirect...");
-            router.replace("/(tabs)");
+            redirectAfterAuth(result.sessionToken);
           }, 1000);
         } else {
           console.error("[OAuth] No session token in result:", result);
