@@ -272,3 +272,18 @@
 - [x] Implement independent secure staff sign-in for the standalone Kitchen Portal
 - [x] Replace the incorrect portal logo with the approved Àmàlà Olúyòlé logo asset
 - [x] Verify standalone access, branding, and protected API behaviour before returning the review link
+
+### Kitchen Ingredients and Purchasing
+- [x] Add ingredient records with food category, unit, whole-animal/piece quantities, and low-stock threshold
+- [x] Add supplier purchase records with purchase date, quantity, pieces, total cost, and notes
+- [x] Record ingredient stock movements against the authenticated kitchen staff member
+- [x] Add ingredient purchase totals, current stock value, and low-stock summary to kitchen reports
+- [x] Validate the full ingredient purchase-to-stock workflow on the standalone Kitchen Portal
+
+### Standalone Kitchen Portal Session Correction
+- [x] Trace and fix the account bounce during standalone staff sign-in without weakening role protection
+- [x] Validate an approved staff member can sign in once and remain in the Kitchen workspace
+
+### Standalone Kitchen Portal Access Code
+- [x] Replace the temporary OAuth callback with a staff email and private access-code sign-in for the standalone portal
+- [x] Protect access-code sign-in with expiring sessions, role checks, and failed-attempt limits

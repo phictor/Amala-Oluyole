@@ -9,10 +9,11 @@ import { registerStorageProxy } from "./storageProxy";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { sdk } from "./sdk";
+import { getSessionCookieOptions } from "./cookies";
 import { getAllRiders } from "../db";
 import crypto from "crypto";
 import { awardLoyaltyPoints, createNotification, getDb, markOrderPaidIfPending, updateOrderStatus } from "../db";
-import { orders } from "../../drizzle/schema";
+import { orders, users } from "../../drizzle/schema";
 import { eq } from "drizzle-orm";
 
 // ── SSE: Real-time rider location broadcast ────────────────────────────────
@@ -20,6 +21,16 @@ import { eq } from "drizzle-orm";
 // "riderLocations" events every 3 seconds.
 type SseClient = { res: import("express").Response; userId: number };
 const sseClients = new Set<SseClient>();
+const KITCHEN_PORTAL_SESSION_MS = 8 * 60 * 60 * 1000;
+const KITCHEN_PORTAL_MAX_ATTEMPTS = 5;
+const KITCHEN_PORTAL_LOCKOUT_MS = 15 * 60 * 1000;
+const kitchenAccessAttempts = new Map<string, { count: number; expiresAt: number }>();
+
+function isMatchingKitchenAccessCode(candidate: string, configured: string) {
+  const candidateBuffer = Buffer.from(candidate);
+  const configuredBuffer = Buffer.from(configured);
+  return candidateBuffer.length === configuredBuffer.length && crypto.timingSafeEqual(candidateBuffer, configuredBuffer);
+}
 
 function broadcastRiderLocations(data: unknown) {
   const payload = `data: ${JSON.stringify(data)}\n\n`;
@@ -112,6 +123,56 @@ async function startServer() {
     }
   };
 
+  app.post("/api/kitchen-portal/session", async (req, res) => {
+    const email = typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : "";
+    const accessCode = typeof req.body?.accessCode === "string" ? req.body.accessCode.trim() : "";
+    const configuredCode = process.env.KITCHEN_PORTAL_ACCESS_CODE?.trim();
+    if (!configuredCode) {
+      res.status(503).json({ error: "Kitchen Portal access has not been configured. Contact the manager." });
+      return;
+    }
+    if (!email || !accessCode) {
+      res.status(400).json({ error: "Enter your approved work email and kitchen access code." });
+      return;
+    }
+    const attemptKey = `${req.ip}:${email}`;
+    const existingAttempt = kitchenAccessAttempts.get(attemptKey);
+    const now = Date.now();
+    if (existingAttempt && existingAttempt.expiresAt > now && existingAttempt.count >= KITCHEN_PORTAL_MAX_ATTEMPTS) {
+      res.status(429).json({ error: "Too many failed sign-in attempts. Wait 15 minutes, then try again." });
+      return;
+    }
+    if (!isMatchingKitchenAccessCode(accessCode, configuredCode)) {
+      kitchenAccessAttempts.set(attemptKey, {
+        count: (existingAttempt && existingAttempt.expiresAt > now ? existingAttempt.count : 0) + 1,
+        expiresAt: now + KITCHEN_PORTAL_LOCKOUT_MS,
+      });
+      res.status(401).json({ error: "The email or kitchen access code is not correct." });
+      return;
+    }
+    const db = await getDb();
+    if (!db) {
+      res.status(503).json({ error: "Kitchen Portal is temporarily unavailable. Please try again." });
+      return;
+    }
+    const [staffMember] = await db.select().from(users).where(eq(users.email, email)).limit(1);
+    if (!staffMember || !["kitchen", "admin", "manager"].includes(staffMember.role)) {
+      res.status(403).json({ error: "This email is not approved for Kitchen Portal access." });
+      return;
+    }
+    kitchenAccessAttempts.delete(attemptKey);
+    const sessionToken = await sdk.createSessionToken(staffMember.openId, {
+      name: staffMember.name || staffMember.email || "Kitchen staff",
+      expiresInMs: KITCHEN_PORTAL_SESSION_MS,
+    });
+    res.cookie("app_session_id", sessionToken, { ...getSessionCookieOptions(req), maxAge: KITCHEN_PORTAL_SESSION_MS });
+    res.json({ success: true, user: { id: staffMember.id, name: staffMember.name, email: staffMember.email, role: staffMember.role } });
+  });
+  app.post("/api/kitchen-portal/logout", (req, res) => {
+    res.clearCookie("app_session_id", { ...getSessionCookieOptions(req), maxAge: -1 });
+    res.json({ success: true });
+  });
+
   // Standalone Kitchen Portal API. It delegates to the same tRPC procedures as
   // the restaurant application, so orders, inventory, and reports share one DB.
   app.get("/api/kitchen-portal/me", async (req, res) => {
@@ -146,6 +207,32 @@ async function startServer() {
     if (!user) return;
     const caller = appRouter.createCaller({ req, res, user });
     res.json(await caller.kitchen.allInventory({ branchId: 1 }));
+  });
+  app.post("/api/kitchen-portal/ingredients", async (req, res) => {
+    const user = await getKitchenPortalUser(req, res);
+    if (!user) return;
+    try {
+      const caller = appRouter.createCaller({ req, res, user });
+      res.json(await caller.kitchen.addInventoryItem({ branchId: 1, ...req.body }));
+    } catch (error) {
+      res.status(400).json({ error: error instanceof Error ? error.message : "Could not add ingredient" });
+    }
+  });
+  app.get("/api/kitchen-portal/purchases", async (req, res) => {
+    const user = await getKitchenPortalUser(req, res);
+    if (!user) return;
+    const caller = appRouter.createCaller({ req, res, user });
+    res.json(await caller.kitchen.recentPurchases({ branchId: 1, limit: Number(req.query.limit) || 20 }));
+  });
+  app.post("/api/kitchen-portal/purchases", async (req, res) => {
+    const user = await getKitchenPortalUser(req, res);
+    if (!user) return;
+    try {
+      const caller = appRouter.createCaller({ req, res, user });
+      res.json(await caller.kitchen.recordIngredientPurchase({ branchId: 1, ...req.body }));
+    } catch (error) {
+      res.status(400).json({ error: error instanceof Error ? error.message : "Could not record ingredient purchase" });
+    }
   });
   app.post("/api/kitchen-portal/inventory/:inventoryId/movement", async (req, res) => {
     const user = await getKitchenPortalUser(req, res);

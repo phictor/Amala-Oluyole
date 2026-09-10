@@ -82,18 +82,6 @@ function buildUserResponse(
 }
 
 export function registerOAuthRoutes(app: Express) {
-  app.get("/api/kitchen-portal/login", (req: Request, res: Response) => {
-    const origin = getRequestOrigin(req);
-    const returnTo = getSameOriginReturnTo(req, `${origin}/kitchen-portal/`);
-    const callbackUrl = `${origin}/api/oauth/callback?returnTo=${encodeURIComponent(returnTo)}`;
-    const loginUrl = new URL("/app-auth", ENV.oAuthPortalUrl || "https://manus.im");
-    loginUrl.searchParams.set("appId", ENV.appId);
-    loginUrl.searchParams.set("redirectUri", callbackUrl);
-    loginUrl.searchParams.set("state", Buffer.from(callbackUrl).toString("base64"));
-    loginUrl.searchParams.set("type", "signIn");
-    res.redirect(302, loginUrl.toString());
-  });
-
   app.get("/api/oauth/callback", async (req: Request, res: Response) => {
     const code = getQueryParam(req, "code");
     const state = getQueryParam(req, "state");

@@ -4,11 +4,13 @@
 
 The kitchen team uses a **dedicated staff-only browser portal**. It is separate from the customer menu and does not show finance or rider screens to kitchen users.
 
-Open this address on the kitchen computer or tablet:
+For temporary Manus review, open this address on the kitchen computer or tablet:
 
-`https://amalapp-pz8p5xvu.manus.space/staff/kitchen`
+`https://3000-iagexwvbdyf68mljli7ht-2111d0a4.us1.manus.computer/kitchen-portal/`
 
-Bookmark the page. Kitchen staff sign in with their assigned work account; the system opens the protected **Oluyole Kitchen** workspace automatically.
+This is the separate kitchen application, not a screen inside the customer app. Bookmark it for now. After approval, the permanent address will be `https://kitchen.amalaoluyole.com`.
+
+To sign in, enter the approved work email and the private **Kitchen access code** given by the Manager. This creates an eight-hour staff session on the Kitchen Portal itself; it does not open or redirect through the customer app. The portal temporarily locks a repeated failed email-and-code combination after five attempts. Do not share the access code in staff groups, customer messages, or on paper left in the kitchen.
 
 ## Access and roles
 
@@ -26,8 +28,11 @@ The primary Admin / Manager email is **amalaoluyole@gmail.com**. On its first ve
 2. In **Orders**, select **Enable sound** once at the beginning of service. The browser requires this single interaction before it can play a sound for a new order.
 3. Move every paid order through the fixed sequence: **New Order → Accept Order → Start Preparing → Mark Ready**. The system prevents skipped or reversed preparation states.
 4. Read the dish list and special instructions before preparing an order. The dish names shown are the item snapshots captured when the customer checked out.
-5. Use **Inventory** to add ingredients, record restocks, usage, waste, or adjustments, and respond to the low-stock warning. Every stock movement records the signed-in staff member automatically.
-6. Use **Report** to review monthly orders, daily production, order mix, top meals, and low-stock items. Use **Export PDF** for the manager’s record.
+5. Open **Ingredients & purchases** to add every item used in food preparation, including cow/beef, goat meat, fish, chicken, palm oil, peppers, vegetables, yam flour, packaging, and drinks.
+6. When supplies arrive, use **Record a purchase**. Select the ingredient, enter the usable stock received and the **total amount paid**. Add the supplier and receipt number whenever available.
+7. For a whole animal or grouped item, record both its source and its yield. For example: select *Beef*; enter `1` as bought quantity; choose *whole cow*; add the number of pieces/quarters; enter the usable kilograms received after cutting; then enter the total purchase cost. This keeps the original purchase and the kitchen's usable stock clear.
+8. Record **Kitchen use**, **Wastage**, or a verified **Stock adjustment** whenever stock leaves the store. Every movement records the signed-in staff member automatically.
+9. Use **Monthly report** to review monthly orders, daily production, ingredient purchases, current stock value, top meals, and low-stock items.
 
 ## If something does not look right
 
@@ -35,9 +40,13 @@ The primary Admin / Manager email is **amalaoluyole@gmail.com**. On its first ve
 |---|---|
 | A new order has no dish list | Refresh the Orders page once. If it remains empty, do not prepare it; contact the manager with the order number. |
 | A meal is out of stock | Tell the manager to mark the meal unavailable from the Menu page immediately. |
-| Stock quantity was entered incorrectly | Use **Record** on the item and select **Adjustment**, with a note explaining the correction. |
+| Stock quantity was entered incorrectly | Open **Ingredients & purchases**, select **Stock adjustment**, and add a note explaining the correction. |
+| A market purchase has not been recorded | Use **Record a purchase** immediately. Enter the actual amount paid and usable stock received; do not use a stock adjustment for a real purchase. |
+| An animal has been cut into portions | Keep the original purchase detail in **Bought quantity**, **Bought as**, and **Number of pieces**. Record only the usable quantity received into stock. |
 | No sound is heard | Select **Enable sound** again and ensure the computer/tab is not muted. The visual banner and new-order column still update. |
-| Staff cannot sign in | Confirm that the manager has assigned the person the **Kitchen** role, then have them sign in with the same work email. |
+| Staff cannot sign in | Confirm that the Manager has assigned the person the **Kitchen** role, that the work email is exact, and that they are using the current private kitchen access code. |
+| “This email is not approved” | The Manager must create or update the staff record and assign the Kitchen role before the person can enter. |
+| “Too many failed sign-in attempts” | Wait 15 minutes before trying again. Do not keep guessing the access code. |
 
 ## Important menu rule
 

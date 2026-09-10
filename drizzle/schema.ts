@@ -386,6 +386,29 @@ export const inventoryTransactions = mysqlTable("inventory_transactions", {
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
+// ─── INGREDIENT PURCHASES ────────────────────────────────────────────────────
+// A purchase is separate from a stock movement because staff need an auditable
+// record of what was bought, from whom, in what source quantity, and at what cost.
+export const inventoryPurchases = mysqlTable("inventory_purchases", {
+  id: int("id").autoincrement().primaryKey(),
+  inventoryId: int("inventoryId").notNull(),
+  branchId: int("branchId").notNull(),
+  // Quantity added to the kitchen's working stock, e.g. 45 kg of cut beef.
+  stockQuantity: decimal("stockQuantity", { precision: 10, scale: 2 }).notNull(),
+  // Quantity before preparation/conversion, e.g. 1 whole cow or 2 goats.
+  sourceQuantity: decimal("sourceQuantity", { precision: 10, scale: 2 }),
+  sourceUnit: varchar("sourceUnit", { length: 32 }),
+  // Useful for chicken, fish, goats, cow parts, crates, and similar supplies.
+  pieceCount: int("pieceCount"),
+  totalCost: decimal("totalCost", { precision: 12, scale: 2 }).notNull(),
+  supplier: varchar("supplier", { length: 128 }),
+  receiptReference: varchar("receiptReference", { length: 64 }),
+  notes: text("notes"),
+  purchasedAt: timestamp("purchasedAt").defaultNow().notNull(),
+  recordedBy: int("recordedBy").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
 // ─── EXPORT TYPES ────────────────────────────────────────────────────────────
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
@@ -400,6 +423,8 @@ export type OrderItem = typeof orderItems.$inferSelect;
 export type InsertOrderItem = typeof orderItems.$inferInsert;
 export type Rider = typeof riders.$inferSelect;
 export type InsertRider = typeof riders.$inferInsert;
+export type InventoryPurchase = typeof inventoryPurchases.$inferSelect;
+export type InsertInventoryPurchase = typeof inventoryPurchases.$inferInsert;
 export type LoyaltyAccount = typeof loyaltyAccounts.$inferSelect;
 export type LoyaltyTransaction = typeof loyaltyTransactions.$inferSelect;
 export type PromoCode = typeof promoCodes.$inferSelect;

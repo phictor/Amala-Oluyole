@@ -4,6 +4,7 @@ import { router, protectedProcedure } from "../_core/trpc";
 import { getDb } from "../db";
 import {
   inventory,
+  inventoryPurchases,
   inventoryTransactions,
   orders,
   orderItems,
@@ -37,6 +38,33 @@ export const kitchenRouter = router({
         .orderBy(inventory.category, inventory.name);
     }),
 
+  recentPurchases: kitchenProcedure
+    .input(z.object({ branchId: z.number(), limit: z.number().int().min(1).max(100).default(20) }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return [] as any;
+      return db
+        .select({
+          id: inventoryPurchases.id,
+          ingredientName: inventory.name,
+          category: inventory.category,
+          stockQuantity: inventoryPurchases.stockQuantity,
+          sourceQuantity: inventoryPurchases.sourceQuantity,
+          sourceUnit: inventoryPurchases.sourceUnit,
+          pieceCount: inventoryPurchases.pieceCount,
+          totalCost: inventoryPurchases.totalCost,
+          supplier: inventoryPurchases.supplier,
+          receiptReference: inventoryPurchases.receiptReference,
+          notes: inventoryPurchases.notes,
+          purchasedAt: inventoryPurchases.purchasedAt,
+        })
+        .from(inventoryPurchases)
+        .innerJoin(inventory, eq(inventoryPurchases.inventoryId, inventory.id))
+        .where(eq(inventoryPurchases.branchId, input.branchId))
+        .orderBy(desc(inventoryPurchases.purchasedAt))
+        .limit(input.limit);
+    }),
+
   addInventoryItem: kitchenProcedure
     .input(z.object({
       branchId: z.number(),
@@ -64,6 +92,71 @@ export const kitchenRouter = router({
         notes: input.notes,
       });
       return { success: true };
+    }),
+
+  recordIngredientPurchase: kitchenProcedure
+    .input(z.object({
+      inventoryId: z.number().int().positive(),
+      branchId: z.number().int().positive(),
+      stockQuantity: z.number().positive(),
+      sourceQuantity: z.number().positive().optional(),
+      sourceUnit: z.string().trim().min(1).max(32).optional(),
+      pieceCount: z.number().int().positive().optional(),
+      totalCost: z.number().positive(),
+      supplier: z.string().trim().min(1).max(128).optional(),
+      receiptReference: z.string().trim().min(1).max(64).optional(),
+      notes: z.string().trim().max(1000).optional(),
+      purchasedAt: z.coerce.date().optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database unavailable");
+      const [ingredient] = await db
+        .select()
+        .from(inventory)
+        .where(and(eq(inventory.id, input.inventoryId), eq(inventory.branchId, input.branchId), eq(inventory.isActive, true)))
+        .limit(1);
+      if (!ingredient) throw new Error("Ingredient is not available for this kitchen branch");
+
+      const purchasedAt = input.purchasedAt ?? new Date();
+      const currentStock = Number(ingredient.currentStock) || 0;
+      const currentUnitCost = Number(ingredient.costPerUnit) || 0;
+      const newStock = currentStock + input.stockQuantity;
+      const weightedUnitCost = ((currentStock * currentUnitCost) + input.totalCost) / newStock;
+
+      await db.transaction(async (tx) => {
+        await tx.insert(inventoryPurchases).values({
+          inventoryId: input.inventoryId,
+          branchId: input.branchId,
+          stockQuantity: String(input.stockQuantity),
+          sourceQuantity: input.sourceQuantity === undefined ? null : String(input.sourceQuantity),
+          sourceUnit: input.sourceUnit ?? null,
+          pieceCount: input.pieceCount ?? null,
+          totalCost: String(input.totalCost),
+          supplier: input.supplier ?? null,
+          receiptReference: input.receiptReference ?? null,
+          notes: input.notes ?? null,
+          purchasedAt,
+          recordedBy: ctx.user.id,
+        });
+        await tx.insert(inventoryTransactions).values({
+          inventoryId: input.inventoryId,
+          branchId: input.branchId,
+          type: "restock",
+          quantity: String(input.stockQuantity),
+          note: input.notes ?? `Purchase${input.supplier ? ` from ${input.supplier}` : ""}`,
+          recordedBy: ctx.user.id,
+        });
+        await tx.update(inventory)
+          .set({
+            currentStock: String(newStock),
+            costPerUnit: String(weightedUnitCost),
+            supplier: input.supplier ?? ingredient.supplier,
+            lastRestockedAt: purchasedAt,
+          })
+          .where(eq(inventory.id, input.inventoryId));
+      });
+      return { success: true, newStock, weightedUnitCost };
     }),
 
   updateStock: kitchenProcedure
@@ -253,6 +346,47 @@ export const kitchenRouter = router({
           sql`${inventory.currentStock} <= ${inventory.minimumStock}`,
         ));
 
+      const purchaseSummary = await db
+        .select({
+          totalSpent: sql<number>`COALESCE(SUM(CAST(${inventoryPurchases.totalCost} AS DECIMAL(12,2))), 0)`,
+          purchaseCount: sql<number>`COUNT(*)`,
+        })
+        .from(inventoryPurchases)
+        .where(and(
+          eq(inventoryPurchases.branchId, input.branchId),
+          gte(inventoryPurchases.purchasedAt, startDate),
+          lte(inventoryPurchases.purchasedAt, endDate),
+        ));
+
+      const stockValue = await db
+        .select({
+          currentStockValue: sql<number>`COALESCE(SUM(CAST(${inventory.currentStock} AS DECIMAL(12,2)) * CAST(${inventory.costPerUnit} AS DECIMAL(12,2))), 0)`,
+        })
+        .from(inventory)
+        .where(and(eq(inventory.branchId, input.branchId), eq(inventory.isActive, true)));
+
+      const recentIngredientPurchases = await db
+        .select({
+          id: inventoryPurchases.id,
+          ingredientName: inventory.name,
+          stockQuantity: inventoryPurchases.stockQuantity,
+          sourceQuantity: inventoryPurchases.sourceQuantity,
+          sourceUnit: inventoryPurchases.sourceUnit,
+          pieceCount: inventoryPurchases.pieceCount,
+          totalCost: inventoryPurchases.totalCost,
+          supplier: inventoryPurchases.supplier,
+          purchasedAt: inventoryPurchases.purchasedAt,
+        })
+        .from(inventoryPurchases)
+        .innerJoin(inventory, eq(inventoryPurchases.inventoryId, inventory.id))
+        .where(and(
+          eq(inventoryPurchases.branchId, input.branchId),
+          gte(inventoryPurchases.purchasedAt, startDate),
+          lte(inventoryPurchases.purchasedAt, endDate),
+        ))
+        .orderBy(desc(inventoryPurchases.purchasedAt))
+        .limit(8);
+
       return {
        period: { year: input.year, month: input.month, startDate, endDate },
        summary: orderStats[0] ?? { totalOrders: 0, totalRevenue: 0, completedOrders: 0, cancelledOrders: 0, avgOrderValue: 0 },
@@ -260,6 +394,12 @@ export const kitchenRouter = router({
        topMeals,
        orderTypeBreakdown,
        lowStockItems,
+       ingredientCosts: {
+         totalSpent: purchaseSummary[0]?.totalSpent ?? 0,
+         purchaseCount: purchaseSummary[0]?.purchaseCount ?? 0,
+         currentStockValue: stockValue[0]?.currentStockValue ?? 0,
+         recentPurchases: recentIngredientPurchases,
+       },
      };
     }),
 });

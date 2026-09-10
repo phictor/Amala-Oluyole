@@ -91,7 +91,7 @@ export async function upsertUser(user: InsertUser): Promise<void> {
   if (user.email) {
     const [invitedStaff] = await db.select({ id: users.id })
       .from(users)
-      .where(and(eq(users.email, user.email), like(users.openId, "staff_rider_%")))
+      .where(and(eq(users.email, user.email), like(users.openId, "staff_%")))
       .limit(1);
     if (invitedStaff) {
       await db.update(users).set({ ...updateSet, openId: user.openId, updatedAt: new Date() })
